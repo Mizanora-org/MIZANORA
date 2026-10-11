@@ -9,7 +9,7 @@ import { authClient, dbClient } from '@/lib/firebase-client';
 import { useAuth } from './AuthProvider';
 import { rememberOrder } from '@/lib/orders-local';
 import { useCart } from './CartProvider';
-import { SITE, waLink } from '@/lib/config';
+import { shippingFor, waLink } from '@/lib/config';
 import { CITIES, CITY_PROVINCE, PROVINCES } from '@/lib/constants';
 import { validateCustomer } from '@/lib/validate';
 import { formatPKR } from '@/lib/format';
@@ -36,7 +36,7 @@ export default function CheckoutClient() {
   const fired = useRef(false);
   const formRef = useRef(null);
 
-  const shipping = items.length ? SITE.shippingFee : 0;
+  const shipping = items.length ? shippingFor(subtotal) : 0;
   const discount = coupon ? Math.min(coupon.discount, subtotal) : 0;
   const total = subtotal - discount + shipping;
 
@@ -70,15 +70,26 @@ export default function CheckoutClient() {
     setForm((f) => ({ ...f, name: a.name, phone: a.phone, address: a.address, landmark: a.landmark || '', city: CITIES.includes(a.city) ? a.city : 'Other', cityOther: CITIES.includes(a.city) ? '' : a.city, province: a.province }));
   }
 
-  async function applyCoupon() {
-    setCouponMsg('');
+  const itemsSig = items.map((i) => `${i.id}:${i.qty}`).join(',');
+  async function applyCoupon(c = code, quiet = false) {
+    const val = String(c || '').trim();
+    if (!val) return;
+    if (!quiet) setCouponMsg('');
     try {
-      const r = await fetch('/api/coupon', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, items: items.map((i) => ({ id: i.id, qty: i.qty })) }) });
+      const r = await fetch('/api/coupon', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: val, items: items.map((i) => ({ id: i.id, qty: i.qty })) }) });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok || !d.ok) { setCoupon(null); setCouponMsg(d.error || 'Could not apply this coupon.'); return; }
-      setCoupon(d); setCouponMsg(`Coupon ${d.code} applied: ${d.label}.`);
-    } catch { setCouponMsg('Could not check the coupon. Try again.'); }
+      if (!r.ok || !d.ok) { setCoupon(null); setCouponMsg(d.error || 'Could not apply this promo code.'); return; }
+      setCoupon(d); setCode(d.code);
+      setCouponMsg(`Promo code ${d.code} applied: ${d.label}${d.scoped && d.appliesTo.length ? ` on ${d.appliesTo.join(', ')}` : ''}.`);
+    } catch { if (!quiet) setCouponMsg('Could not check the promo code. Try again.'); }
   }
+
+  // The promo code is applied ONLY when the customer types it and taps Apply.
+  // If the cart changes afterwards, the same code is simply re-checked against the new cart.
+  useEffect(() => {
+    if (ready && items.length && coupon) applyCoupon(coupon.code, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsSig]);
 
   useEffect(() => {
     if (ready && items.length && !fired.current) {
@@ -256,13 +267,13 @@ export default function CheckoutClient() {
           </ul>
           <dl className="mt-4 space-y-2 border-t border-line pt-3 text-sm">
             <div className="flex justify-between"><dt className="text-dim">Subtotal</dt><dd>{formatPKR(subtotal)}</dd></div>
-            {discount > 0 && <div className="flex justify-between text-gold"><dt>Discount ({coupon.code})</dt><dd>- {formatPKR(discount)}</dd></div>}
+            {discount > 0 && <div className="flex justify-between text-gold"><dt>Promo {coupon.code}</dt><dd>- {formatPKR(discount)}</dd></div>}
             <div className="flex justify-between"><dt className="text-dim">Delivery</dt><dd>{shipping > 0 ? formatPKR(shipping) : 'Free'}</dd></div>
             <div className="flex justify-between text-base font-bold"><dt>Pay on delivery</dt><dd className="text-gold">{formatPKR(total)}</dd></div>
           </dl>
           <div className="mt-4 border-t border-line pt-3">
-            <label htmlFor="cpn" className="label flex items-center gap-1.5"><Tag size={15} /> Coupon code</label>
-            <div className="flex gap-2"><input id="cpn" className="input !py-2.5 uppercase" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. WELCOME10" /><button type="button" onClick={applyCoupon} disabled={!code.trim()} className="btn-ghost !px-4 !py-2.5 text-sm">Apply</button></div>
+            <label htmlFor="cpn" className="label flex items-center gap-1.5"><Tag size={15} /> Promo code</label>
+            <div className="flex gap-2"><input id="cpn" className="input !py-2.5 uppercase" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter promo code" /><button type="button" onClick={() => applyCoupon()} disabled={!code.trim()} className="btn-ghost !px-4 !py-2.5 text-sm">Apply</button></div>
             {couponMsg && <p role="status" className={`mt-1.5 text-xs ${coupon ? 'font-semibold text-gold' : 'text-red-600'}`}>{couponMsg}</p>}
           </div>
         </div>
@@ -306,7 +317,7 @@ export default function CheckoutClient() {
 
             <dl className="mt-4 space-y-1.5 text-sm">
               <div className="flex justify-between"><dt className="text-dim">Subtotal</dt><dd>{formatPKR(subtotal)}</dd></div>
-              {discount > 0 && <div className="flex justify-between text-gold"><dt>Discount ({coupon.code})</dt><dd>- {formatPKR(discount)}</dd></div>}
+              {discount > 0 && <div className="flex justify-between text-gold"><dt>Promo {coupon.code}</dt><dd>- {formatPKR(discount)}</dd></div>}
               <div className="flex justify-between"><dt className="text-dim">Delivery</dt><dd>{shipping > 0 ? formatPKR(shipping) : 'Free'}</dd></div>
               <div className="flex items-center justify-between border-t border-line pt-2.5 text-xl font-extrabold"><dt>Total to pay</dt><dd className="text-gold">{formatPKR(total)}</dd></div>
             </dl>

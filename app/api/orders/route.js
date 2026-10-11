@@ -3,7 +3,7 @@ import { NextResponse, after } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { validateCustomer, normalizePhone } from '@/lib/validate';
-import { SITE } from '@/lib/config';
+import { SITE, shippingFor } from '@/lib/config';
 import { sendCapi } from '@/lib/capi';
 import { priceCoupon } from '@/lib/coupons';
 import { optionsOf, validVariant } from '@/lib/options';
@@ -60,25 +60,26 @@ export async function POST(req) {
       items.push({ id: String(r.id), slug: String(r.id), name: p.name, price: Number(p.price) || 0, qty, size, image: (p.images && p.images[0]) || '' });
     }
     const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-    const shipping = SITE.shippingFee;
+    const shipping = shippingFor(subtotal);
 
     // Optional: a signed-in customer's order is linked to their account so it shows in their order history.
     let uid = '', email = '';
     const tok = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
     if (tok) { try { const d = await getAuth(adminApp()).verifyIdToken(tok); uid = d.uid; email = String(d.email || '').toLowerCase(); } catch { /* guest order */ } }
 
-    // Optional coupon, re-checked here with real prices.
-    let discount = 0, couponCode = '';
+    // Optional promo code, re-checked here with real prices (and the customer's phone for one-order-per-phone codes).
+    let discount = 0, couponCode = '', couponOwner = '', couponBase = 0, couponLines = [];
+    const phoneInfo = normalizePhone(clean.phone);
     if (body.coupon) {
-      const r = await priceCoupon(db, body.coupon, subtotal);
+      const r = await priceCoupon(db, body.coupon, items, { phoneLocal: phoneInfo ? phoneInfo.local : '' });
       if (!r.ok) return fail(r.error);
-      discount = r.discount; couponCode = r.code;
+      discount = r.discount; couponCode = r.code; couponOwner = r.owner; couponBase = r.base; couponLines = r.lines;
     }
     const total = subtotal - discount + shipping;
 
     const now = Date.now();
     const base = {
-      status: 'Pending', customer: clean, items, subtotal, discount, couponCode, shipping, total, paymentMethod: 'COD', uid, email,
+      status: 'Pending', customer: clean, items, subtotal, discount, couponCode, couponOwner, couponBase, couponLines, couponTracked: Boolean(couponCode), shipping, total, paymentMethod: 'COD', uid, email,
       createdAt: FieldValue.serverTimestamp(), createdAtMs: now, trackingId: '',
     };
 
@@ -90,7 +91,17 @@ export async function POST(req) {
     }
 
     countOrder(ip);
-    if (couponCode) { try { await db.collection('coupons').doc(couponCode).update({ used: FieldValue.increment(1) }); } catch (_) { /* counting is best effort */ } }
+    // Promo code bookkeeping (best effort, never blocks the order): how many orders, sales, discount given and per-product sales.
+    if (couponCode) {
+      try {
+        const ref = db.collection('coupons').doc(couponCode);
+        const inc = FieldValue.increment;
+        const byProduct = {};
+        for (const l of couponLines) byProduct[l.id] = { qty: inc(l.qty), amount: inc(l.amount) };
+        await ref.set({ used: inc(1), revenue: inc(couponBase - discount), discountTotal: inc(discount), byProduct, lastUsedAtMs: now }, { merge: true });
+        if (phoneInfo) await ref.collection('redeemed').doc(String(phoneInfo.local)).set({ orderId, atMs: now });
+      } catch (e) { console.error('promo counters failed', e.message); }
+    }
 
     // Server-side Purchase (Conversions API). Same eventID as the browser Purchase so Meta counts it once.
     const phone = normalizePhone(clean.phone);

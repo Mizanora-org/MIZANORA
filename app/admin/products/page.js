@@ -4,6 +4,7 @@ import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore'
 import { dbClient, authClient } from '@/lib/firebase-client';
 import { formatPKR, slugify } from '@/lib/format';
 import ImageUploader from '@/components/ImageUploader';
+import ProductPromo from '@/components/ProductPromo';
 import { DEPARTMENTS } from '@/lib/departments';
 import { parseVideo } from '@/lib/video';
 import { readCache, writeCache, revalidateSite } from '@/lib/admin-cache';
@@ -174,6 +175,7 @@ export default function AdminProducts() {
             <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={Boolean(form[k])} onChange={set(k)} className="h-4 w-4 accent-[#0B6B45]" /> {l}</label>
           ))}
         </div>
+        {editing && form.slug ? <ProductPromo slug={form.slug} name={form.name} /> : <p className="rounded-xl bg-raised p-2.5 text-xs text-dim">Save the product first, then edit it to add promo codes for this product.</p>}
         <button className="btn-gold w-full" disabled={busy}>{busy ? 'Saving...' : 'Save product'}</button>
         {editing && <button type="button" className="btn-ghost w-full" onClick={() => { setForm(EMPTY); setEditing(false); setShowForm(false); }}>Cancel</button>}
       </form>

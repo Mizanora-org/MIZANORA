@@ -2,95 +2,245 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, ExternalLink, Play, Share2, ShoppingBag, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Flame, Heart, Pause, Play, Share2, ShoppingBag, Volume2, VolumeX, X } from 'lucide-react';
 import { parseVideo } from '@/lib/video';
 import { formatPKR } from '@/lib/format';
 
-function Viewer({ reels, start, onClose }) {
-  const [i, setI] = useState(start);
-  const r = reels[i];
-  const v = parseVideo(r.url);
-  const y0 = useRef(null);
+const LIKE_KEY = 'mz_reel_likes';
+const readLikes = () => { try { return JSON.parse(localStorage.getItem(LIKE_KEY) || '[]'); } catch { return []; } };
 
-  const go = useCallback((d) => setI((c) => Math.min(reels.length - 1, Math.max(0, c + d))), [reels.length]);
+// ---------------------------------------------------------------------------------------------
+// Poster: the picture shown for a reel before it plays (video thumbnail, else the product photo, else brand colours)
+// ---------------------------------------------------------------------------------------------
+function Poster({ reel, v, sizes = '240px', priority = false, className = '' }) {
+  const src = v.thumb || reel.image;
+  return src
+    ? <Image src={src} alt="" fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />
+    : <span className={`absolute inset-0 bg-gradient-to-br from-gold via-[#0A5A3A] to-[#06301F] ${className}`} />;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Full-screen, swipe-up feed (like Instagram / TikTok). Only the reel you are watching is loaded.
+// ---------------------------------------------------------------------------------------------
+function Viewer({ reels, start, onClose }) {
+  const [active, setActive] = useState(start);
+  const [muted, setMuted] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const [likes, setLikes] = useState([]);
+  const [toast, setToast] = useState('');
+  const scroller = useRef(null);
+  const slides = useRef([]);
+  const media = useRef(null); // the live <iframe> or <video> of the active reel
+
+  useEffect(() => { setLikes(readLikes()); }, []);
+
+  // Lock the page behind, open on the tapped reel, close with Esc, move with the arrow keys.
+  const goTo = useCallback((i) => {
+    const n = Math.min(reels.length - 1, Math.max(0, i));
+    const el = slides.current[n];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [reels.length]);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const key = (e) => { if (e.key === 'Escape') onClose(); if (e.key === 'ArrowDown') go(1); if (e.key === 'ArrowUp') go(-1); };
+    const first = slides.current[start];
+    if (first) first.scrollIntoView({ block: 'start' });
+    return () => { document.body.style.overflow = prev; };
+  }, [start]);
+  useEffect(() => {
+    const key = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowDown') { e.preventDefault(); goTo(active + 1); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); goTo(active - 1); }
+    };
     window.addEventListener('keydown', key);
-    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', key); };
-  }, [go, onClose]);
+    return () => window.removeEventListener('keydown', key);
+  }, [active, goTo, onClose]);
 
+  // Which reel is on screen?
+  useEffect(() => {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { setActive(Number(e.target.dataset.i)); setPaused(false); } });
+    }, { root: scroller.current, threshold: 0.65 });
+    slides.current.forEach((el) => el && io.observe(el));
+    return () => io.disconnect();
+  }, [reels.length]);
+
+  const r = reels[active];
+  const v = parseVideo(r.url);
+
+  // Sound / pause for YouTube (iframe API) and for direct video files.
+  const yt = (func) => { try { media.current && media.current.contentWindow && media.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*'); } catch (_) {} };
+  useEffect(() => { if (v.type === 'youtube') yt(muted ? 'mute' : 'unMute'); }, [muted, active]); // eslint-disable-line react-hooks/exhaustive-deps
+  const togglePlay = () => {
+    if (v.type === 'youtube') { yt(paused ? 'playVideo' : 'pauseVideo'); setPaused((p) => !p); }
+    else if (v.type === 'file' && media.current) { const was = media.current.paused; if (was) media.current.play().catch(() => {}); else media.current.pause(); setPaused(!was); }
+  };
+  const canControl = v.type === 'youtube' || v.type === 'file';
+
+  const flash = (t) => { setToast(t); setTimeout(() => setToast(''), 1800); };
+  const toggleLike = () => {
+    const next = likes.includes(r.id) ? likes.filter((x) => x !== r.id) : [...likes, r.id];
+    setLikes(next);
+    try { localStorage.setItem(LIKE_KEY, JSON.stringify(next)); } catch (_) {}
+  };
   const share = async () => {
     const url = `${window.location.origin}${r.href}`;
     try { if (navigator.share) { await navigator.share({ title: r.title, url }); return; } } catch (_) { return; }
-    try { await navigator.clipboard.writeText(url); } catch (_) {}
+    try { await navigator.clipboard.writeText(url); flash('Link copied'); } catch (_) { flash(url); }
   };
-  const swipe = { onTouchStart: (e) => { y0.current = e.touches[0].clientY; }, onTouchEnd: (e) => { if (y0.current === null) return; const dy = e.changedTouches[0].clientY - y0.current; y0.current = null; if (Math.abs(dy) > 50) go(dy < 0 ? 1 : -1); } };
+
+  const btn = 'grid h-11 w-11 place-items-center rounded-full bg-black/40 text-white backdrop-blur transition active:scale-90';
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-black text-white" role="dialog" aria-modal="true" aria-label="Reels">
-      <div className="flex items-center justify-between px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <button type="button" onClick={onClose} aria-label="Close reels" className="grid h-10 w-10 place-items-center rounded-full bg-white/15"><X size={22} /></button>
-        <span className="text-sm font-semibold">{i + 1} / {reels.length}</span>
-        <button type="button" onClick={share} aria-label="Share" className="grid h-10 w-10 place-items-center rounded-full bg-white/15"><Share2 size={20} /></button>
+    <div className="fixed inset-0 z-[80] bg-black text-white" role="dialog" aria-modal="true" aria-label="Reels">
+      <div ref={scroller} className="no-sb h-dvh snap-y snap-mandatory overflow-y-scroll overscroll-contain">
+        {reels.map((reel, i) => {
+          const rv = parseVideo(reel.url);
+          const live = i === active;
+          const liked = likes.includes(reel.id);
+          return (
+            <section key={reel.id} ref={(el) => { slides.current[i] = el; }} data-i={i} className="relative h-dvh snap-start snap-always overflow-hidden" aria-label={reel.title}>
+              {/* blurred backdrop so wide screens never show plain black */}
+              <div className="absolute inset-0 scale-125 opacity-40 blur-3xl" aria-hidden="true"><Poster reel={reel} v={rv} sizes="30vw" /></div>
+
+              {/* the 9:16 frame (full-screen on phones, a phone-shaped column on big screens) */}
+              <div className="relative mx-auto h-full overflow-hidden bg-black md:rounded-3xl md:shadow-[0_0_80px_-10px_rgba(11,107,69,.7)]" style={{ width: 'min(100vw, calc(100dvh * 9 / 16))' }}>
+                {live ? (
+                  <>
+                    {rv.type === 'file' && (
+                      <video ref={media} key={reel.id} src={rv.src} autoPlay loop muted={muted} playsInline onClick={togglePlay} className="h-full w-full bg-black object-contain" />
+                    )}
+                    {rv.type !== 'file' && (
+                      <div className={rv.vertical ? 'h-full w-full' : 'absolute inset-x-0 top-1/2 aspect-video -translate-y-1/2'}>
+                        <iframe
+                          ref={media} key={reel.id} title={reel.title}
+                          src={rv.type === 'youtube'
+                            ? `${rv.src}&mute=1&loop=1&playlist=${rv.id}&controls=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`
+                            : rv.src}
+                          onLoad={() => { if (rv.type === 'youtube' && !muted) setTimeout(() => yt('unMute'), 400); }}
+                          allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen className="h-full w-full border-0" />
+                      </div>
+                    )}
+                    {rv.type === 'youtube' && <button type="button" aria-label={paused ? 'Play' : 'Pause'} onClick={togglePlay} className="absolute inset-x-0 top-14 bottom-44 z-[5]">{paused && <span className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-black/50 text-white"><Play size={36} fill="currentColor" /></span>}</button>}
+                  </>
+                ) : (
+                  <>
+                    <Poster reel={reel} v={rv} sizes="(max-width:768px) 100vw, 420px" />
+                    <span className="absolute inset-0 grid place-items-center"><span className="grid h-16 w-16 place-items-center rounded-full bg-white/85 text-gold"><Play size={28} fill="currentColor" /></span></span>
+                  </>
+                )}
+
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black/70 to-transparent" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-64 bg-gradient-to-t from-black/90 via-black/45 to-transparent" />
+
+                {/* top bar */}
+                <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+                  <button type="button" onClick={onClose} aria-label="Close reels" className={btn}><X size={22} /></button>
+                  <span className="rounded-full bg-black/40 px-3 py-1 text-xs font-bold backdrop-blur">{i + 1} / {reels.length}</span>
+                  <span className="w-11" />
+                </div>
+
+                {/* right-hand actions */}
+                <div className="absolute bottom-40 right-3 z-20 flex flex-col items-center gap-4">
+                  <button type="button" onClick={toggleLike} aria-label={liked ? 'Unlike' : 'Like'} aria-pressed={liked} className={`${btn} ${liked ? '!bg-red-500' : ''}`}><Heart size={22} fill={liked ? 'currentColor' : 'none'} /></button>
+                  <button type="button" onClick={share} aria-label="Share" className={btn}><Share2 size={20} /></button>
+                  {live && canControl && <button type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? 'Turn sound on' : 'Mute'} className={btn}>{muted ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>}
+                  {live && canControl && <button type="button" onClick={togglePlay} aria-label={paused ? 'Play' : 'Pause'} className={btn}>{paused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>}
+                  <a href={reel.url} target="_blank" rel="noopener noreferrer" aria-label="Open the original video" className={btn}><ExternalLink size={18} /></a>
+                </div>
+
+                {/* product + shop button */}
+                <div className="absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pr-16">
+                  <p className="line-clamp-2 text-base font-bold leading-snug drop-shadow">{reel.title}</p>
+                  <div className="mt-2.5 flex items-center gap-3 rounded-2xl bg-white/15 p-2 backdrop-blur-md">
+                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/20">{reel.image && <Image src={reel.image} alt="" fill sizes="48px" className="object-cover" />}</span>
+                    <span className="min-w-0 flex-1">
+                      {reel.price > 0 && <span className="block text-lg font-extrabold leading-none text-saffron">{formatPKR(reel.price)}</span>}
+                      <span className="block text-[0.7rem] text-white/80">Cash on delivery</span>
+                    </span>
+                    <Link href={reel.href} onClick={onClose} className="btn-sun !px-5 !py-3"><ShoppingBag size={18} /> Shop now</Link>
+                  </div>
+                  {live && i === 0 && reels.length > 1 && <p className="mt-2 flex animate-bounce items-center justify-center gap-1 text-xs text-white/80"><ChevronUp size={14} /> Swipe up for the next reel</p>}
+                </div>
+              </div>
+            </section>
+          );
+        })}
       </div>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center px-2">
-        <div className={`relative overflow-hidden rounded-2xl bg-black ${v.vertical ? 'h-full max-h-full aspect-[9/16]' : 'w-full max-w-3xl aspect-video'}`} style={v.vertical ? { maxWidth: '100%' } : undefined}>
-          {v.type === 'file'
-            ? <video key={r.id} src={v.src} autoPlay controls loop playsInline className="h-full w-full bg-black object-contain" />
-            : <iframe key={r.id} src={v.src} title={r.title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen className="h-full w-full border-0" />}
-        </div>
-        {/* Swipe strip on the left edge (touches on the video itself belong to the video player) */}
-        <div className="absolute inset-y-0 left-0 w-9" {...swipe} aria-hidden="true" />
-        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 flex-col gap-3">
-          <button type="button" onClick={() => go(-1)} disabled={i === 0} aria-label="Previous reel" className="grid h-11 w-11 place-items-center rounded-full bg-white/20 backdrop-blur disabled:opacity-30"><ChevronUp size={24} /></button>
-          <button type="button" onClick={() => go(1)} disabled={i === reels.length - 1} aria-label="Next reel" className="grid h-11 w-11 place-items-center rounded-full bg-white/20 backdrop-blur disabled:opacity-30"><ChevronDown size={24} /></button>
-        </div>
+      {/* desktop arrows */}
+      <div className="absolute right-6 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-3 md:flex">
+        <button type="button" onClick={() => goTo(active - 1)} disabled={active === 0} aria-label="Previous reel" className={`${btn} disabled:opacity-30`}><ChevronUp size={24} /></button>
+        <button type="button" onClick={() => goTo(active + 1)} disabled={active === reels.length - 1} aria-label="Next reel" className={`${btn} disabled:opacity-30`}><ChevronDown size={24} /></button>
       </div>
-
-      <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3" {...swipe}>
-        <p className="line-clamp-2 text-base font-bold">{r.title}</p>
-        <div className="mt-2 flex items-center gap-3">
-          {r.price > 0 && <span className="text-xl font-extrabold text-saffron">{formatPKR(r.price)}</span>}
-          <Link href={r.href} onClick={onClose} className="btn-sun ml-auto !py-3"><ShoppingBag size={18} /> Shop now</Link>
-          <a href={r.url} target="_blank" rel="noopener noreferrer" aria-label="Open the original video" className="grid h-11 w-11 place-items-center rounded-full bg-white/15"><ExternalLink size={18} /></a>
-        </div>
-      </div>
+      {toast && <p role="status" className="absolute left-1/2 top-20 z-40 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#12201A] shadow-xl">{toast}</p>}
     </div>
   );
 }
 
-// A row of vertical video cards. Tap one to watch full screen and shop from it.
+// ---------------------------------------------------------------------------------------------
+// One vertical (9:16) card
+// ---------------------------------------------------------------------------------------------
+function Card({ reel, index, onOpen, grid }) {
+  const v = parseVideo(reel.url);
+  return (
+    <button type="button" onClick={onOpen} aria-label={`Watch reel: ${reel.title}`}
+      className={`group relative aspect-[9/16] snap-start overflow-hidden rounded-3xl bg-[#06301F] text-left text-white shadow-[0_10px_30px_-12px_rgba(6,48,31,.7)] ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-12px_rgba(11,107,69,.75)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${grid ? 'w-full' : 'w-[10.5rem] shrink-0 sm:w-52'}`}>
+      <Poster reel={reel} v={v} sizes="(max-width:640px) 45vw, 220px" priority={index < 2} className="transition duration-500 group-hover:scale-110" />
+      <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40" />
+
+      <span className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[0.65rem] font-bold backdrop-blur">
+        {index === 0 ? <><Flame size={12} className="text-saffron" /> Trending</> : v.label}
+      </span>
+
+      <span className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2">
+        <span className="absolute inset-0 animate-[mz-ring_2s_ease-out_infinite] rounded-full bg-white/60" />
+        <span className="relative grid h-14 w-14 place-items-center rounded-full bg-white/95 text-gold shadow-xl transition group-hover:scale-110"><Play size={24} fill="currentColor" className="ml-0.5" /></span>
+      </span>
+
+      <span className="absolute inset-x-2.5 bottom-2.5">
+        <span className="line-clamp-2 block text-sm font-bold leading-tight drop-shadow">{reel.title}</span>
+        <span className="mt-2 flex items-center justify-between gap-1">
+          {reel.price > 0 ? <span className="text-sm font-extrabold text-saffron">{formatPKR(reel.price)}</span> : <span />}
+          <span className="inline-flex items-center gap-1 rounded-full bg-saffron px-3 py-1.5 text-[0.7rem] font-extrabold text-[#2B1B00]"><ShoppingBag size={12} /> Shop</span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+// A row (home page) or grid (/reels) of vertical video cards. Tap one to watch full screen and shop from it.
 export default function ReelsRail({ reels, grid = false }) {
   const [open, setOpen] = useState(-1);
+  const row = useRef(null);
   const usable = reels.filter((r) => parseVideo(r.url));
   if (!usable.length) return null;
+  const scrollBy = (d) => row.current && row.current.scrollBy({ left: d * 440, behavior: 'smooth' });
   return (
     <>
-      <div className={grid ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' : 'no-sb flex snap-x gap-3 overflow-x-auto pb-2'}>
-        {usable.map((r, n) => {
-          const v = parseVideo(r.url);
-          const thumb = v.thumb || r.image;
-          return (
-            <button key={r.id} type="button" onClick={() => setOpen(n)} aria-label={`Watch reel: ${r.title}`}
-              className={`group relative aspect-[9/15] snap-start overflow-hidden rounded-2xl bg-gradient-to-br from-gold to-[#073D28] text-left text-white shadow-md ${grid ? 'w-full' : 'w-40 shrink-0 sm:w-48'}`}>
-              {thumb && <Image src={thumb} alt="" fill sizes="192px" className="object-cover transition group-hover:scale-105" />}
-              <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
-              <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[0.65rem] font-bold">{v.label}</span>
-              <span className="absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-gold"><Play size={22} fill="currentColor" /></span>
-              <span className="absolute inset-x-2 bottom-2">
-                <span className="line-clamp-2 block text-sm font-bold leading-tight">{r.title}</span>
-                <span className="mt-1.5 flex items-center justify-between gap-1">
-                  {r.price > 0 ? <span className="text-sm font-extrabold text-saffron">{formatPKR(r.price)}</span> : <span />}
-                  <span className="rounded-full bg-saffron px-2.5 py-1 text-[0.7rem] font-extrabold text-[#2B1B00]">Shop now</span>
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {grid ? (
+        <>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-gradient-to-r from-[#06301F] via-gold to-[#0E8556] p-4 text-white shadow-lg sm:p-5">
+            <div>
+              <p className="flex items-center gap-2 text-lg font-extrabold sm:text-xl"><Flame className="text-saffron" size={22} /> {usable.length} reels to watch and shop</p>
+              <p className="text-sm text-white/80">Swipe like Instagram. Tap Shop now on anything you love.</p>
+            </div>
+            <button type="button" onClick={() => setOpen(0)} className="btn-sun"><Play size={18} fill="currentColor" /> Start watching</button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
+            {usable.map((r, n) => <Card key={r.id} reel={r} index={n} grid onOpen={() => setOpen(n)} />)}
+          </div>
+        </>
+      ) : (
+        <div className="relative">
+          <div ref={row} className="no-sb -mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-3 pt-1 sm:mx-0 sm:px-0">
+            {usable.map((r, n) => <Card key={r.id} reel={r} index={n} onOpen={() => setOpen(n)} />)}
+          </div>
+          <button type="button" onClick={() => scrollBy(-1)} aria-label="Scroll reels left" className="absolute -left-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white shadow-lg md:grid"><ChevronLeft size={22} /></button>
+          <button type="button" onClick={() => scrollBy(1)} aria-label="Scroll reels right" className="absolute -right-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white shadow-lg md:grid"><ChevronRight size={22} /></button>
+        </div>
+      )}
       {open >= 0 && <Viewer reels={usable} start={open} onClose={() => setOpen(-1)} />}
     </>
   );

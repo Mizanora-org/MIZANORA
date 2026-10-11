@@ -7,6 +7,7 @@ import { ORDER_STATUSES } from '@/lib/constants';
 import { formatDate, formatPKR } from '@/lib/format';
 import { normalizePhone } from '@/lib/validate';
 import { downloadCsv, ordersToCsv } from '@/lib/csv';
+import { setOrderStatus } from '@/lib/coupons-client';
 
 const STATUS_STYLE = {
   Pending: 'bg-yellow-500/15 text-yellow-800',
@@ -36,7 +37,7 @@ export default function AdminOrders() {
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
     return (orders || []).filter((o) => (filter === 'All' || o.status === filter) &&
-      (!t || `${o.orderId} ${o.customer?.name} ${o.customer?.phone} ${o.customer?.city}`.toLowerCase().includes(t)));
+      (!t || `${o.orderId} ${o.customer?.name} ${o.customer?.phone} ${o.customer?.city} ${o.couponCode || ''} ${o.couponOwner || ''}`.toLowerCase().includes(t)));
   }, [orders, filter, q]);
 
   const counts = useMemo(() => {
@@ -53,7 +54,13 @@ export default function AdminOrders() {
     return { today: list.filter((o) => (o.createdAtMs || 0) >= start.getTime()).length, pending: list.filter((o) => o.status === 'Pending').length, sales, avg: live.length ? Math.round(sales / live.length) : 0 };
   }, [orders]);
 
-  const setStatus = (id, status) => updateDoc(doc(dbClient(), 'orders', id), { status, [`${status.toLowerCase()}At`]: Date.now() }).catch((e) => alert(e.message));
+  const topProducts = useMemo(() => {
+    const m = new Map();
+    for (const o of orders || []) { if (o.status === 'Cancelled') continue; for (const i of o.items || []) { const c = m.get(i.name) || { name: i.name, qty: 0, amount: 0 }; c.qty += i.qty; c.amount += i.price * i.qty; m.set(i.name, c); } }
+    return [...m.values()].sort((a, b) => b.qty - a.qty).slice(0, 5);
+  }, [orders]);
+
+  const setStatus = (id, status) => setOrderStatus(orders.find((o) => o.orderId === id), status).catch((e) => alert(e.message));
   const setTracking = (id, trackingId) => updateDoc(doc(dbClient(), 'orders', id), { trackingId }).catch((e) => alert(e.message));
   const exportCsv = () => downloadCsv(`mizanora-orders-${filter.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`, ordersToCsv(shown));
 
@@ -72,6 +79,13 @@ export default function AdminOrders() {
           <div key={l} className="card !p-3"><p className="text-xs text-faint">{l}</p><p className="text-xl font-extrabold text-gold">{v}</p></div>
         ))}
       </div>
+
+      {topProducts.length > 0 && (
+        <div className="card mt-3 !p-3">
+          <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-faint">Best sellers (from the orders loaded below)</p>
+          <ol className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">{topProducts.map((p, n) => <li key={p.name} className="flex justify-between gap-2"><span className="truncate"><b className="text-gold">{n + 1}.</b> {p.name}</span><span className="shrink-0 text-dim">{p.qty} sold · {formatPKR(p.amount)}</span></li>)}</ol>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2" role="tablist">
         {['All', ...ORDER_STATUSES].map((s) => (
@@ -93,6 +107,7 @@ export default function AdminOrders() {
                   <p className="font-semibold text-cream">{o.orderId} · {o.customer?.name}</p>
                   <p className="text-sm text-dim">{o.customer?.city} · {o.customer?.phone} · {formatDate(o.createdAtMs)}</p>
                   <p className="mt-1 text-sm text-gold">{formatPKR(o.total)} · {o.items.reduce((s, i) => s + i.qty, 0)} item(s)</p>
+                  {o.couponCode && <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-saffron/20 px-2.5 py-0.5 text-xs font-bold text-[#7A4B00]">PROMO {o.couponCode}{o.couponOwner ? ` · ${o.couponOwner}` : ''} · -{formatPKR(o.discount)}</p>}
                 </button>
                 <div className="flex items-center gap-2">
                   <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_STYLE[o.status] || ''}`}>{o.status}</span>
@@ -105,6 +120,7 @@ export default function AdminOrders() {
                   <div>
                     <p className="mb-1 font-semibold text-cream">Items</p>
                     <ul className="space-y-1 text-dim">{o.items.map((i, n) => <li key={n}>{i.name}{i.size ? ` (${i.size})` : ''} x {i.qty} = {formatPKR(i.price * i.qty)}</li>)}</ul>
+                    {o.couponCode && <p className="mt-1 text-dim">Promo <b className="text-cream">{o.couponCode}</b>{o.couponOwner ? ` (${o.couponOwner})` : ''}: discount {formatPKR(o.discount)}</p>}
                     <p className="mt-1 text-dim">Delivery: {o.shipping > 0 ? formatPKR(o.shipping) : 'Free'} · <b className="text-cream">COD total {formatPKR(o.total)}</b></p>
                   </div>
                   <div className="rounded-xl bg-raised p-3 text-dim">

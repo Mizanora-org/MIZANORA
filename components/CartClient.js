@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useCart } from './CartProvider';
-import { SITE } from '@/lib/config';
+import { SITE, shippingFor } from '@/lib/config';
 import { formatPKR } from '@/lib/format';
 
 export default function CartClient() {
@@ -17,9 +17,19 @@ export default function CartClient() {
       </div>
     );
   }
-  const shipping = SITE.shippingFee;
+  const shipping = shippingFor(subtotal);
+  const freeOver = SITE.freeShippingOver;
+  const showBar = freeOver > 0 && SITE.shippingFee > 0;
+  const left = Math.max(0, freeOver - subtotal);
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="space-y-3">
+      {showBar && (
+        <div className="card !p-3.5">
+          <p className="text-sm font-semibold text-cream">{left > 0 ? <>Add <b className="text-gold">{formatPKR(left)}</b> more for <b>free delivery</b></> : <>You get <b className="text-gold">free delivery</b> on this order!</>}</p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-raised"><div className="h-full rounded-full bg-gradient-to-r from-gold to-saffron transition-all" style={{ width: `${Math.min(100, Math.round((subtotal / freeOver) * 100))}%` }} /></div>
+        </div>
+      )}
       <ul className="space-y-3">
         {items.map((i) => (
           <li key={i.key} className="card flex gap-4 !p-3.5">
@@ -42,6 +52,7 @@ export default function CartClient() {
           </li>
         ))}
       </ul>
+      </div>
       <aside className="card h-fit">
         <h2 className="mb-3 text-2xl font-semibold">Summary</h2>
         <dl className="space-y-2 text-sm">
