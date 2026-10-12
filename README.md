@@ -24,7 +24,20 @@ The shop changes with Pakistan's seasons automatically (Oct-Nov Khizan/autumn, D
 falling leaves / snow / petals, a seasonal hero banner with hanging lanterns, crescent and twinkling stars, a "season picks" shelf built from your
 products (it matches words like jacket, sweater, shawl, boots in the product name/category), a seasonal line in the top ticker, scroll animations,
 today's Hijri date, a Jumu'ah Mubarak badge on Fridays and a daily verse reminder.
-- Force a look or switch it off: `NEXT_PUBLIC_SEASON_THEME` = auto (default) | autumn | winter | spring | summer | off
+- The look is kept on Khizan (autumn) for now. To change it: `NEXT_PUBLIC_SEASON_THEME` = autumn (default) | auto (follows the months) | winter | spring | summer | off
 - Hijri date: Pakistan usually starts the month a day after Saudi Arabia, so the default offset is -1. Change it with `NEXT_PUBLIC_HIJRI_OFFSET` (0, -1, -2).
 - Edit the season texts and keywords in `lib/season.js`, and the daily verses in `lib/reminders.js` (please check the Arabic against your Mushaf before adding new ones).
 - Animations stop automatically for people who turned on "reduce motion", and they are hidden on admin and checkout pages.
+
+## Smooth and light
+Heavy effects were removed: no animated gradients or glows, no full-screen fixed pattern, no blur on every reel. Falling leaves use only a few elements,
+fewer on weak phones, none when Data Saver is on, and they pause when the tab is hidden. Visitors can switch them off in the footer ("Seasonal animation").
+
+## Categories and filters
+- A product can be in many categories (Admin > Products > Edit > Categories; the first one is the main category). The product shows under each category page, on the home shelves, in search and in the Meta feed.
+- /products and category pages have category chips, in-stock / on-sale filters, price range and more sorting options. All of it runs in the browser (no database reads).
+- Admin > Products list: one-tap "Mark sold out", "Hide from shop" and "Duplicate".
+- Search box remembers recent searches on the shopper's device.
+
+## Checks before deploying
+`node scripts/check.js` (syntax and imports) and `node scripts/typecheck.js` (undefined names, missing exports/files) both need only the global `typescript` package.

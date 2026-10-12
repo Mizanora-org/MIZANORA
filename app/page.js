@@ -18,6 +18,7 @@ import Reveal from '@/components/Reveal';
 import SeasonHero from '@/components/SeasonHero';
 import DailyReminder from '@/components/DailyReminder';
 import { seasonFor, matchesSeason } from '@/lib/season';
+import { inCategory } from '@/lib/cats';
 import { DEPARTMENTS } from '@/lib/departments';
 import JsonLd from '@/components/JsonLd';
 import { SOCIAL_ICONS } from '@/components/Icons';
@@ -63,7 +64,7 @@ export default async function Home() {
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
   const picks = all.filter((p) => p.featured).slice(0, 10);
   const fresh = all.slice(0, 12);
-  const shelves = categories.map((c) => ({ c, items: all.filter((p) => p.category === c.name).slice(0, 10) }));
+  const shelves = categories.map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).slice(0, 10) }));
   const season = seasonFor();
   const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 10) : [];
   const posts = getPosts().slice(0, 4);

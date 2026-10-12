@@ -7,7 +7,7 @@ export const revalidate = 300;
 export async function GET() {
   const all = await getProducts();
   return NextResponse.json(all.map((p) => ({
-    id: p.id, slug: p.slug, name: p.name, category: p.category, price: p.price, image: p.images[0] || '',
+    id: p.id, slug: p.slug, name: p.name, category: p.category, categories: p.categories, price: p.price, image: p.images[0] || '',
     description: (p.description || '').slice(0, 240), options: p.options, specs: p.specs.map((x) => x.v).slice(0, 12),
   })), { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } });
 }

@@ -23,7 +23,7 @@ export async function GET() {
       <g:price>${p.comparePrice > p.price ? p.comparePrice : p.price} PKR</g:price>${p.comparePrice > p.price ? `
       <g:sale_price>${p.price} PKR</g:sale_price>` : ''}
       <g:brand>${esc(SITE.name)}</g:brand>${p.category ? `
-      <g:product_type>${esc(p.category)}</g:product_type>` : ''}
+      <g:product_type>${esc((p.categories && p.categories.length ? p.categories : [p.category]).join(' > '))}</g:product_type>` : ''}
     </item>`).join('');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">

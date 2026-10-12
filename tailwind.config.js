@@ -3,7 +3,7 @@
 //   gold = main brand colour (deep emerald), saffron = deal/accent colour,
 //   ink = page background, surface = white cards, cream = main text.
 module.exports = {
-  content: ['./app/**/*.{js,jsx}', './components/**/*.{js,jsx}'],
+  content: ['./app/**/*.{js,jsx}', './components/**/*.{js,jsx}', './lib/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {

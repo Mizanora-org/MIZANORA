@@ -16,6 +16,7 @@ import PwaRegister from '@/components/PwaRegister';
 import MetaPixel from '@/components/MetaPixel';
 import JsonLd from '@/components/JsonLd';
 import SeasonFX from '@/components/SeasonFX';
+import BackToTop from '@/components/BackToTop';
 
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
 const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
@@ -64,6 +65,7 @@ export default async function RootLayout({ children }) {
             <BottomNav />
             <InstallBanner />
             <SeasonFX />
+            <BackToTop />
           </InstallProvider>
         </CartProvider>
         </AuthProvider>

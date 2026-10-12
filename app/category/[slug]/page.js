@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { absUrl } from '@/lib/config';
 import { DEPARTMENTS } from '@/lib/departments';
 import { getProducts, buildCategories } from '@/lib/products';
+import { inCategory } from '@/lib/cats';
 import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import ProductGrid from '@/components/ProductGrid';
@@ -25,7 +26,7 @@ async function load(params) {
     const d = DEPARTMENTS.find((x) => x.slug === slug);
     if (d) { cat = { name: d.name, slug: d.slug, count: 0, image: '' }; empty = true; }
   }
-  return { cat, empty, items: cat && !empty ? all.filter((p) => p.category === cat.name) : [] };
+  return { cat, empty, items: cat && !empty ? all.filter((p) => inCategory(p, cat.name)) : [] };
 }
 
 export async function generateMetadata({ params }) {

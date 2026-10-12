@@ -8,11 +8,11 @@ export default function HijriChip({ className = '' }) {
   const [h, setH] = useState(null);
   const [fri, setFri] = useState(false);
   useEffect(() => { setH(hijriNow()); setFri(isFridayKarachi()); }, []);
-  if (!h) return <span className={`inline-block h-7 ${className}`} />;
+  if (!h) return <span className={`block h-5 ${className}`} />;
   return (
     <span className={`inline-flex flex-wrap items-center gap-x-2 gap-y-1 ${className}`}>
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur"><CalendarDays size={14} /> {h.text}<span className="font-arabic text-sm font-normal text-saffron">{h.ar}</span></span>
-      {fri && <span className="rounded-full bg-saffron px-3 py-1 text-xs font-extrabold text-[#2B1B00]">Jumu&apos;ah Mubarak</span>}
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-0.5 text-[0.7rem] font-bold"><CalendarDays size={14} /> {h.text}<span className="font-arabic text-sm font-normal text-saffron">{h.ar}</span></span>
+      {fri && <span className="rounded-full bg-saffron px-2.5 py-0.5 text-[0.7rem] font-extrabold text-[#2B1B00]">Jumu&apos;ah Mubarak</span>}
     </span>
   );
 }

@@ -74,10 +74,7 @@ main, section, article, form, ul, ol, dl { min-width: 0; }
    SEASON + ISLAMIC THEME (leaves, lanterns, stars, geometric patterns, scroll reveals)
    ===================================================================================================== */
 /* 8-point star (khatam) pattern, used very softly behind the whole shop */
-body::before {
-  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%230B6B45' stroke-opacity='.07' stroke-width='1'%3E%3Crect x='18' y='18' width='36' height='36'/%3E%3Crect x='18' y='18' width='36' height='36' transform='rotate(45 36 36)'/%3E%3Ccircle cx='36' cy='36' r='4'/%3E%3C/g%3E%3C/svg%3E");
-}
+body { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%230B6B45' stroke-opacity='.06' stroke-width='1'%3E%3Crect x='18' y='18' width='36' height='36'/%3E%3Crect x='18' y='18' width='36' height='36' transform='rotate(45 36 36)'/%3E%3Ccircle cx='36' cy='36' r='4'/%3E%3C/g%3E%3C/svg%3E"); }
 .mz-geo-light {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.22' stroke-width='1'%3E%3Crect x='18' y='18' width='36' height='36'/%3E%3Crect x='18' y='18' width='36' height='36' transform='rotate(45 36 36)'/%3E%3Ccircle cx='36' cy='36' r='4'/%3E%3C/g%3E%3C/svg%3E");
 }
@@ -86,7 +83,7 @@ body::before {
 
 @keyframes mz-fall-y { from { transform: translate3d(0, -12vh, 0); } to { transform: translate3d(0, 112vh, 0); } }
 @keyframes mz-sway { from { transform: translateX(-26px) rotate(-35deg); } to { transform: translateX(26px) rotate(55deg); } }
-@keyframes mz-twinkle { 0%, 100% { opacity: .15; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes mz-twinkle { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
 @keyframes mz-swing { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
 @keyframes mz-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
 @keyframes mz-glow { 0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 214, 120, .55)); } 50% { filter: drop-shadow(0 0 18px rgba(255, 214, 120, .95)); } }
@@ -94,12 +91,11 @@ body::before {
 @keyframes mz-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes mz-gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-.mz-hero-bg { background-size: 200% 200%; animation: mz-gradient 18s ease infinite; }
 .mz-rise { animation: mz-rise .8s ease-out both; }
 .mz-star { animation: mz-twinkle 3.2s ease-in-out infinite; }
 .mz-lantern { transform-origin: top center; animation: mz-swing 5s ease-in-out infinite; }
-.mz-lantern svg { animation: mz-glow 3.5s ease-in-out infinite; }
-.mz-moon { animation: mz-float 7s ease-in-out infinite, mz-glow 5s ease-in-out infinite; }
+.mz-lantern svg { filter: drop-shadow(0 0 5px rgba(255, 214, 120, .7)); }
+.mz-moon { animation: mz-float 8s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(255, 214, 120, .8)); }
 
 /* Scroll reveal: content is visible by default (also without JavaScript). The Reveal component hides it only while it is below the screen. */
 [data-r='0'] { opacity: 0; transform: translateY(26px); }
@@ -113,7 +109,7 @@ body::before {
 .mz-lift:hover { transform: translateY(-4px); }
 
 @media (prefers-reduced-motion: reduce) {
-  .mz-hero-bg, .mz-rise, .mz-star, .mz-lantern, .mz-lantern svg, .mz-moon { animation: none !important; }
+  .mz-rise, .mz-star, .mz-lantern, .mz-lantern svg, .mz-moon { animation: none !important; }
   [data-r='0'] { opacity: 1; transform: none; }
   .btn-gold:hover::after, .btn-sun:hover::after { animation: none; }
 }

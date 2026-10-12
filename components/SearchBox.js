@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search } from 'lucide-react';
+import { Clock, Search, X } from 'lucide-react';
 import { describeIntent, smartSearch } from '@/lib/search';
 import { aiIntent } from '@/lib/aiSearch';
 import { formatPKR } from '@/lib/format';
@@ -15,6 +15,18 @@ export default function SearchBox({ id, className = '', categories = [] }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
   const router = useRouter();
+  const [recent, setRecent] = useState([]);
+  useEffect(() => { try { setRecent(JSON.parse(localStorage.getItem('mz_recent_q') || '[]').slice(0, 6)); } catch (_) {} }, []);
+  const remember = (t) => {
+    const term = String(t || '').trim();
+    if (term.length < 2) return;
+    setRecent((cur) => {
+      const next = [term, ...cur.filter((x) => x.toLowerCase() !== term.toLowerCase())].slice(0, 6);
+      try { localStorage.setItem('mz_recent_q', JSON.stringify(next)); } catch (_) {}
+      return next;
+    });
+  };
+  const forget = () => { setRecent([]); try { localStorage.removeItem('mz_recent_q'); } catch (_) {} };
 
   useEffect(() => {
     const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
@@ -36,7 +48,7 @@ export default function SearchBox({ id, className = '', categories = [] }) {
   const view = ai && ai.results.length ? ai : local;
   const hits = view.results;
   const chips = describeIntent(view.intent || {});
-  const go = (e) => { e.preventDefault(); setOpen(false); router.push(q.trim() ? `/products?q=${encodeURIComponent(q.trim())}` : '/products'); };
+  const go = (e) => { e.preventDefault(); setOpen(false); remember(q); router.push(q.trim() ? `/products?q=${encodeURIComponent(q.trim())}` : '/products'); };
 
   return (
     <div ref={box} className={`relative ${className}`}>
@@ -50,6 +62,14 @@ export default function SearchBox({ id, className = '', categories = [] }) {
         <div className="absolute inset-x-0 top-full z-50 mt-1.5 overflow-hidden rounded-2xl border border-line bg-white text-cream shadow-2xl">
           {q.trim().length < 2 ? (
             <div className="p-3">
+              {recent.length > 0 && (
+                <div className="mb-3">
+                  <p className="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wide text-faint"><span className="inline-flex items-center gap-1"><Clock size={13} /> Recent searches</span><button type="button" onClick={forget} className="inline-flex items-center gap-0.5 normal-case text-faint hover:text-red-600"><X size={12} /> Clear</button></p>
+                  <div className="flex flex-wrap gap-2">
+                    {recent.map((t) => <button key={t} type="button" onClick={() => { setQ(t); setOpen(false); remember(t); router.push(`/products?q=${encodeURIComponent(t)}`); }} className="rounded-full border border-line px-3 py-1.5 text-sm text-dim hover:border-gold hover:text-gold">{t}</button>)}
+                  </div>
+                </div>
+              )}
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-faint">Popular categories</p>
               <div className="flex flex-wrap gap-2">
                 {categories.slice(0, 8).map((c) => <Link key={c.slug} href={`/category/${c.slug}`} onClick={() => setOpen(false)} className="rounded-full bg-raised px-3 py-1.5 text-sm font-semibold text-dim hover:text-gold">{c.name}</Link>)}

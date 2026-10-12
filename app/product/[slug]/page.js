@@ -52,7 +52,7 @@ export default async function ProductPage({ params }) {
   if (!p) notFound();
 
   const all = await getProducts();
-  const sameCat = all.filter((x) => x.slug !== p.slug && p.category && x.category === p.category);
+  const sameCat = all.filter((x) => x.slug !== p.slug && (x.categories || []).some((c) => (p.categories || []).includes(c)));
   const related = [...sameCat, ...all.filter((x) => x.slug !== p.slug && !sameCat.includes(x))].slice(0, 4);
   const off = discountPct(p.price, p.comparePrice);
   const url = absUrl(`/product/${p.slug}`);
@@ -68,7 +68,7 @@ export default async function ProductPage({ params }) {
     description: p.description || p.name,
     image: p.images.length ? p.images : [absUrl('/img/hero-banner.jpg')],
     sku: p.slug,
-    category: p.category || undefined,
+    category: p.categories.length ? p.categories.join(' > ') : undefined,
     brand: { '@type': 'Brand', name: SITE.name },
     ...(p.specs.length ? { additionalProperty: p.specs.slice(0, 20).map((x) => ({ '@type': 'PropertyValue', name: x.k, value: x.v })) } : {}),
     ...(p.options.find((o) => /colou?r/i.test(o.name)) ? { color: p.options.find((o) => /colou?r/i.test(o.name)).values.join(', ') } : {}),
@@ -103,6 +103,7 @@ export default async function ProductPage({ params }) {
           <Gallery images={p.images} name={p.name} />
           <div className="min-w-0">
             <div className="flex items-start justify-between gap-3"><h1 className="text-2xl font-extrabold leading-tight sm:text-4xl">{p.name}</h1><WishButton product={p} className="shrink-0" /></div>
+            {p.categories.length > 0 && <p className="mt-2 flex flex-wrap gap-1.5">{p.categories.map((c) => <Link key={c} href={`/category/${slugify(c)}`} className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold hover:bg-gold/20">{c}</Link>)}</p>}
             <p className="mt-4 flex flex-wrap items-baseline gap-3">
               <span className="text-3xl font-bold text-gold">{formatPKR(p.price)}</span>
               {p.comparePrice > p.price && <span className="text-lg text-faint line-through">{formatPKR(p.comparePrice)}</span>}

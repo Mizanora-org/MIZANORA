@@ -90,7 +90,7 @@ function Viewer({ reels, start, onClose }) {
     try { await navigator.clipboard.writeText(url); flash('Link copied'); } catch (_) { flash(url); }
   };
 
-  const btn = 'grid h-11 w-11 place-items-center rounded-full bg-black/40 text-white backdrop-blur transition active:scale-90';
+  const btn = 'grid h-11 w-11 place-items-center rounded-full bg-black/55 text-white transition active:scale-90';
 
   return (
     <div className="fixed inset-0 z-[80] bg-black text-white" role="dialog" aria-modal="true" aria-label="Reels">
@@ -102,7 +102,7 @@ function Viewer({ reels, start, onClose }) {
           return (
             <section key={reel.id} ref={(el) => { slides.current[i] = el; }} data-i={i} className="relative h-dvh snap-start snap-always overflow-hidden" aria-label={reel.title}>
               {/* blurred backdrop so wide screens never show plain black */}
-              <div className="absolute inset-0 scale-125 opacity-40 blur-3xl" aria-hidden="true"><Poster reel={reel} v={rv} sizes="30vw" /></div>
+              {live && <div className="absolute inset-0 scale-110 opacity-40 blur-2xl" aria-hidden="true"><Poster reel={reel} v={rv} sizes="20vw" /></div>}
 
               {/* the 9:16 frame (full-screen on phones, a phone-shaped column on big screens) */}
               <div className="relative mx-auto h-full overflow-hidden bg-black md:rounded-3xl md:shadow-[0_0_80px_-10px_rgba(11,107,69,.7)]" style={{ width: 'min(100vw, calc(100dvh * 9 / 16))' }}>
@@ -137,7 +137,7 @@ function Viewer({ reels, start, onClose }) {
                 {/* top bar */}
                 <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
                   <button type="button" onClick={onClose} aria-label="Close reels" className={btn}><X size={22} /></button>
-                  <span className="rounded-full bg-black/40 px-3 py-1 text-xs font-bold backdrop-blur">{i + 1} / {reels.length}</span>
+                  <span className="rounded-full bg-black/55 px-3 py-1 text-xs font-bold">{i + 1} / {reels.length}</span>
                   <span className="w-11" />
                 </div>
 
@@ -153,7 +153,7 @@ function Viewer({ reels, start, onClose }) {
                 {/* product + shop button */}
                 <div className="absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pr-16">
                   <p className="line-clamp-2 text-base font-bold leading-snug drop-shadow">{reel.title}</p>
-                  <div className="mt-2.5 flex items-center gap-3 rounded-2xl bg-white/15 p-2 backdrop-blur-md">
+                  <div className="mt-2.5 flex items-center gap-3 rounded-2xl bg-black/45 p-2">
                     <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/20">{reel.image && <Image src={reel.image} alt="" fill sizes="48px" className="object-cover" />}</span>
                     <span className="min-w-0 flex-1">
                       {reel.price > 0 && <span className="block text-lg font-extrabold leading-none text-saffron">{formatPKR(reel.price)}</span>}
@@ -190,12 +190,12 @@ function Card({ reel, index, onOpen, grid }) {
       <Poster reel={reel} v={v} sizes="(max-width:640px) 45vw, 220px" priority={index < 2} className="transition duration-500 group-hover:scale-110" />
       <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40" />
 
-      <span className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[0.65rem] font-bold backdrop-blur">
+      <span className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[0.65rem] font-bold">
         {index === 0 ? <><Flame size={12} className="text-saffron" /> Trending</> : v.label}
       </span>
 
       <span className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2">
-        <span className="absolute inset-0 animate-[mz-ring_2s_ease-out_infinite] rounded-full bg-white/60" />
+        <span className="absolute inset-0 rounded-full bg-white/60 opacity-0 transition group-hover:animate-[mz-ring_1.4s_ease-out_infinite]" />
         <span className="relative grid h-14 w-14 place-items-center rounded-full bg-white/95 text-gold shadow-xl transition group-hover:scale-110"><Play size={24} fill="currentColor" className="ml-0.5" /></span>
       </span>
 

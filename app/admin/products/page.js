@@ -1,10 +1,11 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { dbClient, authClient } from '@/lib/firebase-client';
 import { formatPKR, slugify } from '@/lib/format';
 import ImageUploader from '@/components/ImageUploader';
 import ProductPromo from '@/components/ProductPromo';
+import { catsOf, splitCats } from '@/lib/cats';
 import { DEPARTMENTS } from '@/lib/departments';
 import { parseVideo } from '@/lib/video';
 import { readCache, writeCache, revalidateSite } from '@/lib/admin-cache';
@@ -24,6 +25,7 @@ export default function AdminProducts() {
   const [showForm, setShowForm] = useState(false);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [catDraft, setCatDraft] = useState('');
 
   const byNew = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
   // Reads Firestore only when there is no fresh copy in this browser session (or when you press Refresh).
@@ -58,7 +60,7 @@ export default function AdminProducts() {
       const now = Date.now();
       const toArr = (v) => (Array.isArray(v) ? v : String(v || '').split(/[\n,]/)).map((x) => String(x).trim()).filter(Boolean);
       const payload = {
-        name: data.name.trim(), price, comparePrice: Number(data.comparePrice) || 0, category: (data.category || '').trim(),
+        name: data.name.trim(), price, comparePrice: Number(data.comparePrice) || 0, category: splitCats(data.category)[0] || '', categories: splitCats(data.category),
         description: (data.description || '').trim(), images: toArr(data.images), videos: toArr(data.videos), options: textToOptions(data.options), sizes: [], specs: textToSpecs(data.specs),
         inStock: Boolean(data.inStock), featured: Boolean(data.featured), active: Boolean(data.active),
         createdAt: existing ? existing.createdAt || now : now, updatedAt: now,
@@ -72,9 +74,28 @@ export default function AdminProducts() {
     setBusy(false);
   }
 
+  // One-tap changes from the list (no need to open the form): sold out / in stock, hide / show.
+  async function flip(p, field) {
+    const next = field === 'active' ? p.active === false : p.inStock === false;
+    try {
+      const now = Date.now();
+      await updateDoc(doc(dbClient(), 'products', p.id), { [field]: next, updatedAt: now });
+      patchList((cur) => cur.map((x) => (x.id === p.id ? { ...x, [field]: next, updatedAt: now } : x)));
+      await revalidate(p.id);
+      setMsg(`${p.name}: ${field === 'active' ? (next ? 'now visible' : 'now hidden') : (next ? 'now in stock' : 'now sold out')}.`);
+    } catch (e) { setMsg((e && e.message) || 'Could not update.'); }
+  }
+  // Start a new product from an existing one (same photos, options, details). Change the name and save.
+  const duplicate = (p) => {
+    setEditing(false);
+    setForm({ ...EMPTY, ...p, name: `${p.name} (copy)`, slug: slugify(`${p.name} copy`), category: catsOf(p).join(', '), price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n') });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const edit = (p) => {
     setEditing(true);
-    setForm({ ...EMPTY, ...p, slug: p.id, price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n') });
+    setForm({ ...EMPTY, ...p, category: catsOf(p).join(', '), slug: p.id, price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n') });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -100,20 +121,27 @@ export default function AdminProducts() {
         ) : (
           <ul className="space-y-2">
             {list.map((p) => (
-              <li key={p.id} className="card flex items-center gap-3 !p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{p.name} {p.active === false && <span className="text-xs text-red-700">(hidden)</span>}</p>
-                  <p className="text-sm text-dim">{formatPKR(p.price)} · {p.inStock === false ? 'Sold out' : 'In stock'}{p.featured ? ' · Featured' : ''}</p>
+              <li key={p.id} className="card !p-3">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">{p.name} {p.active === false && <span className="text-xs text-red-700">(hidden)</span>}</p>
+                    <p className="truncate text-sm text-dim">{formatPKR(p.price)} · {p.inStock === false ? 'Sold out' : 'In stock'}{p.featured ? ' · Featured' : ''}{catsOf(p).length ? ` · ${catsOf(p).join(', ')}` : ''}</p>
+                  </div>
+                  <button className="btn-ghost !px-4 !py-2 text-sm" onClick={() => edit(p)}>Edit</button>
+                  <button className="px-2 text-sm text-red-700" onClick={() => remove(p)}>Delete</button>
                 </div>
-                <button className="btn-ghost !px-4 !py-2 text-sm" onClick={() => edit(p)}>Edit</button>
-                <button className="px-2 text-sm text-red-700" onClick={() => remove(p)}>Delete</button>
+                <div className="mt-2 flex flex-wrap gap-1.5 text-xs font-semibold">
+                  <button type="button" className="rounded-full bg-raised px-3 py-1.5 text-dim hover:text-gold" onClick={() => flip(p, 'inStock')}>{p.inStock === false ? 'Mark in stock' : 'Mark sold out'}</button>
+                  <button type="button" className="rounded-full bg-raised px-3 py-1.5 text-dim hover:text-gold" onClick={() => flip(p, 'active')}>{p.active === false ? 'Show on shop' : 'Hide from shop'}</button>
+                  <button type="button" className="rounded-full bg-raised px-3 py-1.5 text-dim hover:text-gold" onClick={() => duplicate(p)}>Duplicate</button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <form className={`card h-fit min-w-0 space-y-3 lg:sticky lg:top-24 ${showForm ? '' : 'hidden lg:block'}`} onSubmit={(e) => { e.preventDefault(); save(form, !editing); }}>
+      <form className={`card h-fit min-w-0 space-y-3 lg:sticky lg:top-24 ${showForm ? '' : 'hidden lg:block'}`} onSubmit={(e) => { e.preventDefault(); save({ ...form, category: splitCats([form.category, catDraft].join(',')).join(', ') }, !editing); setCatDraft(''); }}>
         <button type="button" className="text-sm font-bold text-gold lg:hidden" onClick={() => { setForm(EMPTY); setEditing(false); setShowForm(false); }}>&larr; Back to products</button>
         <h2 className="text-2xl font-extrabold">{editing ? 'Edit product' : 'Add product'}</h2>
         <div><label className="label" htmlFor="pn">Name</label><input id="pn" className="input" value={form.name} onChange={set('name')} required /></div>
@@ -122,7 +150,36 @@ export default function AdminProducts() {
           <div><label className="label" htmlFor="pp">Price (PKR)</label><input id="pp" type="number" min="1" className="input" value={form.price} onChange={set('price')} required /></div>
           <div><label className="label" htmlFor="pc">Old price</label><input id="pc" type="number" min="0" className="input" value={form.comparePrice} onChange={set('comparePrice')} /></div>
         </div>
-        <div><label className="label" htmlFor="pk">Category</label><input id="pk" list="cats" className="input" value={form.category} onChange={set('category')} placeholder="e.g. Footwear" /><datalist id="cats">{[...new Set([...(list || []).map((x) => x.category).filter(Boolean), ...DEPARTMENTS.map((d) => d.name)])].map((c) => <option key={c} value={c} />)}</datalist></div>
+        {(() => {
+          const chosen = splitCats(form.category);
+          const known = [...new Set([...(list || []).flatMap((x) => catsOf(x)), ...DEPARTMENTS.map((d) => d.name)])].filter((c) => !chosen.some((x) => x.toLowerCase() === c.toLowerCase()));
+          const write = (arr) => setForm((f) => ({ ...f, category: arr.join(', ') }));
+          const add = (name) => { const next = splitCats([...chosen, name].join(',')); write(next); setCatDraft(''); };
+          return (
+            <div>
+              <label className="label" htmlFor="pk">Categories <span className="font-normal text-faint">(a product can be in many)</span></label>
+              {chosen.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {chosen.map((c, n) => (
+                    <span key={c} className="inline-flex items-center gap-1 rounded-full bg-gold px-3 py-1 text-xs font-semibold text-white">
+                      {c}{n === 0 && <span className="rounded bg-white/25 px-1 text-[0.6rem]">main</span>}
+                      <button type="button" aria-label={`Remove ${c}`} onClick={() => write(chosen.filter((x) => x !== c))} className="ml-0.5 font-bold">x</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input id="pk" className="input !py-2.5" value={catDraft} onChange={(e) => setCatDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (catDraft.trim()) add(catDraft); } }} placeholder="Type a category, press Enter" />
+                <button type="button" className="btn-ghost !px-4 !py-2.5 text-sm" onClick={() => catDraft.trim() && add(catDraft)}>Add</button>
+              </div>
+              {known.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {known.slice(0, 24).map((c) => <button key={c} type="button" onClick={() => add(c)} className="rounded-full bg-raised px-3 py-1.5 text-xs font-semibold text-dim hover:text-gold">+ {c}</button>)}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         <div><label className="label" htmlFor="pd">Description</label><textarea id="pd" rows={5} className="input" value={form.description} onChange={set('description')} /></div>
         <div>
           <label className="label" htmlFor="pi">Photos (first photo is the main one)</label>
@@ -149,7 +206,7 @@ export default function AdminProducts() {
           ))}
         </div>
         {(() => {
-          const t = templateFor(form.category);
+          const t = templateFor(splitCats(form.category)[0] || '');
           const parsed = textToOptions(form.options);
           const addLine = (key, line) => setForm((f) => ({ ...f, [key]: [String(f[key] || '').trim(), line].filter(Boolean).join('\n') }));
           return (
