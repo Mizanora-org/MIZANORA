@@ -14,6 +14,10 @@ import Marquee from '@/components/Marquee';
 import SignInStrip from '@/components/SignInStrip';
 import RecentlyViewed from '@/components/RecentlyViewed';
 import ReelsRail from '@/components/ReelsRail';
+import Reveal from '@/components/Reveal';
+import SeasonHero from '@/components/SeasonHero';
+import DailyReminder from '@/components/DailyReminder';
+import { seasonFor, matchesSeason } from '@/lib/season';
 import { DEPARTMENTS } from '@/lib/departments';
 import JsonLd from '@/components/JsonLd';
 import { SOCIAL_ICONS } from '@/components/Icons';
@@ -35,10 +39,10 @@ const DEFAULT_SLIDES = [
 ];
 
 // Horizontal swipe row on phones (like an app), grid on large screens.
-function Shelf({ id, title, href, products, priorityFirst = false, tone = '' }) {
+function Shelf({ id, title, href, products, priorityFirst = false, tone = '', anchor }) {
   if (!products.length) return null;
   return (
-    <section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby={id}>
+    <Reveal><section id={anchor} className="mx-auto max-w-7xl scroll-mt-20 px-3 pt-8 sm:px-4" aria-labelledby={id}>
       <div className={`rounded-2xl ${tone}`}>
         <div className="mb-3 flex items-end justify-between gap-4">
           <h2 id={id} className="section-title">{title}</h2>
@@ -48,7 +52,7 @@ function Shelf({ id, title, href, products, priorityFirst = false, tone = '' }) 
           {products.map((p, i) => <div key={p.id} className="w-[44vw] max-w-[200px] shrink-0 snap-start md:w-auto md:max-w-none"><ProductCard p={p} priority={priorityFirst && i < 3} /></div>)}
         </div>
       </div>
-    </section>
+    </section></Reveal>
   );
 }
 
@@ -60,6 +64,8 @@ export default async function Home() {
   const picks = all.filter((p) => p.featured).slice(0, 10);
   const fresh = all.slice(0, 12);
   const shelves = categories.map((c) => ({ c, items: all.filter((p) => p.category === c.name).slice(0, 10) }));
+  const season = seasonFor();
+  const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 10) : [];
   const posts = getPosts().slice(0, 4);
   const socials = SITE.social.filter((s) => s.url);
   const delivery = SITE.shippingFee > 0 ? `Delivery ${formatPKR(SITE.shippingFee)}` : 'Free delivery';
@@ -77,6 +83,7 @@ export default async function Home() {
 
   return (
     <>
+      <SeasonHero hasPicks={seasonPicks.length > 0} />
       <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-4 sm:pt-4">
         <BannerCarousel banners={banners.length > 0 ? banners : DEFAULT_SLIDES} />
         <h1 className="sr-only">Mizanora: online shopping market in Pakistan with cash on delivery</h1>
@@ -96,7 +103,7 @@ export default async function Home() {
         </ul>
       </section>
 
-      <section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="cats">
+      <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="cats">
         <h2 id="cats" className="section-title mb-3">Shop by category</h2>
         <ul className="no-sb flex gap-3 overflow-x-auto pb-2">
           {circles.map((c) => (
@@ -111,24 +118,26 @@ export default async function Home() {
             </li>
           ))}
         </ul>
-      </section>
+      </section></Reveal>
+
+      {season && <Shelf id="season" anchor="season-picks" title={season.picksTitle} href="/products" products={seasonPicks} tone={season.tone} />}
 
       <Shelf id="deals" title="Hot deals" href="/products" products={deals} priorityFirst tone="bg-red-50 p-3 sm:p-4" />
 
       {trend.length > 0 && (
-        <section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="trend">
+        <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="trend">
           <div className="mb-3 flex items-end justify-between"><h2 id="trend" className="section-title">Trending now</h2><Link href="/products" className="flex items-center gap-1 text-sm font-bold text-gold">See all <ArrowRight size={15} /></Link></div>
           <Marquee seconds={Math.max(30, trend.length * 5)} label="Trending products" className="rounded-2xl">
             {trend.map((p, i) => <div key={`${p.id}-${i}`} className="w-44 shrink-0 px-1.5 sm:w-52"><ProductCard p={p} /></div>)}
           </Marquee>
-        </section>
+        </section></Reveal>
       )}
 
       {reels.length > 0 && (
-        <section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="reels">
+        <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="reels">
           <div className="mb-3 flex items-end justify-between"><h2 id="reels" className="section-title">Reels: watch and shop</h2><Link href="/reels" className="flex items-center gap-1 text-sm font-bold text-gold">All reels <ArrowRight size={15} /></Link></div>
           <ReelsRail reels={reels.slice(0, 12)} />
-        </section>
+        </section></Reveal>
       )}
 
       <Shelf id="picks" title="Top picks for you" href="/products" products={picks} />
@@ -144,16 +153,16 @@ export default async function Home() {
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-3 pt-14 sm:px-4" aria-labelledby="how">
+      <Reveal><section className="mx-auto max-w-7xl px-3 pt-14 sm:px-4" aria-labelledby="how">
         <h2 id="how" className="section-title mb-4">Ordering takes one minute</h2>
         <ol className="grid gap-3 md:grid-cols-3">
           {[['Choose', 'Pick your product and size.'], ['Fill the form', 'Name, mobile number and address. No account needed.'], ['Pay on delivery', 'We confirm your order, then the rider brings it to your door.']].map(([t, s], i) => (
             <li key={t} className="card flex gap-4"><span className="font-display text-4xl font-extrabold text-saffron">{i + 1}</span><div><p className="font-semibold">{t}</p><p className="text-sm text-dim">{s}</p></div></li>
           ))}
         </ol>
-      </section>
+      </section></Reveal>
 
-      <section className="mx-auto max-w-7xl px-3 pt-14 sm:px-4" aria-labelledby="guides">
+      <Reveal><section className="mx-auto max-w-7xl px-3 pt-14 sm:px-4" aria-labelledby="guides">
         <div className="mb-4 flex items-end justify-between"><h2 id="guides" className="section-title">Shopping guides and tips</h2><Link href="/blog" className="flex items-center gap-1 text-sm font-bold text-gold">All guides <ArrowRight size={15} /></Link></div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {posts.map((p) => (
@@ -164,9 +173,9 @@ export default async function Home() {
             </article>
           ))}
         </div>
-      </section>
+      </section></Reveal>
 
-      <section className="mx-auto max-w-7xl px-3 pt-14 sm:px-4" aria-labelledby="soc">
+      <Reveal><section className="mx-auto max-w-7xl px-3 pt-14 sm:px-4" aria-labelledby="soc">
         <h2 id="soc" className="section-title mb-4">Find Mizanora everywhere</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {socials.map((s) => {
@@ -179,9 +188,11 @@ export default async function Home() {
             );
           })}
         </div>
-      </section>
+      </section></Reveal>
 
-      <section className="mx-auto max-w-3xl px-4 pt-14" aria-labelledby="faq">
+      <Reveal><DailyReminder /></Reveal>
+
+      <Reveal><section className="mx-auto max-w-3xl px-4 pt-14" aria-labelledby="faq">
         <h2 id="faq" className="section-title mb-4">Questions people ask</h2>
         {FAQ.slice(0, 6).map(([q, a]) => (
           <details key={q} className="mb-2.5 rounded-xl border border-line bg-surface px-4">
@@ -190,14 +201,14 @@ export default async function Home() {
           </details>
         ))}
         <Link href="/faq" className="mt-3 inline-block text-sm font-semibold text-gold">More answers</Link>
-      </section>
-      <section className="mx-auto max-w-4xl px-4 pt-14" aria-labelledby="about-mz">
+      </section></Reveal>
+      <Reveal><section className="mx-auto max-w-4xl px-4 pt-14" aria-labelledby="about-mz">
         <h2 id="about-mz" className="section-title mb-3">Online shopping in Pakistan, made simple</h2>
         <div className="space-y-3 text-[0.98rem] leading-7 text-dim">
           <p>Mizanora is an online market for Pakistan. You can browse <Link href="/products" className="font-semibold text-gold underline underline-offset-4">all products</Link>, open a category, pick your size and order in about a minute. You pay in cash when the parcel reaches your door, so you never pay before you see what you ordered.</p>
           <p>New to buying online? Start with our <Link href="/blog/online-shopping-in-pakistan-beginners-guide" className="font-semibold text-gold underline underline-offset-4">beginner's guide to online shopping in Pakistan</Link>, learn <Link href="/blog/cash-on-delivery-pakistan" className="font-semibold text-gold underline underline-offset-4">how cash on delivery works</Link> and <Link href="/blog/how-to-spot-fake-online-shops-pakistan" className="font-semibold text-gold underline underline-offset-4">how to spot fake online shops</Link>.</p>
         </div>
-      </section>
+      </section></Reveal>
       <JsonLd data={faqJsonLd(FAQ.slice(0, 6))} />
     </>
   );

@@ -18,3 +18,13 @@ Visitors and bots never trigger Firestore reads. The cache refreshes when the ad
 ## Optional: free delivery above an amount
 Set `NEXT_PUBLIC_FREE_SHIPPING_OVER` (for example 5000) together with `NEXT_PUBLIC_SHIPPING_FEE`. The cart shows a progress bar and the server uses the same rule.
 - Per product: open a product in Admin > Products > Edit and use "Promo codes for this product" to create or see its codes.
+
+## Season + Islamic theme
+The shop changes with Pakistan's seasons automatically (Oct-Nov Khizan/autumn, Dec-Feb Sardi/winter, Mar-Apr Bahar/spring, May-Sep Garmi/summer):
+falling leaves / snow / petals, a seasonal hero banner with hanging lanterns, crescent and twinkling stars, a "season picks" shelf built from your
+products (it matches words like jacket, sweater, shawl, boots in the product name/category), a seasonal line in the top ticker, scroll animations,
+today's Hijri date, a Jumu'ah Mubarak badge on Fridays and a daily verse reminder.
+- Force a look or switch it off: `NEXT_PUBLIC_SEASON_THEME` = auto (default) | autumn | winter | spring | summer | off
+- Hijri date: Pakistan usually starts the month a day after Saudi Arabia, so the default offset is -1. Change it with `NEXT_PUBLIC_HIJRI_OFFSET` (0, -1, -2).
+- Edit the season texts and keywords in `lib/season.js`, and the daily verses in `lib/reminders.js` (please check the Arabic against your Mushaf before adding new ones).
+- Animations stop automatically for people who turned on "reduce motion", and they are hidden on admin and checkout pages.

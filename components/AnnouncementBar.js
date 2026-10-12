@@ -1,9 +1,11 @@
 import { SITE } from '@/lib/config';
 import Marquee from './Marquee';
+import { seasonFor } from '@/lib/season';
 
 // Moving offer ticker above the header (like a market's loudspeaker).
 export default function AnnouncementBar() {
-  const items = [...new Set([SITE.announcement, 'Free delivery offers on selected items', 'New products added every week', 'Shop smart. Shop halal.', 'WhatsApp support when you need help'].filter(Boolean))];
+  const season = seasonFor();
+  const items = [...new Set([season && season.ticker, SITE.announcement, 'Free delivery offers on selected items', 'New products added every week', 'Shop smart. Shop halal.', 'WhatsApp support when you need help'].filter(Boolean))];
   return (
     <div className="bg-[#073D28] text-xs font-semibold text-white sm:text-sm">
       <Marquee seconds={45} label="Offers">

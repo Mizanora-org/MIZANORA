@@ -42,6 +42,7 @@ export default function ThankYouClient() {
           <span className="mz-anim relative grid h-20 w-20 place-items-center rounded-full bg-white text-gold shadow-lg" style={{ animation: 'mz-pop .6s ease-out both' }}><BadgeCheck size={46} /></span>
         </div>
         <h1 className="mt-4 text-3xl font-extrabold sm:text-4xl">Order confirmed</h1>
+        <p lang="ar" dir="rtl" className="font-arabic mt-2 text-2xl text-[#FFE9A8]">جَزَاكَ اللَّهُ خَيْرًا</p>
         <p className="mt-1 text-white/85">Thank you for shopping with Mizanora</p>
         {orderId && <p className="mx-auto mt-4 w-fit rounded-full bg-white/15 px-4 py-1.5 text-sm">Order ID <b className="ml-1 tracking-wider">{orderId}</b></p>}
         {order && <p className="mt-3 text-2xl font-extrabold text-saffron">{formatPKR(order.total)} <span className="text-sm font-semibold text-white/80">to pay on delivery</span></p>}

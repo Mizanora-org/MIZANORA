@@ -1,5 +1,5 @@
 import './globals.css';
-import { Plus_Jakarta_Sans, Inter } from 'next/font/google';
+import { Plus_Jakarta_Sans, Inter, Amiri } from 'next/font/google';
 import { SITE } from '@/lib/config';
 import { getCategories } from '@/lib/products';
 import { orgJsonLd, websiteJsonLd } from '@/lib/seo';
@@ -15,8 +15,10 @@ import BottomNav from '@/components/BottomNav';
 import PwaRegister from '@/components/PwaRegister';
 import MetaPixel from '@/components/MetaPixel';
 import JsonLd from '@/components/JsonLd';
+import SeasonFX from '@/components/SeasonFX';
 
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
+const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
 const body = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap' });
 
 export const viewport = {
@@ -49,7 +51,7 @@ export const metadata = {
 export default async function RootLayout({ children }) {
   const categories = await getCategories();
   return (
-    <html lang="en-PK" className={`${display.variable} ${body.variable}`}>
+    <html lang="en-PK" className={`${display.variable} ${body.variable} ${arabic.variable}`}>
       <body>
         <AuthProvider>
         <CartProvider>
@@ -61,6 +63,7 @@ export default async function RootLayout({ children }) {
             <WhatsAppFab />
             <BottomNav />
             <InstallBanner />
+            <SeasonFX />
           </InstallProvider>
         </CartProvider>
         </AuthProvider>

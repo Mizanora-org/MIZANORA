@@ -5,8 +5,11 @@ import { SOCIAL_ICONS } from './Icons';
 export default function Footer({ categories = [] }) {
   const socials = SITE.social.filter((s) => s.url);
   return (
-    <footer className="mt-16 border-t border-line bg-surface pb-28 pt-10 md:pb-10">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:grid-cols-2 lg:grid-cols-5">
+    <footer className="mt-16 bg-surface pb-28 md:pb-10">
+      <div className="mz-band" aria-hidden="true" />
+      <p lang="ar" dir="rtl" className="font-arabic pt-6 text-center text-2xl text-gold">بِسْمِ اللَّهِ تَوَكَّلْنَا عَلَى اللَّهِ</p>
+      <p className="mb-8 text-center text-xs text-faint">Jazakallah khair for shopping with Mizanora</p>
+      <div className="mx-auto grid max-w-7xl gap-8 border-t border-line px-4 pt-10 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <p className="font-display text-2xl font-bold tracking-[0.14em]">MIZANORA</p>
           <p className="mt-3 max-w-sm text-sm text-dim">{SITE.tagline} A Pakistani online store built on honest dealing. Cash on delivery across Pakistan. WhatsApp support is always here to help.</p>

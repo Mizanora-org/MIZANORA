@@ -8,7 +8,7 @@ import ShareMini from './ShareMini';
 export default function ProductCard({ p, priority = false }) {
   const off = discountPct(p.price, p.comparePrice);
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(18,32,26,.06)] transition hover:border-gold/40 hover:shadow-lg">
+    <article className="mz-lift group flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(18,32,26,.06)] hover:border-gold/40 hover:shadow-xl">
       <div className="relative flex-1">
       <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5"><WishButton product={p} small /><ShareMini slug={p.slug} name={p.name} /></div>
       <Link href={`/product/${p.slug}`} className="block">
