@@ -3,7 +3,7 @@ import { BadgePercent, Banknote, Link2, ShieldCheck, TrendingUp, UserCheck } fro
 import { pageMeta, breadcrumbJsonLd, faqJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
-import { MIN_PAYOUT, REF_DAYS, TIERS } from '@/lib/workers';
+import { HOLD_DAYS, MIN_PAYOUT, REF_DAYS, TIERS } from '@/lib/workers';
 import { formatPKR } from '@/lib/format';
 
 export const metadata = pageMeta({
@@ -14,7 +14,8 @@ export const metadata = pageMeta({
 
 const FAQ = [
   ['Do I need money to join?', 'No. Joining is free. You need a Mizanora account, your CNIC and a phone. You never buy stock and you never handle parcels or cash.'],
-  ['When do I get paid?', `Your commission becomes ready when the customer receives the order. You can then request a payout of ${formatPKR(MIN_PAYOUT)} or more to JazzCash, Easypaisa or your bank account.`],
+  ['When do I get paid?', `After the customer receives the order, your commission waits about ${HOLD_DAYS} days (the return window) and then moves into your Mizanora wallet automatically. From the wallet you can withdraw ${formatPKR(MIN_PAYOUT)} or more to JazzCash, Easypaisa or your bank account.`],
+  ['Do my repeat customers count?', 'When this is switched on, a new customer who first orders through your link stays linked to you, and their later orders earn you commission too. Existing Mizanora customers are not taken over.'],
   ['What if the order is cancelled or returned?', 'Cancelled and returned orders earn no commission. That is why a good delivery rate raises your level.'],
   ['Why do you need my CNIC?', 'To confirm every worker is a real adult and to stop fake accounts. The photos are stored privately and only the Mizanora admin can see them.'],
   ['How does the level system work?', 'Everyone starts at 10%. As more of your orders are delivered and your delivery rate stays high, you move up to 20%, 30%, 40% and 50%. Higher levels also unlock more expensive products.'],
@@ -31,7 +32,7 @@ export default function WorkersPage() {
         <section aria-labelledby="how">
           <h2 id="how" className="section-title mb-4">How it works</h2>
           <ol className="grid gap-3 sm:grid-cols-2">
-            {[[UserCheck, 'Apply', 'Create a Mizanora account, send your CNIC and selfie. We check within 1 to 2 days.'], [Link2, 'Share', `Get your own link. Anyone who orders within ${REF_DAYS} days of opening it counts for you.`], [TrendingUp, 'Earn', 'Commission is added for every order. It becomes payable once the order is delivered.'], [Banknote, 'Withdraw', `Request a payout of ${formatPKR(MIN_PAYOUT)} or more to JazzCash, Easypaisa or bank.`]].map(([Icon, t, d], n) => (
+            {[[UserCheck, 'Apply', 'Create a Mizanora account, send your CNIC and selfie. We check within 1 to 2 days.'], [Link2, 'Share', `Get your own link. Anyone who orders within ${REF_DAYS} days of opening it counts for you.`], [TrendingUp, 'Earn', `Commission is added for every order. About ${HOLD_DAYS} days after delivery it moves into your wallet automatically.`], [Banknote, 'Withdraw', `Request a payout of ${formatPKR(MIN_PAYOUT)} or more to JazzCash, Easypaisa or bank.`]].map(([Icon, t, d], n) => (
               <li key={t} className="card flex gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold/10 text-gold"><Icon size={20} /></span><span><b className="block">{n + 1}. {t}</b><span className="text-dim">{d}</span></span></li>
             ))}
           </ol>

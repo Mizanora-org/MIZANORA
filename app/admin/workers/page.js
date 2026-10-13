@@ -1,10 +1,10 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore';
-import { CheckCircle2, Eye, Pause, Wallet, XCircle } from 'lucide-react';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { CheckCircle2, Download, Eye, Pause, Wallet, XCircle } from 'lucide-react';
 import { dbClient } from '@/lib/firebase-client';
 import { formatDate, formatPKR } from '@/lib/format';
-import { TIERS, deliveryRate, earnedTier, tierByKey } from '@/lib/workers';
+import { DEFAULT_SETTINGS, TIERS, deliveryRate, earnedTier, isAvailable, isHolding } from '@/lib/workers';
 
 const BADGE = { pending: 'bg-yellow-500/15 text-yellow-800', approved: 'bg-emerald-600/20 text-emerald-900', rejected: 'bg-red-500/15 text-red-700', suspended: 'bg-orange-500/15 text-orange-800' };
 
@@ -68,11 +68,68 @@ function Payouts({ list, reload }) {
     </div>))}</div>;
 }
 
+function Money({ label, value, tone }) {
+  return <div className="card !p-3"><p className="text-xs font-semibold text-dim">{label}</p><p className={`text-lg font-extrabold ${tone || 'text-gold'}`}>{formatPKR(value)}</p></div>;
+}
+
+function Payments({ comm, names }) {
+  const now = Date.now();
+  const st = (c) => (c.status === 'holding' && isAvailable(c, now) ? 'wallet' : c.status);
+  const sum = (k) => comm.filter((c) => st(c) === k).reduce((a, c) => a + (c.amount || 0), 0);
+  const csv = () => {
+    const rows = [['Date', 'Order', 'Worker', 'Code', 'City', 'Repeat', 'Amount', 'Status', 'Wallet release date']].concat(comm.map((c) => [new Date(c.createdAtMs).toISOString().slice(0, 10), c.orderId, names[c.workerId] || '', c.workerCode, c.city || '', c.repeat ? 'yes' : '', c.amount, st(c), c.releaseAtMs ? new Date(c.releaseAtMs).toISOString().slice(0, 10) : '']));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map((r) => r.map((x) => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n')], { type: 'text/csv' })); a.download = 'worker-commissions.csv'; a.click();
+  };
+  const label = { pending: 'Waiting delivery', holding: 'Releasing', wallet: 'In wallet', requested: 'Payout requested', paid: 'Paid', cancelled: 'Cancelled' };
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Money label="Waiting delivery" value={sum('pending')} tone="text-yellow-700" />
+        <Money label="Releasing (hold)" value={sum('holding')} tone="text-sky-700" />
+        <Money label="In workers' wallets" value={sum('wallet') + sum('approved')} />
+        <Money label="Payout requested" value={sum('requested')} tone="text-blue-700" />
+        <Money label="Paid total" value={sum('paid')} tone="text-green-700" />
+      </div>
+      <button type="button" className="btn-ghost !py-2 text-sm" onClick={csv}><Download size={15} /> Download CSV</button>
+      <div className="space-y-2">{comm.map((c) => (
+        <div key={c.id} className="card flex flex-wrap items-center justify-between gap-2 !p-3 text-sm">
+          <span><b>{c.orderId}</b>{c.repeat ? ' (repeat)' : ''}<br /><span className="text-dim">{names[c.workerId] || c.workerCode} · {c.city} · {formatDate(c.createdAtMs)}</span></span>
+          <span className="text-right"><b className="block text-gold">{formatPKR(c.amount)}</b><span className="text-xs text-dim">{label[st(c)] || c.status}{isHolding(c, now) ? ` · wallet ${formatDate(c.releaseAtMs)}` : ''}</span></span>
+        </div>))}
+        {!comm.length && <p className="card text-center text-dim">No commissions yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+function Settings() {
+  const [s, setS] = useState(DEFAULT_SETTINGS); const [msg, setMsg] = useState('');
+  useEffect(() => { getDoc(doc(dbClient(), 'workerSettings', 'main')).then((x) => x.exists() && setS({ ...DEFAULT_SETTINGS, ...x.data() })).catch(() => {}); }, []);
+  const save = async () => {
+    try { await setDoc(doc(dbClient(), 'workerSettings', 'main'), { programOn: s.programOn !== false, repeatCredit: Boolean(s.repeatCredit), repeatDays: Math.max(1, Number(s.repeatDays) || 365), holdDays: Math.max(0, Number(s.holdDays) >= 0 ? Number(s.holdDays) : 8) }); setMsg('Saved. New orders use it within a minute.'); }
+    catch (e) { setMsg(e.message); }
+  };
+  return (
+    <div className="card space-y-4 text-sm">
+      <label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={s.programOn !== false} onChange={(e) => setS({ ...s, programOn: e.target.checked })} /> <span><b>Commissions ON</b><br /><span className="text-dim">Turn off to pause all new commissions (links still work, shop is not affected).</span></span></label>
+      <label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={Boolean(s.repeatCredit)} onChange={(e) => setS({ ...s, repeatCredit: e.target.checked })} /> <span><b>Repeat customers earn the worker commission</b><br /><span className="text-dim">ON: a new customer who first orders through a worker's link stays that worker's; later orders from the same phone earn them commission, even without the link. OFF: only orders placed through the link count. Existing customers who already ordered before are never taken over.</span></span></label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className="label" htmlFor="rd">Repeat window (days)</label><input id="rd" className="input" inputMode="numeric" value={s.repeatDays} onChange={(e) => setS({ ...s, repeatDays: e.target.value.replace(/\D/g, '') })} /></div>
+        <div><label className="label" htmlFor="hd">Hold after delivery (days)</label><input id="hd" className="input" inputMode="numeric" value={s.holdDays} onChange={(e) => setS({ ...s, holdDays: e.target.value.replace(/\D/g, '') })} /></div>
+      </div>
+      <p className="text-xs text-dim">Hold days = the return window. After the hold the money moves into the worker's wallet by itself. Keep it a little longer than your real return time.</p>
+      <button type="button" className="btn-gold w-full" onClick={save}>Save settings</button>
+      {msg && <p role="status" className="font-semibold text-gold">{msg}</p>}
+    </div>
+  );
+}
+
 export default function AdminWorkers() {
-  const [list, setList] = useState(null); const [pay, setPay] = useState([]); const [tab, setTab] = useState('pending'); const [err, setErr] = useState('');
+  const [list, setList] = useState(null); const [pay, setPay] = useState([]); const [comm, setComm] = useState([]); const [tab, setTab] = useState('pending'); const [err, setErr] = useState('');
   const load = useCallback(async () => {
     try {
-      const [a, b] = await Promise.all([getDocs(query(collection(dbClient(), 'workers'), limit(300))), getDocs(query(collection(dbClient(), 'payouts'), orderBy('requestedAtMs', 'desc'), limit(100)))]);
+      const [a, b, c] = await Promise.all([getDocs(query(collection(dbClient(), 'workers'), limit(300))), getDocs(query(collection(dbClient(), 'payouts'), orderBy('requestedAtMs', 'desc'), limit(100))), getDocs(query(collection(dbClient(), 'commissions'), orderBy('createdAtMs', 'desc'), limit(300)))]);
+      setComm(c.docs.map((d) => ({ id: d.id, ...d.data() })));
       setList(a.docs.map((d) => ({ id: d.id, ...d.data() })).sort((x, y) => (y.appliedAtMs || 0) - (x.appliedAtMs || 0)));
       setPay(b.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) { setList([]); setErr(e.code === 'permission-denied' ? 'Publish the updated firestore.rules first (it adds the worker program).' : e.message); }
@@ -86,9 +143,11 @@ export default function AdminWorkers() {
       {err && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{err}</p>}
       <div className="no-sb flex gap-2 overflow-x-auto">
         {[['pending', 'Waiting'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['suspended', 'Paused']].map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold ${tab === k ? 'bg-gold text-white' : 'border border-line bg-surface text-dim'}`}>{l} ({list.filter((w) => w.status === k).length})</button>)}
+        <button onClick={() => setTab('money')} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold ${tab === 'money' ? 'bg-gold text-white' : 'border border-line bg-surface text-dim'}`}>All payments</button>
+        <button onClick={() => setTab('settings')} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold ${tab === 'settings' ? 'bg-gold text-white' : 'border border-line bg-surface text-dim'}`}>Settings</button>
         <button onClick={() => setTab('payouts')} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold ${tab === 'payouts' ? 'bg-gold text-white' : 'border border-line bg-surface text-dim'}`}>Payouts ({open})</button>
       </div>
-      {tab === 'payouts' ? <Payouts list={pay} reload={load} /> : shown.length ? shown.map((w) => <Worker key={w.id} w={w} reload={load} />) : <p className="card text-center text-dim">Nothing here.</p>}
+      {tab === 'money' ? <Payments comm={comm} names={Object.fromEntries(list.map((w) => [w.id, w.name]))} /> : tab === 'settings' ? <Settings /> : tab === 'payouts' ? <Payouts list={pay} reload={load} /> : shown.length ? shown.map((w) => <Worker key={w.id} w={w} reload={load} />) : <p className="card text-center text-dim">Nothing here.</p>}
     </div>
   );
 }

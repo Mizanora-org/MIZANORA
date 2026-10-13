@@ -54,6 +54,8 @@ service cloud.firestore {
     match /workerKyc/{id}   { allow read, write: if isAdmin(); }
     match /workerCnic/{id}  { allow read, write: if false; }
     match /commissions/{id} { allow read: if isAdmin() || (request.auth != null && resource.data.workerId == request.auth.uid); allow write: if isAdmin(); }
+    // Program switches (hold days, repeat-customer credit). Signed-in users may read; only the admin changes them.
+    match /workerSettings/{id} { allow read: if request.auth != null; allow write: if isAdmin(); }
     match /payouts/{id}     { allow read: if isAdmin() || (request.auth != null && resource.data.workerId == request.auth.uid); allow write: if isAdmin(); }
 
     match /{document=**} { allow read, write: if false; }

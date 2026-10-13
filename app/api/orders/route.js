@@ -10,6 +10,7 @@ import { optionsOf, validVariant } from '@/lib/options';
 import { getAuth } from 'firebase-admin/auth';
 import { adminApp } from '@/lib/firebase-admin';
 import { findWorkerByCode } from '@/lib/workerAuth';
+import { getWorkerSettings } from '@/lib/workerSettings';
 import { cleanWorkerCode, effectiveTier, lineEarning, MAX_MARKUP_PCT } from '@/lib/workers';
 
 export const runtime = 'nodejs';
@@ -52,7 +53,10 @@ export async function POST(req) {
     // Worker link (?ref=CODE): the worker is looked up here, never trusted from the browser.
     let worker = null;
     try { worker = await findWorkerByCode(db, cleanWorkerCode(body.ref)); } catch (e) { console.error('worker lookup failed', e.message); }
+    const settings = await getWorkerSettings(db);
+    if (!settings.programOn) worker = null;
     const wTier = worker ? effectiveTier(worker) : null;
+    const affMeta = {}; // per-product affiliate switch set by the admin (kept off the order document)
 
     // Prices come from the database, never from the browser.
     const items = [];
@@ -65,6 +69,7 @@ export async function POST(req) {
       const size = String(r.size || '');
       if (!validVariant(optionsOf(p), size)) return fail(`Please choose the options (for example colour and size) for ${p.name} again.`);
       const shopPrice = Number(p.price) || 0;
+      affMeta[String(r.id)] = { affOn: p.affOn !== false, affRate: Number(p.affRate) || 0 };
       // An Elite worker's own profit per piece (capped), added to the price only for customers who came through that worker's link.
       const markup = wTier && wTier.custom ? Math.max(0, Math.min(Math.floor(Number(worker.markups && worker.markups[String(r.id)]) || 0), Math.floor((shopPrice * MAX_MARKUP_PCT) / 100))) : 0;
       items.push({ id: String(r.id), slug: String(r.id), name: p.name, price: shopPrice + markup, shopPrice, markup, qty, size, image: (p.images && p.images[0]) || '' });
@@ -87,19 +92,44 @@ export async function POST(req) {
     }
     const total = subtotal - discount + shipping;
 
-    // Worker commission. Not paid when: a promo code is used (no stacking), the worker orders for themselves, or the phone is the worker's own.
-    let commission = null;
-    if (worker && !couponCode && worker.uid !== uid && !(phoneInfo && worker.phone === phoneInfo.local)) {
-      const lines = items.map((i) => ({ id: i.id, name: i.name, qty: i.qty, ...lineEarning(wTier, i.shopPrice, i.qty, i.markup) }));
-      const amount = lines.reduce((s, l) => s + l.total, 0);
-      if (amount > 0) commission = { amount, lines, rate: wTier.rate, tier: wTier.key };
+    // Who earns on this order?
+    //  1) the worker whose link the customer used, or
+    //  2) (only if the admin switched "repeat customers" ON) the worker whose link this customer first came through, within the repeat window.
+    // Never paid when: a promo code is used (no stacking), the worker orders for themselves, or the phone is the worker's own.
+    const phoneKey = phoneInfo ? phoneInfo.local : '';
+    let owner = worker, repeat = false, newBinding = false;
+    if (settings.programOn) {
+      if (!owner && settings.repeatCredit && phoneKey) {
+        try {
+          const b = await db.collection('workerCustomers').doc(phoneKey).get();
+          if (b.exists && Date.now() - (b.data().atMs || 0) <= settings.repeatDays * 864e5) {
+            const ws = await db.collection('workers').doc(b.data().workerId).get();
+            if (ws.exists && ws.data().status === 'approved') { owner = { id: ws.id, ...ws.data() }; repeat = true; }
+          }
+        } catch (e) { console.error('repeat lookup failed', e.message); }
+      }
+      if (worker && phoneKey) {
+        try {
+          const b = await db.collection('workerCustomers').doc(phoneKey).get();
+          // A brand-new customer (no earlier order with this phone) who came through a link now belongs to that worker.
+          if (!b.exists) newBinding = (await db.collection('orders').where('customer.phone', '==', clean.phone).limit(1).get()).empty;
+        } catch (e) { console.error('binding check failed', e.message); }
+      }
     }
+    const oTier = owner ? effectiveTier(owner) : null;
+    let commission = null;
+    if (owner && oTier && !couponCode && owner.uid !== uid && !(phoneInfo && owner.phone === phoneInfo.local)) {
+      const lines = items.map((i) => ({ id: i.id, name: i.name, qty: i.qty, ...lineEarning(oTier, i.shopPrice, i.qty, repeat ? 0 : i.markup, affMeta[i.id]) }));
+      const amount = lines.reduce((s, l) => s + l.total, 0);
+      if (amount > 0) commission = { amount, lines, rate: oTier.rate, tier: oTier.key, repeat };
+    }
+    const earner = commission ? owner : null;
 
     const now = Date.now();
     const base = {
       status: 'Pending', customer: clean, items, subtotal, discount, couponCode, couponOwner, couponBase, couponLines, couponTracked: Boolean(couponCode), shipping, total, paymentMethod: 'COD', uid, email,
       createdAt: FieldValue.serverTimestamp(), createdAtMs: now, trackingId: '',
-      workerId: commission ? worker.id : '', workerCode: commission ? worker.code : '', workerCommission: commission ? commission.amount : 0,
+      workerId: earner ? earner.id : '', workerCode: earner ? earner.code : '', workerCommission: commission ? commission.amount : 0,
     };
 
     let orderId = '';
@@ -114,10 +144,11 @@ export async function POST(req) {
       try {
         const batch = db.batch();
         batch.set(db.collection('commissions').doc(orderId), {
-          orderId, workerId: worker.id, workerCode: worker.code, amount: commission.amount, rate: commission.rate, tier: commission.tier,
+          orderId, workerId: earner.id, workerCode: earner.code, repeat: commission.repeat, amount: commission.amount, rate: commission.rate, tier: commission.tier,
           lines: commission.lines, city: clean.city, status: 'pending', createdAtMs: now,
         });
-        batch.set(db.collection('workers').doc(worker.id), { stats: { orders: FieldValue.increment(1) } }, { merge: true });
+        batch.set(db.collection('workers').doc(earner.id), { stats: { orders: FieldValue.increment(1), ...(commission.repeat ? { repeatOrders: FieldValue.increment(1) } : {}) } }, { merge: true });
+        if (newBinding && worker && worker.id === earner.id && phoneKey) batch.set(db.collection('workerCustomers').doc(phoneKey), { workerId: worker.id, workerCode: worker.code, firstOrderId: orderId, atMs: now });
         await batch.commit();
       } catch (e) { console.error('commission failed', e.message); }
     }

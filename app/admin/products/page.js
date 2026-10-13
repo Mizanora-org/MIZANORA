@@ -11,7 +11,7 @@ import { parseVideo } from '@/lib/video';
 import { readCache, writeCache, revalidateSite } from '@/lib/admin-cache';
 import { optionsOf, optionsToText, templateFor, textToOptions, textToSpecs } from '@/lib/options';
 
-const EMPTY = { name: '', slug: '', price: '', comparePrice: '', category: '', description: '', images: '', videos: '', options: '', specs: '', inStock: true, featured: false, active: true };
+const EMPTY = { name: '', slug: '', price: '', comparePrice: '', category: '', description: '', images: '', videos: '', options: '', specs: '', inStock: true, featured: false, active: true, affOn: true, affRate: '' };
 const SAMPLE = {
   name: 'Tactical Boots', slug: 'tactical-boots', price: 3500, comparePrice: 0, category: 'Footwear',
   description: 'Lace-up, side-zip tactical boots in sand colour for work, hiking and everyday wear.\n\nEdit this text, the price and the photos in the admin panel.',
@@ -63,6 +63,7 @@ export default function AdminProducts() {
         name: data.name.trim(), price, comparePrice: Number(data.comparePrice) || 0, category: splitCats(data.category)[0] || '', categories: splitCats(data.category),
         description: (data.description || '').trim(), images: toArr(data.images), videos: toArr(data.videos), options: textToOptions(data.options), sizes: [], specs: textToSpecs(data.specs),
         inStock: Boolean(data.inStock), featured: Boolean(data.featured), active: Boolean(data.active),
+        affOn: data.affOn !== false, affRate: Math.min(50, Math.max(0, Number(data.affRate) || 0)),
         createdAt: existing ? existing.createdAt || now : now, updatedAt: now,
       };
       await setDoc(doc(dbClient(), 'products', slug), payload);
@@ -231,6 +232,15 @@ export default function AdminProducts() {
           {[['inStock', 'In stock'], ['featured', 'Featured on home'], ['active', 'Visible']].map(([k, l]) => (
             <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={Boolean(form[k])} onChange={set(k)} className="h-4 w-4 accent-[#0B6B45]" /> {l}</label>
           ))}
+        </div>
+        <div className="rounded-xl bg-raised p-3 text-sm">
+          <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={form.affOn !== false} onChange={set('affOn')} className="h-4 w-4 accent-[#0B6B45]" /> Workers can earn commission on this product</label>
+          {form.affOn !== false && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label htmlFor="afr" className="text-dim">Max commission % for this product (blank = worker's level rate, 10% to 50%)</label>
+              <input id="afr" className="input !w-24 !py-2" inputMode="numeric" value={form.affRate} onChange={(e) => setForm((f) => ({ ...f, affRate: e.target.value.replace(/\D/g, '').slice(0, 2) }))} placeholder="e.g. 15" />
+            </div>
+          )}
         </div>
         {editing && form.slug ? <ProductPromo slug={form.slug} name={form.name} /> : <p className="rounded-xl bg-raised p-2.5 text-xs text-dim">Save the product first, then edit it to add promo codes for this product.</p>}
         <button className="btn-gold w-full" disabled={busy}>{busy ? 'Saving...' : 'Save product'}</button>

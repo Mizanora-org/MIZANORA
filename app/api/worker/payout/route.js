@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { verifyWorker } from '@/lib/workerAuth';
-import { MIN_PAYOUT } from '@/lib/workers';
+import { MIN_PAYOUT, isAvailable } from '@/lib/workers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,8 +14,9 @@ export async function POST(req) {
   const db = adminDb();
   const open = await db.collection('payouts').where('workerId', '==', a.uid).where('status', '==', 'requested').limit(1).get();
   if (!open.empty) return json({ ok: false, error: 'You already have a payout request waiting. We will pay it soon.' }, 409);
-  const q = await db.collection('commissions').where('workerId', '==', a.uid).where('status', '==', 'approved').get();
-  const docs = q.docs.slice(0, 400);
+  const q = await db.collection('commissions').where('workerId', '==', a.uid).where('status', 'in', ['approved', 'holding']).get();
+  const now = Date.now();
+  const docs = q.docs.filter((d) => isAvailable(d.data(), now)).slice(0, 400);
   const amount = docs.reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
   if (amount < MIN_PAYOUT) return json({ ok: false, error: `Minimum payout is Rs. ${MIN_PAYOUT}. You have Rs. ${amount} ready.` }, 400);
   const ref = db.collection('payouts').doc();
