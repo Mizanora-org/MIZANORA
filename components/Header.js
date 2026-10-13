@@ -54,7 +54,7 @@ export default function Header({ categories = [] }) {
 
       {open && (
         <nav className="max-h-[70vh] overflow-y-auto bg-white px-4 pb-4 text-cream md:hidden" aria-label="Mobile">
-          {[['/products', 'All products'], ...categories.map((c) => [`/category/${c.slug}`, c.name]), ['/account', 'My account and orders'], ['/wishlist', 'Wishlist'], ['/track', 'Track order'], ['/reels', 'Reels: watch and shop'], ['/blog', 'Shopping blog'], ['/how-to-order', 'How to order'], ['/about', 'About'], ['/contact', 'Support']].map(([href, label]) => (
+          {[['/products', 'All products'], ...categories.map((c) => [`/category/${c.slug}`, c.name]), ['/account', 'My account and orders'], ['/workers', 'Earn: Worker program'], ['/wishlist', 'Wishlist'], ['/track', 'Track order'], ['/reels', 'Reels: watch and shop'], ['/blog', 'Shopping blog'], ['/how-to-order', 'How to order'], ['/about', 'About'], ['/contact', 'Support']].map(([href, label]) => (
             <Link key={href} href={href} onClick={() => setOpen(false)} className="block border-b border-line py-3.5 text-base">{label}</Link>
           ))}
           <div className="pt-4"><InstallButton full /></div>

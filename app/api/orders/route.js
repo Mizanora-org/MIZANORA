@@ -9,6 +9,8 @@ import { priceCoupon } from '@/lib/coupons';
 import { optionsOf, validVariant } from '@/lib/options';
 import { getAuth } from 'firebase-admin/auth';
 import { adminApp } from '@/lib/firebase-admin';
+import { findWorkerByCode } from '@/lib/workerAuth';
+import { cleanWorkerCode, effectiveTier, lineEarning, MAX_MARKUP_PCT } from '@/lib/workers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,6 +49,11 @@ export async function POST(req) {
     const snaps = await db.getAll(...ids.map((id) => db.collection('products').doc(id)));
     const byId = Object.fromEntries(snaps.filter((s) => s.exists).map((s) => [s.id, s.data()]));
 
+    // Worker link (?ref=CODE): the worker is looked up here, never trusted from the browser.
+    let worker = null;
+    try { worker = await findWorkerByCode(db, cleanWorkerCode(body.ref)); } catch (e) { console.error('worker lookup failed', e.message); }
+    const wTier = worker ? effectiveTier(worker) : null;
+
     // Prices come from the database, never from the browser.
     const items = [];
     for (const r of rawItems) {
@@ -57,7 +64,10 @@ export async function POST(req) {
       if (!(qty >= 1 && qty <= 10)) return fail('Invalid quantity.');
       const size = String(r.size || '');
       if (!validVariant(optionsOf(p), size)) return fail(`Please choose the options (for example colour and size) for ${p.name} again.`);
-      items.push({ id: String(r.id), slug: String(r.id), name: p.name, price: Number(p.price) || 0, qty, size, image: (p.images && p.images[0]) || '' });
+      const shopPrice = Number(p.price) || 0;
+      // An Elite worker's own profit per piece (capped), added to the price only for customers who came through that worker's link.
+      const markup = wTier && wTier.custom ? Math.max(0, Math.min(Math.floor(Number(worker.markups && worker.markups[String(r.id)]) || 0), Math.floor((shopPrice * MAX_MARKUP_PCT) / 100))) : 0;
+      items.push({ id: String(r.id), slug: String(r.id), name: p.name, price: shopPrice + markup, shopPrice, markup, qty, size, image: (p.images && p.images[0]) || '' });
     }
     const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
     const shipping = shippingFor(subtotal);
@@ -77,10 +87,19 @@ export async function POST(req) {
     }
     const total = subtotal - discount + shipping;
 
+    // Worker commission. Not paid when: a promo code is used (no stacking), the worker orders for themselves, or the phone is the worker's own.
+    let commission = null;
+    if (worker && !couponCode && worker.uid !== uid && !(phoneInfo && worker.phone === phoneInfo.local)) {
+      const lines = items.map((i) => ({ id: i.id, name: i.name, qty: i.qty, ...lineEarning(wTier, i.shopPrice, i.qty, i.markup) }));
+      const amount = lines.reduce((s, l) => s + l.total, 0);
+      if (amount > 0) commission = { amount, lines, rate: wTier.rate, tier: wTier.key };
+    }
+
     const now = Date.now();
     const base = {
       status: 'Pending', customer: clean, items, subtotal, discount, couponCode, couponOwner, couponBase, couponLines, couponTracked: Boolean(couponCode), shipping, total, paymentMethod: 'COD', uid, email,
       createdAt: FieldValue.serverTimestamp(), createdAtMs: now, trackingId: '',
+      workerId: commission ? worker.id : '', workerCode: commission ? worker.code : '', workerCommission: commission ? commission.amount : 0,
     };
 
     let orderId = '';
@@ -91,6 +110,17 @@ export async function POST(req) {
     }
 
     countOrder(ip);
+    if (commission) {
+      try {
+        const batch = db.batch();
+        batch.set(db.collection('commissions').doc(orderId), {
+          orderId, workerId: worker.id, workerCode: worker.code, amount: commission.amount, rate: commission.rate, tier: commission.tier,
+          lines: commission.lines, city: clean.city, status: 'pending', createdAtMs: now,
+        });
+        batch.set(db.collection('workers').doc(worker.id), { stats: { orders: FieldValue.increment(1) } }, { merge: true });
+        await batch.commit();
+      } catch (e) { console.error('commission failed', e.message); }
+    }
     // Promo code bookkeeping (best effort, never blocks the order): how many orders, sales, discount given and per-product sales.
     if (couponCode) {
       try {

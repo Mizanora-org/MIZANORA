@@ -246,7 +246,7 @@ export default function AccountClient() {
       </div>
     );
   }
-  const tabs = [['orders', 'My orders', Package], ['addresses', 'Saved addresses', MapPin], ['profile', 'Profile', UserRound]];
+  const tabs = [['orders', 'My orders', Package], ['addresses', 'Saved addresses', MapPin], ['worker', 'Earn with us', BadgePercent], ['profile', 'Profile', UserRound]];
   return (
     <div>
       <div className="no-sb mb-5 flex gap-2 overflow-x-auto" role="tablist">
@@ -254,6 +254,13 @@ export default function AccountClient() {
       </div>
       {tab === 'orders' && <Orders user={user} />}
       {tab === 'addresses' && <Addresses user={user} />}
+      {tab === 'worker' && (
+        <div className="card space-y-3">
+          <p className="text-lg font-bold">Mizanora Worker Program</p>
+          <p className="text-sm text-dim">Share products with your own link and earn 10% to 50% commission on delivered orders. Free to join: you need your CNIC and a phone.</p>
+          <div className="flex flex-wrap gap-3"><Link href="/worker" className="btn-gold !py-2.5">Open worker dashboard / apply</Link><Link href="/workers" className="btn-ghost !py-2.5">How it works</Link></div>
+        </div>
+      )}
       {tab === 'profile' && (
         <div className="card space-y-3">
           <p className="text-lg font-bold">{user.displayName || 'Mizanora customer'}</p>

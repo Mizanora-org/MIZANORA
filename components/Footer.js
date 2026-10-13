@@ -24,7 +24,7 @@ export default function Footer({ categories = [] }) {
           </div>
         </div>
         <FooterCol title="Shop" links={[['/products', 'All products'], ...categories.slice(0, 5).map((c) => [`/category/${c.slug}`, c.name]), ['/cart', 'Cart']]} />
-        <FooterCol title="Help" links={[['/reels', 'Reels'], ['/account', 'My account'], ['/track', 'Track order'], ['/wishlist', 'Wishlist'], ['/how-to-order', 'How to order'], ['/faq', 'FAQ'], ['/returns', 'Returns'], ['/contact', 'Contact support'], ['/connect', 'Official accounts']]} />
+        <FooterCol title="Help" links={[['/workers', 'Earn with Mizanora'], ['/reels', 'Reels'], ['/account', 'My account'], ['/track', 'Track order'], ['/wishlist', 'Wishlist'], ['/how-to-order', 'How to order'], ['/faq', 'FAQ'], ['/returns', 'Returns'], ['/contact', 'Contact support'], ['/connect', 'Official accounts']]} />
         <FooterCol title="Company" links={[['/about', 'About us'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
       </div>
       <p className="mx-auto mt-8 max-w-7xl border-t border-line px-4 pt-5 text-xs text-faint">© {new Date().getFullYear()} Mizanora, {SITE.city}.</p>

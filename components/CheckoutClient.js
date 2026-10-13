@@ -14,6 +14,7 @@ import { CITIES, CITY_PROVINCE, PROVINCES } from '@/lib/constants';
 import { validateCustomer } from '@/lib/validate';
 import { formatPKR } from '@/lib/format';
 import { initiateCheckout, getCookie } from '@/lib/metaPixel';
+import { getRef } from '@/lib/refClient';
 
 const EMPTY = { name: '', phone: '', address: '', landmark: '', city: '', cityOther: '', province: '', notes: '', website: '' };
 
@@ -135,6 +136,7 @@ export default function CheckoutClient() {
         headers,
         body: JSON.stringify({
           coupon: coupon ? coupon.code : '',
+          ref: getRef(),
           customer: clean,
           items: items.map((i) => ({ id: i.id, size: i.size || '', qty: i.qty })),
           website: form.website, // honeypot: real people leave it empty

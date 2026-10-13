@@ -47,6 +47,15 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ---- Worker (affiliate) program ----
+    // The server (Admin SDK) creates worker applications, commissions and payout requests. A worker can read ONLY their own.
+    match /workers/{id}     { allow read: if isAdmin() || (request.auth != null && request.auth.uid == id); allow write: if isAdmin(); }
+    // CNIC number and photos: the admin only. Workers cannot read them back.
+    match /workerKyc/{id}   { allow read, write: if isAdmin(); }
+    match /workerCnic/{id}  { allow read, write: if false; }
+    match /commissions/{id} { allow read: if isAdmin() || (request.auth != null && resource.data.workerId == request.auth.uid); allow write: if isAdmin(); }
+    match /payouts/{id}     { allow read: if isAdmin() || (request.auth != null && resource.data.workerId == request.auth.uid); allow write: if isAdmin(); }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

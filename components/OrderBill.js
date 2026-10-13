@@ -2,14 +2,14 @@
 import { Printer } from 'lucide-react';
 import { formatDate, formatPKR } from '@/lib/format';
 
-const STEPS = ['Pending', 'Verified', 'Dispatched'];
+const STEPS = ['Pending', 'Verified', 'Dispatched', 'Delivered'];
 
 // A full bill: items, quantities, line totals, discount, delivery and the amount to pay on delivery.
 export default function OrderBill({ order, showTimeline = true, printable = true }) {
   const subtotal = order.subtotal ?? order.items.reduce((s, i) => s + i.price * i.qty, 0);
   const discount = Number(order.discount) || 0;
   const step = STEPS.indexOf(order.status);
-  const cancelled = order.status === 'Cancelled';
+  const cancelled = order.status === 'Cancelled' || order.status === 'Returned';
   const c = order.customer || {};
   return (
     <div className="card" id="bill">

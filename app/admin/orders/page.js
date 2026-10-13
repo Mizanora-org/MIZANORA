@@ -13,6 +13,8 @@ const STATUS_STYLE = {
   Pending: 'bg-yellow-500/15 text-yellow-800',
   Verified: 'bg-blue-500/15 text-blue-800',
   Dispatched: 'bg-green-500/15 text-green-800',
+  Delivered: 'bg-emerald-600/20 text-emerald-900',
+  Returned: 'bg-orange-500/15 text-orange-800',
   Cancelled: 'bg-red-500/15 text-red-700',
 };
 

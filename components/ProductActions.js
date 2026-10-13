@@ -9,6 +9,7 @@ import { waLink } from '@/lib/config';
 import { formatPKR } from '@/lib/format';
 import { WhatsAppIcon } from './Icons';
 import InstallButton from './InstallButton';
+import { useRefMarkup } from '@/lib/refClient';
 import { colorHex, isColorOption, variantLabel } from '@/lib/options';
 
 export default function ProductActions({ product }) {
@@ -19,6 +20,7 @@ export default function ProductActions({ product }) {
   const [err, setErr] = useState('');
   const [added, setAdded] = useState(false);
   const opts = product.options || [];
+  const mk = useRefMarkup(product.id);
 
   const ok = () => {
     const missing = opts.find((o) => !sel[o.name]);
@@ -76,6 +78,7 @@ export default function ProductActions({ product }) {
         </div>
       </div>
 
+      {mk > 0 && <p className="mt-3 rounded-xl bg-gold/10 p-2.5 text-sm font-semibold text-gold">Your price through this seller link: {formatPKR(product.price + mk)}</p>}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <button type="button" className="btn-gold" onClick={buyNow}><Zap size={18} /> Buy now, pay on delivery</button>
         <button type="button" className="btn-ghost" onClick={() => { if (ok()) { put(); setAdded(true); } }}><ShoppingBag size={18} /> Add to cart</button>
@@ -95,7 +98,7 @@ export default function ProductActions({ product }) {
       {/* Phone only: sticky buy bar, like big marketplaces */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-ink/95 px-3 py-2.5 backdrop-blur md:hidden">
         <div className="min-w-0">
-          <p className="text-lg font-bold leading-tight text-gold">{formatPKR(product.price * qty)}</p>
+          <p className="text-lg font-bold leading-tight text-gold">{formatPKR((product.price + mk) * qty)}</p>
           <p className="text-[0.7rem] text-dim">Cash on delivery</p>
         </div>
         <button type="button" onClick={buyNow} className="btn-gold ml-auto !px-6 !py-3"><Zap size={18} /> Buy now</button>

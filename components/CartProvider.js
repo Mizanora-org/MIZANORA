@@ -1,4 +1,5 @@
 'use client';
+import { getMarkup } from '@/lib/refClient';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const Ctx = createContext(null);
@@ -29,7 +30,7 @@ export function CartProvider({ children }) {
       const key = `${p.id}|${size}`;
       const found = cur.find((i) => i.key === key);
       if (found) return cur.map((i) => (i.key === key ? { ...i, qty: Math.min(10, i.qty + qty) } : i));
-      return [...cur, { key, id: p.id, slug: p.slug || p.id, name: p.name, price: p.price, image: (p.images && p.images[0]) || p.image || '', size, qty: Math.min(10, qty) }];
+      return [...cur, { key, id: p.id, slug: p.slug || p.id, name: p.name, price: p.price + getMarkup(p.id), image: (p.images && p.images[0]) || p.image || '', size, qty: Math.min(10, qty) }];
     });
   }, []);
   const setQty = useCallback((key, qty) => {
