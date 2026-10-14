@@ -1,41 +1,34 @@
-import { getProducts, buildCategories } from '@/lib/products';
-import { getPosts } from '@/lib/blog';
+import { getCategories } from '@/lib/products';
 import { SITE, absUrl } from '@/lib/config';
+import { PAY_METHODS, PREPAID_PERCENT } from '@/lib/payments';
 
 export const revalidate = 3600;
 
-// llms.txt: a plain-text summary of the shop for AI assistants and AI search (Google AI Overviews, ChatGPT, Gemini, Perplexity ...).
+// llms.txt: a plain-text guide that tells AI assistants what this store sells and where the clean data is.
 export async function GET() {
-  const [products, posts] = [await getProducts(), getPosts()];
-  const cats = buildCategories(products);
-  const lines = [
-    `# ${SITE.name}`,
-    `> ${SITE.description}`,
-    '',
-    `${SITE.name} is an online market in Pakistan (based in ${SITE.city}). Payment is cash on delivery across Pakistan. Prices are in Pakistani rupees (PKR). Support is on WhatsApp; orders are placed on the website.`,
-    '',
-    '## Main pages',
-    `- [All products](${absUrl('/products')})`,
-    `- [Reels: watch and shop](${absUrl('/reels')})`,
-    `- [How to order](${absUrl('/how-to-order')})`,
-    `- [Track an order](${absUrl('/track')})`,
-    `- [Returns](${absUrl('/returns')})`,
-    `- [FAQ](${absUrl('/faq')})`,
-    `- [Contact](${absUrl('/contact')})`,
-    '',
-    '## Categories',
-    ...cats.map((c) => `- [${c.name}](${absUrl(`/category/${c.slug}`)}) (${c.count} products)`),
-    '',
-    '## Products',
-    ...products.slice(0, 80).map((p) => `- [${p.name}](${absUrl(`/product/${p.slug}`)}): PKR ${p.price}${p.category ? `, ${p.category}` : ''}${p.inStock ? '' : ', out of stock'}`),
-    '',
-    '## Shopping guides',
-    ...posts.slice(0, 30).map((p) => `- [${p.title}](${absUrl(`/blog/${p.slug}`)}): ${p.description}`),
-    '',
-    '## Product feeds',
-    `- Google Merchant Center feed: ${absUrl('/api/feed/google')}`,
-    `- Meta catalog feed: ${absUrl('/api/feed')}`,
-    '',
-  ];
-  return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, s-maxage=3600' } });
+  const cats = await getCategories();
+  const pay = PAY_METHODS.map((m) => m.label).join(', ');
+  const text = `# ${SITE.name}
+> ${SITE.description}
+
+Pakistani online store. Prices are in PKR. Delivery across Pakistan (about 2-7 days). Payment: ${pay}.${PREPAID_PERCENT ? ` ${PREPAID_PERCENT}% off when paying before delivery.` : ''}
+Orders are confirmed by phone or message before dispatch. Support is on WhatsApp: https://wa.me/${SITE.whatsapp}
+
+## Machine-readable data
+- [Full product catalog (JSON)](${absUrl('/catalog.json')}): every active product with price, stock, options and images
+- [Google/Meta product feed (XML)](${absUrl('/api/feed')})
+- [Sitemap](${absUrl('/sitemap.xml')})
+
+## Shop
+- [All products](${absUrl('/products')}): search understands English, Roman Urdu and Urdu, for example "laal suit 2000 se kam"
+${cats.slice(0, 40).map((c) => `- [${c.name}](${absUrl(`/category/${c.slug}`)}): ${c.count} products`).join('\n')}
+
+## Policies
+- [Returns](${absUrl('/returns')})
+- [Terms](${absUrl('/terms')})
+- [Privacy](${absUrl('/privacy-policy')})
+- [FAQ](${absUrl('/faq')})
+- [How to order](${absUrl('/how-to-order')})
+`;
+  return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, s-maxage=3600' } });
 }

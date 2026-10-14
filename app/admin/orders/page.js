@@ -1,4 +1,5 @@
 'use client';
+import { payLabel } from '@/lib/payments';
 import { useEffect, useMemo, useState } from 'react';
 import { collection, doc, limit, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import { FileDown, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
@@ -20,7 +21,7 @@ const STATUS_STYLE = {
 
 function waMessage(o) {
   const items = o.items.map((i) => `${i.name}${i.size ? ` (${i.size})` : ''} x${i.qty}`).join(', ');
-  return `Assalam o Alaikum ${o.customer.name}, aap ne Mizanora se order ${o.orderId} kiya hai.\nItems: ${items}\nTotal (COD): ${formatPKR(o.total)}\nAddress: ${o.customer.address}, ${o.customer.city}\nKya aap order confirm karte hain? Shukriya.`;
+  return `Assalam o Alaikum ${o.customer.name}, aap ne Mizanora se order ${o.orderId} kiya hai.\nItems: ${items}\nTotal (${o.paymentMethod && o.paymentMethod !== 'COD' ? 'prepaid ' + payLabel(o.paymentMethod) : 'COD'}): ${formatPKR(o.total)}\nAddress: ${o.customer.address}, ${o.customer.city}\nKya aap order confirm karte hain? Shukriya.`;
 }
 
 export default function AdminOrders() {
@@ -123,7 +124,8 @@ export default function AdminOrders() {
                     <p className="mb-1 font-semibold text-cream">Items</p>
                     <ul className="space-y-1 text-dim">{o.items.map((i, n) => <li key={n}>{i.name}{i.size ? ` (${i.size})` : ''} x {i.qty} = {formatPKR(i.price * i.qty)}</li>)}</ul>
                     {o.couponCode && <p className="mt-1 text-dim">Promo <b className="text-cream">{o.couponCode}</b>{o.couponOwner ? ` (${o.couponOwner})` : ''}: discount {formatPKR(o.discount)}</p>}
-                    <p className="mt-1 text-dim">Delivery: {o.shipping > 0 ? formatPKR(o.shipping) : 'Free'} · <b className="text-cream">COD total {formatPKR(o.total)}</b></p>
+                    <p className="mt-1 text-dim">Delivery: {o.shipping > 0 ? formatPKR(o.shipping) : 'Free'} · <b className="text-cream">{o.paymentMethod && o.paymentMethod !== 'COD' ? 'PREPAID total' : 'COD total'} {formatPKR(o.total)}</b></p>
+                    {o.paymentMethod && o.paymentMethod !== 'COD' && <p className="mt-1 rounded-lg bg-saffron/20 px-2.5 py-1.5 text-xs font-bold text-[#7A4B00]">{payLabel(o.paymentMethod)} · TID {o.paymentRef || '-'} · check it in your wallet/bank app before dispatch{o.prepaidDiscount > 0 ? ` · prepaid discount ${formatPKR(o.prepaidDiscount)}` : ''}</p>}
                   </div>
                   <div className="rounded-xl bg-raised p-3 text-dim">
                     <p className="font-semibold text-cream">{o.customer?.name} · {o.customer?.phone}</p>

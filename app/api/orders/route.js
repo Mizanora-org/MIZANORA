@@ -11,6 +11,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { adminApp } from '@/lib/firebase-admin';
 import { findWorkerByCode } from '@/lib/workerAuth';
 import { getWorkerSettings } from '@/lib/workerSettings';
+import { PAY_METHODS, payMethod, prepaidOff, cleanPayRef } from '@/lib/payments';
 import { cleanWorkerCode, effectiveTier, lineEarning, MAX_MARKUP_PCT } from '@/lib/workers';
 
 export const runtime = 'nodejs';
@@ -90,7 +91,13 @@ export async function POST(req) {
       if (!r.ok) return fail(r.error);
       discount = r.discount; couponCode = r.code; couponOwner = r.owner; couponBase = r.base; couponLines = r.lines;
     }
-    const total = subtotal - discount + shipping;
+    // Payment method (cash on delivery, or a prepaid wallet / bank transfer that the admin switched on).
+    const pm = payMethod(body.payMethod || 'COD');
+    if (!pm) return fail('That payment method is not available. Please choose another one.');
+    const payRef = pm.prepaid ? cleanPayRef(body.payRef) : '';
+    if (pm.prepaid && !payRef) return fail('Please enter the transaction ID of your payment (at least 6 characters).');
+    const prepaidDiscount = prepaidOff(subtotal - discount, pm.id);
+    const total = subtotal - discount - prepaidDiscount + shipping;
 
     // Who earns on this order?
     //  1) the worker whose link the customer used, or
@@ -127,7 +134,7 @@ export async function POST(req) {
 
     const now = Date.now();
     const base = {
-      status: 'Pending', customer: clean, items, subtotal, discount, couponCode, couponOwner, couponBase, couponLines, couponTracked: Boolean(couponCode), shipping, total, paymentMethod: 'COD', uid, email,
+      status: 'Pending', customer: clean, items, subtotal, discount, couponCode, couponOwner, couponBase, couponLines, couponTracked: Boolean(couponCode), shipping, total, paymentMethod: pm.id, paymentRef: payRef, paymentStatus: pm.prepaid ? 'awaiting-verification' : 'cod', prepaidDiscount, uid, email,
       createdAt: FieldValue.serverTimestamp(), createdAtMs: now, trackingId: '',
       workerId: earner ? earner.id : '', workerCode: earner ? earner.code : '', workerCommission: commission ? commission.amount : 0,
     };
@@ -179,7 +186,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       ok: true,
-      order: { orderId, createdAtMs: now, status: 'Pending', customer: clean, items, subtotal, discount, couponCode, shipping, total },
+      order: { orderId, createdAtMs: now, status: 'Pending', customer: clean, items, subtotal, discount, couponCode, shipping, total, paymentMethod: pm.id, prepaidDiscount },
     });
   } catch (e) {
     console.error('order failed', e && e.message);

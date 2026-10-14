@@ -15,6 +15,7 @@ import { validateCustomer } from '@/lib/validate';
 import { formatPKR } from '@/lib/format';
 import { initiateCheckout, getCookie } from '@/lib/metaPixel';
 import { getRef } from '@/lib/refClient';
+import { PAY_METHODS, PREPAID_PERCENT, payMethod, prepaidOff, cleanPayRef } from '@/lib/payments';
 
 const EMPTY = { name: '', phone: '', address: '', landmark: '', city: '', cityOther: '', province: '', notes: '', website: '' };
 
@@ -34,12 +35,17 @@ export default function CheckoutClient() {
   const [code, setCode] = useState('');
   const [coupon, setCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState('');
+  const [pay, setPay] = useState('COD');
+  const [payRef, setPayRef] = useState('');
+  const [payErr, setPayErr] = useState('');
   const fired = useRef(false);
   const formRef = useRef(null);
 
   const shipping = items.length ? shippingFor(subtotal) : 0;
   const discount = coupon ? Math.min(coupon.discount, subtotal) : 0;
-  const total = subtotal - discount + shipping;
+  const prepaidDiscount = prepaidOff(subtotal - discount, pay);
+  const method = payMethod(pay) || PAY_METHODS[0];
+  const total = subtotal - discount - prepaidDiscount + shipping;
 
   // Returning customers: fill in the details they used last time (stored only on their own device).
   useEffect(() => {
@@ -119,6 +125,8 @@ export default function CheckoutClient() {
       if (first) first.focus();
       return;
     }
+    if (method.prepaid && !cleanPayRef(payRef)) { setPayErr('Enter the transaction ID of your payment (at least 6 characters).'); const el = document.getElementById('payref'); if (el) el.focus(); return; }
+    setPayErr('');
     setErrors({});
     setServerError('');
     setPending(clean); // show the review sheet; the order is only sent when the customer taps Place order
@@ -136,6 +144,7 @@ export default function CheckoutClient() {
         headers,
         body: JSON.stringify({
           coupon: coupon ? coupon.code : '',
+          payMethod: pay, payRef,
           ref: getRef(),
           customer: clean,
           items: items.map((i) => ({ id: i.id, size: i.size || '', qty: i.qty })),
@@ -249,6 +258,30 @@ export default function CheckoutClient() {
           <label htmlFor="notes" className="label">Order notes (optional)</label>
           <textarea id="notes" name="notes" rows={2} value={form.notes} onChange={set('notes')} className="input" placeholder="Anything we should know?" />
         </div>
+        {PAY_METHODS.length > 1 && (
+          <fieldset>
+            <legend className="label">Payment method</legend>
+            <div className="grid gap-2">
+              {PAY_METHODS.map((m) => (
+                <label key={m.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${pay === m.id ? 'border-gold bg-gold/5' : 'border-line bg-surface'}`}>
+                  <input type="radio" name="pay" value={m.id} checked={pay === m.id} onChange={() => { setPay(m.id); setPayErr(''); }} className="mt-1 h-4 w-4 accent-[#0B6B45]" />
+                  <span className="min-w-0 flex-1"><b className="block text-cream">{m.label}{m.prepaid && PREPAID_PERCENT > 0 ? <span className="ml-2 rounded-full bg-gold px-2 py-0.5 text-[0.65rem] font-bold text-white">{PREPAID_PERCENT}% OFF</span> : null}</b><span className="text-dim">{m.note}</span></span>
+                </label>
+              ))}
+            </div>
+            {method.prepaid && (
+              <div className="mt-3 rounded-xl border border-line bg-raised p-3 text-sm">
+                <p className="font-semibold text-cream">Send {formatPKR(total)} to this {method.label} account:</p>
+                <p className="mt-1 break-all text-lg font-extrabold text-gold">{method.acc.num}</p>
+                {(method.acc.title || method.acc.bank) && <p className="text-dim">{[method.acc.title, method.acc.bank].filter(Boolean).join(' · ')}</p>}
+                <label htmlFor="payref" className="label mt-3">Transaction ID (TID) after payment</label>
+                <input id="payref" className={`input ${payErr ? 'input-err' : ''}`} value={payRef} onChange={(e) => { setPayRef(e.target.value); setPayErr(''); }} placeholder="e.g. 12345678901" autoComplete="off" />
+                {payErr && <p className="field-err">{payErr}</p>}
+                <p className="mt-2 text-xs text-faint">We check your payment before dispatch. If it is not found, we will contact you.</p>
+              </div>
+            )}
+          </fieldset>
+        )}
         {/* Honeypot field for bots */}
         <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
           <label>Website<input tabIndex={-1} autoComplete="off" name="website" value={form.website} onChange={set('website')} /></label>
@@ -270,8 +303,9 @@ export default function CheckoutClient() {
           <dl className="mt-4 space-y-2 border-t border-line pt-3 text-sm">
             <div className="flex justify-between"><dt className="text-dim">Subtotal</dt><dd>{formatPKR(subtotal)}</dd></div>
             {discount > 0 && <div className="flex justify-between text-gold"><dt>Promo {coupon.code}</dt><dd>- {formatPKR(discount)}</dd></div>}
+            {prepaidDiscount > 0 && <div className="flex justify-between text-gold"><dt>Prepaid discount ({PREPAID_PERCENT}%)</dt><dd>- {formatPKR(prepaidDiscount)}</dd></div>}
             <div className="flex justify-between"><dt className="text-dim">Delivery</dt><dd>{shipping > 0 ? formatPKR(shipping) : 'Free'}</dd></div>
-            <div className="flex justify-between text-base font-bold"><dt>Pay on delivery</dt><dd className="text-gold">{formatPKR(total)}</dd></div>
+            <div className="flex justify-between text-base font-bold"><dt>{method.prepaid ? 'Pay now' : 'Pay on delivery'}</dt><dd className="text-gold">{formatPKR(total)}</dd></div>
           </dl>
           <div className="mt-4 border-t border-line pt-3">
             <label htmlFor="cpn" className="label flex items-center gap-1.5"><Tag size={15} /> Promo code</label>
@@ -289,7 +323,7 @@ export default function CheckoutClient() {
         <button type="submit" disabled={busy} className="btn-gold w-full !py-4 text-base">
           {busy ? <><Loader2 className="animate-spin" size={20} /> Placing order...</> : `Review and confirm · ${formatPKR(total)}`}
         </button>
-        <p className="text-center text-xs text-faint">Cash on delivery. We will confirm your order by phone or message before dispatch. WhatsApp is for support only.</p>
+        <p className="text-center text-xs text-faint">{method.prepaid ? method.label : 'Cash on delivery'}. We will confirm your order by phone or message before dispatch. WhatsApp is for support only.</p>
       </aside>
 
       {pending && (
@@ -297,7 +331,7 @@ export default function CheckoutClient() {
           <div className="mz-anim max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl" style={{ animation: 'mz-sheet .28s ease-out' }}>
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-line sm:hidden" />
             <h2 className="text-2xl font-extrabold">Confirm your order</h2>
-            <p className="text-sm text-dim">Please check everything once. You pay only when the parcel reaches you.</p>
+            <p className="text-sm text-dim">{method.prepaid ? 'Please check everything once. Your payment is verified before dispatch.' : 'Please check everything once. You pay only when the parcel reaches you.'}</p>
 
             <ul className="mt-4 space-y-2.5">
               {items.map((i) => (
@@ -320,15 +354,16 @@ export default function CheckoutClient() {
             <dl className="mt-4 space-y-1.5 text-sm">
               <div className="flex justify-between"><dt className="text-dim">Subtotal</dt><dd>{formatPKR(subtotal)}</dd></div>
               {discount > 0 && <div className="flex justify-between text-gold"><dt>Promo {coupon.code}</dt><dd>- {formatPKR(discount)}</dd></div>}
+              {prepaidDiscount > 0 && <div className="flex justify-between text-gold"><dt>Prepaid discount</dt><dd>- {formatPKR(prepaidDiscount)}</dd></div>}
               <div className="flex justify-between"><dt className="text-dim">Delivery</dt><dd>{shipping > 0 ? formatPKR(shipping) : 'Free'}</dd></div>
-              <div className="flex items-center justify-between border-t border-line pt-2.5 text-xl font-extrabold"><dt>Total to pay</dt><dd className="text-gold">{formatPKR(total)}</dd></div>
+              <div className="flex items-center justify-between border-t border-line pt-2.5 text-xl font-extrabold"><dt>{method.prepaid ? 'Paid by ' + method.label : 'Total to pay'}</dt><dd className="text-gold">{formatPKR(total)}</dd></div>
             </dl>
 
             <button type="button" onClick={place} disabled={busy} className="btn-gold mt-5 w-full !py-4 text-lg">
               {busy ? <><Loader2 className="animate-spin" size={20} /> Placing your order...</> : <><Lock size={18} /> Place order · {formatPKR(total)}</>}
             </button>
             <button type="button" onClick={() => setPending(null)} disabled={busy} className="mt-2 w-full py-2.5 text-sm font-semibold text-dim">Go back and edit</button>
-            <p className="mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-faint"><ShieldCheck size={14} /> Cash on delivery. Your details are used only for this delivery.</p>
+            <p className="mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-faint"><ShieldCheck size={14} /> {method.prepaid ? method.label : 'Cash on delivery'}. Your details are used only for this delivery.</p>
           </div>
         </div>
       )}

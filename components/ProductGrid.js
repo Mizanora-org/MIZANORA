@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import ProductCard from './ProductCard';
+import VoiceButton from './VoiceButton';
 import { search as trackSearch } from '@/lib/metaPixel';
 import { describeIntent, smartSearch } from '@/lib/search';
 import { aiIntent } from '@/lib/aiSearch';
@@ -63,6 +64,18 @@ export default function ProductGrid({ products }) {
     if (sort === 'az') r = [...r].sort((a, b) => a.name.localeCompare(b.name));
     return r;
   }, [view, sort, cat, inStock, onSale, min, max]);
+  // Draw 24 cards first and more as the shopper scrolls: a big catalogue no longer freezes weak phones.
+  const PAGE = 24;
+  const [shown, setShown] = useState(PAGE);
+  const sentinel = useRef(null);
+  useEffect(() => { setShown(PAGE); }, [list]);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || shown >= list.length || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver((e) => { if (e[0].isIntersecting) setShown((n) => n + PAGE); }, { rootMargin: '700px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown, list.length]);
   const clear = () => { setCat(''); setInStock(false); setOnSale(false); setMinP(''); setMaxP(''); };
 
   const pill = (on) => `shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${on ? 'border-gold bg-gold text-white' : 'border-line bg-surface text-dim hover:border-gold hover:text-gold'}`;
@@ -70,11 +83,14 @@ export default function ProductGrid({ products }) {
   return (
     <div>
       <div className="mb-3 flex flex-col gap-3 sm:flex-row">
-        <label className="relative flex-1">
-          <span className="sr-only">Search products</span>
-          <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Try: red suit under 2000, black joota, sasta watch" className="input !pl-10" type="search" />
-        </label>
+        <div className="relative flex-1">
+          <label>
+            <span className="sr-only">Search products</span>
+            <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Try: red suit under 2000, black joota, sasta watch" className="input !pl-10 !pr-24" type="search" />
+          </label>
+          <VoiceButton className="absolute right-1.5 top-1/2 -translate-y-1/2" onText={setQ} />
+        </div>
         <label>
           <span className="sr-only">Sort</span>
           <select value={sort} onChange={(e) => setSort(e.target.value)} className="input sm:w-52">
@@ -112,7 +128,12 @@ export default function ProductGrid({ products }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
-          {list.map((p, i) => <ProductCard key={p.id} p={p} priority={i < 4} />)}
+          {list.slice(0, shown).map((p, i) => <ProductCard key={p.id} p={p} priority={i < 4} />)}
+        </div>
+      )}
+      {list.length > shown && (
+        <div ref={sentinel} className="mt-6 text-center">
+          <button type="button" onClick={() => setShown((n) => n + PAGE)} className="btn-ghost !py-2.5 text-sm">Show more ({list.length - shown} left)</button>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 'use client';
+import { payLabel } from '@/lib/payments';
 import { Printer } from 'lucide-react';
 import { formatDate, formatPKR } from '@/lib/format';
 
@@ -17,7 +18,7 @@ export default function OrderBill({ order, showTimeline = true, printable = true
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-faint">Order bill</p>
           <h2 className="text-2xl font-extrabold">{order.orderId}</h2>
-          <p className="text-sm text-dim">{formatDate(order.createdAtMs)} · Cash on delivery</p>
+          <p className="text-sm text-dim">{formatDate(order.createdAtMs)} · {payLabel(order.paymentMethod)}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className={`rounded-full px-3 py-1 text-xs font-bold ${cancelled ? 'bg-red-100 text-red-700' : 'bg-gold/10 text-gold'}`}>{order.status || 'Pending'}</span>

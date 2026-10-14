@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -7,6 +7,7 @@ import { Clock, Search, X } from 'lucide-react';
 import { describeIntent, smartSearch } from '@/lib/search';
 import { aiIntent } from '@/lib/aiSearch';
 import { formatPKR } from '@/lib/format';
+import VoiceButton from './VoiceButton';
 
 // Search with live suggestions (loads the small product list the first time you tap the box).
 export default function SearchBox({ id, className = '', categories = [] }) {
@@ -36,7 +37,8 @@ export default function SearchBox({ id, className = '', categories = [] }) {
 
   const load = () => { if (!list) fetch('/api/search-index').then((r) => r.json()).then(setList).catch(() => setList([])); };
   const [ai, setAi] = useState(null);
-  const local = useMemo(() => (list ? smartSearch(list, q, { limit: 6 }) : { results: [], intent: {} }), [list, q]);
+  const dq = useDeferredValue(q); // typing stays instant even on slow phones; matching runs right after
+  const local = useMemo(() => (list ? smartSearch(list, dq, { limit: 6 }) : { results: [], intent: {} }), [list, dq]);
   // Nothing found? Ask the optional AI helper to rephrase the sentence (does nothing if no key is set).
   useEffect(() => {
     setAi(null);
@@ -56,6 +58,7 @@ export default function SearchBox({ id, className = '', categories = [] }) {
         <label htmlFor={id} className="sr-only">Search products</label>
         <input id={id} value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => { load(); setOpen(true); }} type="search" autoComplete="off" placeholder="Search for products, brands and more"
           className="min-w-0 flex-1 rounded-l-full border-0 bg-white px-4 py-2.5 text-sm text-cream placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-saffron" />
+        <VoiceButton className="bg-white pr-1" onText={(t) => { setQ(t); load(); setOpen(true); }} />
         <button type="submit" aria-label="Search" className="rounded-r-full bg-saffron px-4 text-[#2B1B00] hover:brightness-95"><Search size={19} /></button>
       </form>
       {open && (
