@@ -24,7 +24,7 @@
 |---|---|
 | NEXT_PUBLIC_SITE_URL | https://mizanora.vercel.app (later https://mizanora.store) |
 | NEXT_PUBLIC_WHATSAPP_NUMBER | 923062015326 |
-| NEXT_PUBLIC_SHIPPING_FEE | 0 (free delivery) or e.g. 250 |
+| NEXT_PUBLIC_SHIPPING_FEE | 250 (flat delivery charge for every order) |
 | NEXT_PUBLIC_FIREBASE_API_KEY / _AUTH_DOMAIN / _PROJECT_ID / _APP_ID | from step 1.7 |
 | NEXT_PUBLIC_ADMIN_EMAIL | your admin email(s), separated by commas, same as in the rules |
 | FIREBASE_CLIENT_EMAIL | `client_email` from the JSON |

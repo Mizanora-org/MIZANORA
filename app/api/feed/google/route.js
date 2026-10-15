@@ -1,10 +1,29 @@
 import { getProducts } from '@/lib/products';
-import { SITE, absUrl } from '@/lib/config';
+import { SITE, absUrl, shippingFor } from '@/lib/config';
 
 export const revalidate = 600;
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const money = (n) => `${Number(n).toFixed(2)} PKR`;
+
+// Google product category (Google's own taxonomy) from the product name first, then its shop category.
+const GCAT = [
+  [/watch/i, 'Apparel & Accessories > Jewelry > Watches'],
+  [/bag|handbag|clutch|purse/i, 'Apparel & Accessories > Handbags, Wallets & Cases > Handbags'],
+  [/shoe|boot|heel|slipper|sandal|sneaker|footwear/i, 'Apparel & Accessories > Shoes'],
+  [/suit|dress|kurta|kurti|jacket|shirt|trouser|fashion|abaya|scarf/i, 'Apparel & Accessories > Clothing'],
+  [/toy|kid|car for kids/i, 'Toys & Games'],
+  [/mobile|phone|charger|earbud|cable/i, 'Electronics > Electronics Accessories'],
+  [/electronic|gadget|speaker|headphone/i, 'Electronics'],
+  [/home|kitchen|tool|screwdriver/i, 'Home & Garden'],
+  [/beauty|care|perfume/i, 'Health & Beauty'],
+  [/sport|outdoor|binocular|tactical/i, 'Sporting Goods'],
+  [/grocery|food|honey|spice/i, 'Food, Beverages & Tobacco'],
+  [/auto|car|bike/i, 'Vehicles & Parts'],
+];
+const gcat = (p) => { const t = `${p.name} ${(p.categories || []).join(' ')}`; return (GCAT.find(([re]) => re.test(t)) || [null, ''])[1]; };
+const wearable = (g) => /Apparel/.test(g);
+const gender = (p) => (/\b(women|woman|ladies|girls?)\b|women's|womens/i.test(p.name) ? 'female' : /\b(men|man|boys?)\b|men's|mens/i.test(p.name) ? 'male' : 'unisex');
 
 // Product feed for Google Merchant Center (free listings in Google Search, Shopping tab and Images).
 // Merchant Center > Products > Feeds > add a "scheduled fetch" feed and use  https://YOUR-DOMAIN/api/feed/google
@@ -24,13 +43,18 @@ export async function GET() {
       <g:sale_price>${money(p.price)}</g:sale_price>${p.saleEndsAtMs ? `
       <g:sale_price_effective_date>${new Date().toISOString().slice(0, 19)}+00:00/${new Date(p.saleEndsAtMs).toISOString().slice(0, 19)}+00:00</g:sale_price_effective_date>` : ''}` : ''}
       <g:brand>${esc(SITE.name)}</g:brand>
-      <g:identifier_exists>no</g:identifier_exists>${p.category ? `
+      <g:identifier_exists>no</g:identifier_exists>${gcat(p) ? `
+      <g:google_product_category>${esc(gcat(p))}</g:google_product_category>` : ''}${wearable(gcat(p)) ? `
+      <g:gender>${gender(p)}</g:gender>
+      <g:age_group>${/kid|child|baby/i.test(p.name) ? 'kids' : 'adult'}</g:age_group>` : ''}${(p.options.find((o) => /size/i.test(o.name)) || { values: [] }).values[0] && wearable(gcat(p)) ? `
+      <g:size>${esc(p.options.find((o) => /size/i.test(o.name)).values[0])}</g:size>` : ''}
+      <g:item_group_id>${esc(p.slug)}</g:item_group_id>${p.category ? `
       <g:product_type>${esc(p.category)}</g:product_type>` : ''}${(p.options.find((o) => /colou?r/i.test(o.name)) || { values: [] }).values[0] ? `
       <g:color>${esc(p.options.find((o) => /colou?r/i.test(o.name)).values.slice(0, 3).join('/'))}</g:color>` : ''}
       <g:shipping>
         <g:country>PK</g:country>
         <g:service>Standard</g:service>
-        <g:price>${money(SITE.shippingFee)}</g:price>
+        <g:price>${money(shippingFor(p.price))}</g:price>
       </g:shipping>
     </item>`).join('');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
