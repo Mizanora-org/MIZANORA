@@ -6,7 +6,7 @@ import { formatPKR } from '@/lib/format';
 import { downloadCsv } from '@/lib/csv';
 import { revalidateSite } from '@/lib/admin-cache';
 import { SITE } from '@/lib/config';
-import { DELIVERY_FEE, PROFIT_MAX, PROFIT_MIN, PROFIT_TIERS, buildProducts, clampProfit, parseCsv, productsToCsv, safeAffRate, shopPrice } from '@/lib/importProducts';
+import { DELIVERY_FEE, PROFIT_MAX, PROFIT_MIN, PROFIT_TIERS, altImage, buildProducts, clampProfit, parseCsv, productsToCsv, safeAffRate, shopPrice } from '@/lib/importProducts';
 
 // Admin > Import. Upload a Markaz / Shopify product CSV (supplier price) or a Mizanora CSV (final price).
 // Check the prices in the table, change the profit of any product, then press Import: everything is written to Firestore.
@@ -20,11 +20,13 @@ export default function AdminImport() {
   const [affOn, setAffOn] = useState(true);
   const [overwrite, setOverwrite] = useState(true);
   const [featured, setFeatured] = useState(8);
+  const [deduct, setDeduct] = useState(0); // supplier price already includes delivery? subtract it first
+  const [minProfit, setMinProfit] = useState(PROFIT_MIN);
   const [existing, setExisting] = useState(null);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const built = useMemo(() => (rows ? buildProducts(rows, { tiers, profits, publish, affOn, featuredCount: featured }) : null), [rows, tiers, profits, publish, affOn, featured]);
+  const built = useMemo(() => (rows ? buildProducts(rows, { tiers, profits, publish, affOn, featuredCount: featured, deduct, minProfit }) : null), [rows, tiers, profits, publish, affOn, featured, deduct, minProfit]);
   const list = built ? built.products : [];
   const picked = list.filter((p) => !off[p.handle]);
   const isMarkaz = built && built.format === 'markaz';
@@ -44,7 +46,7 @@ export default function AdminImport() {
     e.target.value = '';
   }
 
-  const setTier = (n, v) => setTiers((t) => t.map((r, i) => (i === n ? [r[0], clampProfit(v)] : r)));
+  const setTier = (n, v) => setTiers((t) => t.map((r, i) => (i === n ? [r[0], clampProfit(v, minProfit)] : r)));
   const setProfit = (handle, v) => setProfits((p) => ({ ...p, [handle]: v === '' ? undefined : Number(v) }));
 
   async function run() {
@@ -95,11 +97,15 @@ export default function AdminImport() {
         <div className="card mt-4">
           <h2 className="text-lg font-extrabold">Profit by supplier price</h2>
           <p className="text-xs text-dim">Shop price = supplier price + profit. Change a row here, or change one product's profit in the table below.</p>
+          <div className="mt-2 flex flex-wrap gap-3 text-xs">
+            <label className="flex items-center gap-1">Supplier price includes delivery: subtract Rs <input type="number" min="0" max="1000" className="input !w-20 !py-1.5" value={deduct} onChange={(e) => setDeduct(Math.max(0, Number(e.target.value) || 0))} /></label>
+            <label className="flex items-center gap-1">Lowest allowed profit Rs <input type="number" min="0" max={PROFIT_MAX} className="input !w-20 !py-1.5" value={minProfit} onChange={(e) => { const v = Math.max(0, Math.min(PROFIT_MAX, Number(e.target.value) || 0)); setMinProfit(v); setTiers((t) => t.map(([u, p]) => [u, Math.max(p, v)])); }} /></label>
+          </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-5">
             {tiers.map(([upTo, pr], n) => (
               <label key={n} className="rounded-xl bg-raised p-2 text-xs">
                 <span className="block text-dim">{upTo === Infinity ? 'Above' : 'Up to'} {upTo === Infinity ? formatPKR(tiers[n - 1][0]) : formatPKR(upTo)}</span>
-                <span className="mt-1 flex items-center gap-1">Profit Rs <input type="number" min={PROFIT_MIN} max={PROFIT_MAX} className="input !w-20 !py-1.5" value={pr} onChange={(e) => setTier(n, e.target.value)} /></span>
+                <span className="mt-1 flex items-center gap-1">Profit Rs <input type="number" min={minProfit} max={PROFIT_MAX} className="input !w-20 !py-1.5" value={pr} onChange={(e) => setTier(n, e.target.value)} /></span>
               </label>
             ))}
           </div>
@@ -132,7 +138,7 @@ export default function AdminImport() {
                 <div className="flex items-start gap-3">
                   <input type="checkbox" aria-label={`Import ${d.name}`} checked={!off[p.handle]} onChange={(e) => setOff((o) => ({ ...o, [p.handle]: !e.target.checked }))} className="mt-1 h-4 w-4 accent-[#0B6B45]" />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {d.images[0] ? <img src={d.images[0]} alt="" className="h-14 w-14 rounded-lg bg-raised object-cover" loading="lazy" /> : <div className="h-14 w-14 rounded-lg bg-raised" />}
+                  {d.images[0] ? <img src={d.images[0]} alt="" className="h-14 w-14 rounded-lg bg-raised object-cover" loading="lazy" onError={(e) => { const alt = altImage(d.images[0]); if (alt && e.currentTarget.src !== alt) e.currentTarget.src = alt; }} /> : <div className="h-14 w-14 rounded-lg bg-raised" />}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{d.name}</p>
                     <p className="truncate text-xs text-dim">{d.categories.join(', ') || 'No category'} · {d.options.map((o) => `${o.name}: ${o.values.join('/')}`).join(' · ') || 'No options'} · {d.images.length} photos{isOld ? ' · EXISTS' : ' · new'}{p.warn.length ? ` · ${p.warn.join(', ')}` : ''}</p>
@@ -144,8 +150,8 @@ export default function AdminImport() {
                 </div>
                 {isMarkaz && c && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                    <label className="flex items-center gap-1">Profit Rs <input type="number" min={PROFIT_MIN} max={PROFIT_MAX} className="input !w-20 !py-1.5" value={profits[p.handle] ?? c.profit} onChange={(e) => setProfit(p.handle, e.target.value)} onBlur={() => profits[p.handle] != null && setProfit(p.handle, clampProfit(profits[p.handle]))} /></label>
-                    <span className="text-dim">price = {formatPKR(shopPrice(c.cost, c.profit))} · worker commission cap {safeAffRate(d.price, c.profit)}%</span>
+                    <label className="flex items-center gap-1">Profit Rs <input type="number" min={minProfit} max={PROFIT_MAX} className="input !w-20 !py-1.5" value={profits[p.handle] ?? c.profit} onChange={(e) => setProfit(p.handle, e.target.value)} onBlur={() => profits[p.handle] != null && setProfit(p.handle, clampProfit(profits[p.handle], minProfit))} /></label>
+                    <span className="text-dim">price = {formatPKR(shopPrice(c.cost, c.profit, minProfit))} · worker commission cap {safeAffRate(d.price, c.profit)}%</span>
                   </div>
                 )}
               </li>
