@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Clock, Search, X } from 'lucide-react';
-import { describeIntent, smartSearch } from '@/lib/search';
+import { describeIntent, didYouMean, smartSearch } from '@/lib/search';
 import { aiIntent } from '@/lib/aiSearch';
 import { getSearchIndex, peekSearchIndex } from '@/lib/searchIndex';
 import { formatPKR } from '@/lib/format';
@@ -81,7 +81,7 @@ export default function SearchBox({ id, className = '', categories = [] }) {
               </div>
             </div>
           ) : !list ? <p className="p-3 text-sm text-dim">Searching...</p> : hits.length === 0 ? (
-            <p className="p-3 text-sm text-dim">No match for &quot;{q}&quot;. Try another word, or <Link href="/products" className="font-bold text-gold" onClick={() => setOpen(false)}>browse all products</Link>.</p>
+            <p className="p-3 text-sm text-dim">No match for &quot;{q}&quot;. {(() => { const m = list ? didYouMean(list, q) : ''; return m ? <>Did you mean <button type="button" className="font-bold text-gold underline" onClick={() => setQ(m)}>{m}</button>? </> : null; })()}Try another word, <button type="button" className="font-bold text-gold underline" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('mz-assistant', { detail: { q } })); }}>ask our assistant</button>, or <Link href="/products" className="font-bold text-gold" onClick={() => setOpen(false)}>browse all products</Link>.</p>
           ) : (
             <ul>
               {chips.length > 0 && <li className="flex flex-wrap items-center gap-1.5 border-b border-line bg-gold/5 px-3 py-2 text-xs"><span className="font-bold text-gold">Understood:</span>{chips.map((c) => <span key={c} className="rounded-full bg-white px-2 py-0.5 font-semibold text-dim">{c}</span>)}</li>}

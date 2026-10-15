@@ -21,6 +21,9 @@ import RefCapture from '@/components/RefCapture';
 import SplashScreen from '@/components/SplashScreen';
 import RouteProgress from '@/components/RouteProgress';
 import CardEvents from '@/components/CardEvents';
+import AppFeel from '@/components/AppFeel';
+import AssistantFab from '@/components/AssistantFab';
+import { getPublicAssistant } from '@/lib/assistantPublic';
 
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
 const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
@@ -29,6 +32,8 @@ const body = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   colorScheme: 'light',
   viewportFit: 'cover',
   themeColor: '#0B6B45',
@@ -53,6 +58,7 @@ export const metadata = {
 
 export default async function RootLayout({ children }) {
   const categories = await getCategories();
+  const assistant = await getPublicAssistant();
   return (
     <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${body.variable} ${arabic.variable}`}>
       <body>
@@ -66,11 +72,13 @@ export default async function RootLayout({ children }) {
             <main id="main">{children}</main>
             <Footer categories={categories} />
             <WhatsAppFab />
+            <AssistantFab cfg={assistant} />
             <BottomNav />
             <InstallBanner />
             <SeasonFX />
             <BackToTop />
             <CardEvents />
+            <AppFeel />
           </InstallProvider>
         </CartProvider>
         </AuthProvider>

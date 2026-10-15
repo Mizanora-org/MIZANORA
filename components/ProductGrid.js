@@ -11,7 +11,7 @@ const Cards = memo(function Cards({ items }) {
 });
 import VoiceButton from './VoiceButton';
 import { search as trackSearch } from '@/lib/metaPixel';
-import { describeIntent, smartSearch } from '@/lib/search';
+import { describeIntent, didYouMean, smartSearch } from '@/lib/search';
 import { aiIntent } from '@/lib/aiSearch';
 import { discountPct, slugify } from '@/lib/format';
 
@@ -21,12 +21,12 @@ export default function ProductGrid({ products }) {
   const sp = useSearchParams();
   const [q, setQ] = useState(sp.get('q') || '');
   useEffect(() => { setQ(sp.get('q') || ''); }, [sp]);
-  const [sort, setSort] = useState('new');
+  const [sortPick, setSort] = useState(''); // '' = automatic: cheapest first while browsing, best match first while searching
   const [cat, setCat] = useState(sp.get('cat') || '');
   const [inStock, setInStock] = useState(false);
   const [onSale, setOnSale] = useState(false);
   const [minP, setMinP] = useState('');
-  const [maxP, setMaxP] = useState('');
+  const [maxP, setMaxP] = useState(sp.get('max') || '');
   useEffect(() => { const t = q.trim(); if (t.length < 3) return undefined; const h = setTimeout(() => trackSearch(t), 1200); return () => clearTimeout(h); }, [q]);
 
   const [ai, setAi] = useState(null);
@@ -58,8 +58,10 @@ export default function ProductGrid({ products }) {
   const max = Number(maxP) || 0;
   const filtersOn = Boolean(cat || inStock || onSale || min || max);
   // Buttons and inputs react instantly; the (heavier) list is recomputed right after, from the deferred copy of the filters.
+  const sort = sortPick || (q.trim() ? 'new' : 'low');
   const fv = useMemo(() => ({ cat, inStock, onSale, min, max, sort }), [cat, inStock, onSale, min, max, sort]);
   const df = useDeferredValue(fv);
+  const suggest = useMemo(() => (dq.trim().length >= 4 && found.results.length === 0 ? didYouMean(products, dq) : ''), [products, dq, found.results.length]);
   const list = useMemo(() => {
     let r = view.results.filter((p) => {
       if (df.cat && !(p.categories || [p.category]).some((c) => slugify(c) === df.cat)) return false;
@@ -106,8 +108,8 @@ export default function ProductGrid({ products }) {
         <label>
           <span className="sr-only">Sort</span>
           <select value={sort} onChange={(e) => setSort(e.target.value)} className="input sm:w-52">
-            <option value="new">Newest first</option>
-            <option value="low">Price: low to high</option>
+            <option value="new">{q.trim() ? 'Best match first' : 'Newest first'}</option>
+            <option value="low">Price: low to high (cheapest first)</option>
             <option value="high">Price: high to low</option>
             <option value="discount">Biggest discount</option>
             <option value="az">Name: A to Z</option>
@@ -128,6 +130,7 @@ export default function ProductGrid({ products }) {
         <button type="button" className={pill(onSale)} onClick={() => setOnSale((v) => !v)} aria-pressed={onSale}>On sale</button>
         <input type="number" inputMode="numeric" min="0" value={minP} onChange={(e) => setMinP(e.target.value)} placeholder="Min Rs." aria-label="Minimum price" className="input !w-24 !rounded-full !py-1.5 text-sm" />
         <input type="number" inputMode="numeric" min="0" value={maxP} onChange={(e) => setMaxP(e.target.value)} placeholder="Max Rs." aria-label="Maximum price" className="input !w-24 !rounded-full !py-1.5 text-sm" />
+        {[500, 1000, 2000, 5000].map((n) => <button key={n} type="button" className={pill(maxP === String(n))} onClick={() => setMaxP(maxP === String(n) ? '' : String(n))} aria-pressed={maxP === String(n)}>Under {n}</button>)}
         {filtersOn && <button type="button" onClick={clear} className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 font-semibold text-red-700"><X size={14} /> Clear</button>}
         <span className="ml-auto text-xs text-faint" aria-live="polite">{list.length} product{list.length === 1 ? '' : 's'}</span>
       </div>
@@ -136,6 +139,8 @@ export default function ProductGrid({ products }) {
       {list.length === 0 ? (
         <div className="rounded-2xl border border-line bg-surface p-8 text-center text-dim">
           <p>No products found.</p>
+          {dq.trim() && (suggest ? <p className="mt-2 text-sm">Did you mean <button type="button" className="font-bold text-gold underline" onClick={() => setQ(suggest)}>{suggest}</button>?</p> : null)}
+          {dq.trim() && <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('mz-assistant', { detail: { q: dq } }))} className="btn-ghost mt-3 !py-2 text-sm">Ask our assistant to find it</button>}
           {filtersOn && <button type="button" onClick={clear} className="btn-ghost mt-3 !py-2 text-sm">Clear filters</button>}
         </div>
       ) : (

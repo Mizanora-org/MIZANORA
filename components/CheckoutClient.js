@@ -147,7 +147,7 @@ export default function CheckoutClient() {
           payMethod: pay, payRef,
           ref: getRef(),
           customer: clean,
-          items: items.map((i) => ({ id: i.id, size: i.size || '', qty: i.qty })),
+          items: items.map((i) => ({ id: i.id, size: i.size || '', qty: i.qty, ...(i.deal ? { deal: i.deal.token } : {}) })),
           website: form.website, // honeypot: real people leave it empty
           fbp: getCookie('_fbp'), fbc: getCookie('_fbc'), sourceUrl: window.location.href,
         }),
@@ -310,6 +310,7 @@ export default function CheckoutClient() {
           <div className="mt-4 border-t border-line pt-3">
             <label htmlFor="cpn" className="label flex items-center gap-1.5"><Tag size={15} /> Promo code</label>
             <div className="flex gap-2"><input id="cpn" className="input !py-2.5 uppercase" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter promo code" /><button type="button" onClick={() => applyCoupon()} disabled={!code.trim()} className="btn-ghost !px-4 !py-2.5 text-sm">Apply</button></div>
+            {items.some((i) => i.deal) && <p className="mt-1.5 text-xs text-faint">Your cart has an assistant deal. A promo code cannot be added on top of a deal.</p>}
             {couponMsg && <p role="status" className={`mt-1.5 text-xs ${coupon ? 'font-semibold text-gold' : 'text-red-600'}`}>{couponMsg}</p>}
           </div>
         </div>

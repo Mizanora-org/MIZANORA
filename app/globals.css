@@ -58,8 +58,12 @@
 
 /* The page must never be wider than the phone screen (this is what made it shrink and spread sideways). */
 html, body { max-width: 100%; overflow-x: clip; }
-html { touch-action: manipulation; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+html { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
 a, button, summary, label, select { touch-action: manipulation; }
+/* App-like feel: no pinch-zoom of the whole page, no rubber-band glow, inputs stay 16px so phones never zoom in on focus. */
+body { overscroll-behavior-y: none; -webkit-touch-callout: none; }
+input, select, textarea { font-size: max(16px, 1em); }
+img { -webkit-user-drag: none; user-select: none; }
 img, video, iframe, svg { max-width: 100%; }
 main, section, article, form, ul, ol, dl { min-width: 0; }
 /* 16px inputs stop the browser from zooming in when you tap a field */

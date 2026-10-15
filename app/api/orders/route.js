@@ -5,6 +5,7 @@ import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { validateCustomer, normalizePhone } from '@/lib/validate';
 import { SITE, shippingFor } from '@/lib/config';
 import { sendCapi } from '@/lib/capi';
+import { DEAL_MAX_QTY, dealOff } from '@/lib/deal';
 import { priceCoupon } from '@/lib/coupons';
 import { optionsOf, validVariant } from '@/lib/options';
 import { getAuth } from 'firebase-admin/auth';
@@ -69,11 +70,15 @@ export async function POST(req) {
       if (!(qty >= 1 && qty <= 10)) return fail('Invalid quantity.');
       const size = String(r.size || '');
       if (!validVariant(optionsOf(p), size)) return fail(`Please choose the options (for example colour and size) for ${p.name} again.`);
-      const shopPrice = Number(p.price) || 0;
+      // Assistant deal: a signed token made by our own server for this product (never trusted from the browser). Up to 5 pieces.
+      const off = r.deal ? dealOff(r.deal, String(r.id)) : 0;
+      if (r.deal && !off) return fail(`The special price for ${p.name} has expired. Please remove it from the cart and add it again.`);
+      if (off && qty > DEAL_MAX_QTY) return fail(`The special price for ${p.name} is valid for up to ${DEAL_MAX_QTY} pieces.`);
+      const shopPrice = Math.max(1, (Number(p.price) || 0) - off);
       affMeta[String(r.id)] = { affOn: p.affOn !== false, affRate: Number(p.affRate) || 0 };
       // An Elite worker's own profit per piece (capped), added to the price only for customers who came through that worker's link.
       const markup = wTier && wTier.custom ? Math.max(0, Math.min(Math.floor(Number(worker.markups && worker.markups[String(r.id)]) || 0), Math.floor((shopPrice * MAX_MARKUP_PCT) / 100))) : 0;
-      items.push({ id: String(r.id), slug: String(r.id), name: p.name, price: shopPrice + markup, shopPrice, markup, qty, size, image: (p.images && p.images[0]) || '' });
+      items.push({ id: String(r.id), slug: String(r.id), name: off ? `${p.name} (special price, Rs ${off} off)` : p.name, dealOff: off, price: shopPrice + markup, shopPrice, markup, qty, size, image: (p.images && p.images[0]) || '' });
     }
     const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
     const shipping = shippingFor(subtotal);
@@ -82,6 +87,8 @@ export async function POST(req) {
     let uid = '', email = '';
     const tok = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
     if (tok) { try { const d = await getAuth(adminApp()).verifyIdToken(tok); uid = d.uid; email = String(d.email || '').toLowerCase(); } catch { /* guest order */ } }
+
+    if (body.coupon && items.some((i) => i.dealOff)) return fail('A promo code cannot be used together with a special assistant price. Please remove one of them.');
 
     // Optional promo code, re-checked here with real prices (and the customer's phone for one-order-per-phone codes).
     let discount = 0, couponCode = '', couponOwner = '', couponBase = 0, couponLines = [];

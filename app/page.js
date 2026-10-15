@@ -14,6 +14,9 @@ import Marquee from '@/components/Marquee';
 import SignInStrip from '@/components/SignInStrip';
 import RecentlyViewed from '@/components/RecentlyViewed';
 import ReelsRail from '@/components/ReelsRail';
+import CountUp from '@/components/CountUp';
+import AskAssistant from '@/components/AskAssistant';
+import { getPublicAssistant } from '@/lib/assistantPublic';
 import Reveal from '@/components/Reveal';
 import SeasonHero from '@/components/SeasonHero';
 import DailyReminder from '@/components/DailyReminder';
@@ -60,12 +63,19 @@ function Shelf({ id, title, href, products, priorityFirst = false, tone = '', an
 export default async function Home() {
   const [all, banners, reels] = await Promise.all([getProducts(), getBanners(), getReels()]);
   const categories = buildCategories(all);
+  const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
   const picks = all.filter((p) => p.featured).slice(0, 10);
   const fresh = all.slice(0, 12);
   // The 8 biggest categories get their own shelf (all categories stay one tap away in the circles above). Fewer cards = a lighter, smoother home page.
-  const shelves = categories.slice(0, 8).map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).slice(0, 8) }));
+  const shelves = categories.slice(0, 8).map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).sort(byPrice).slice(0, 8) }));
+  // CHEAPEST FIRST: every category shelf starts with its cheapest products, and one shelf shows the cheapest item of EVERY category.
+  const inStockAll = all.filter((p) => p.inStock !== false && p.price > 0);
+  const budget = categories.map((c) => inStockAll.filter((p) => inCategory(p, c.name)).sort(byPrice)[0]).filter(Boolean)
+    .filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i).sort(byPrice).slice(0, 16);
+  const cheapest = inStockAll.length ? Math.min(...inStockAll.map((p) => p.price)) : 0;
+  const assistant = await getPublicAssistant();
   const season = seasonFor();
   const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 10) : [];
   const posts = getPosts().slice(0, 4);
@@ -104,6 +114,22 @@ export default async function Home() {
           ))}
         </ul>
       </section>
+
+      <section className="mx-auto max-w-7xl px-3 pt-4 sm:px-4" aria-label="Shop numbers">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl bg-gradient-to-r from-[#0B6B45] to-[#0E8556] p-4 text-white">
+          <p className="min-w-[8rem]"><span className="block font-display text-3xl font-extrabold leading-none"><CountUp to={all.length} />+</span><span className="text-xs text-white/85">products in stock to order</span></p>
+          <p><span className="block font-display text-3xl font-extrabold leading-none"><CountUp to={categories.length} /></span><span className="text-xs text-white/85">categories</span></p>
+          {cheapest > 0 && <p><span className="block font-display text-3xl font-extrabold leading-none">Rs <CountUp to={cheapest} /></span><span className="text-xs text-white/85">prices start from</span></p>}
+          <div className="ml-auto flex flex-wrap gap-2">
+            {assistant.enabled && <AskAssistant name={assistant.name} q="Sab se sasti deals dikhao" className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-sm font-bold text-[#0B6B45] active:scale-95">Ask {assistant.name} for deals</AskAssistant>}
+          </div>
+        </div>
+        <ul className="no-sb mt-3 flex gap-2 overflow-x-auto" aria-label="Shop by budget">
+          {[500, 1000, 2000, 5000].map((n) => <li key={n} className="shrink-0"><Link href={`/products?max=${n}`} className="block rounded-full border border-gold bg-surface px-4 py-1.5 text-sm font-bold text-gold active:bg-gold/10">Under Rs {n}</Link></li>)}
+        </ul>
+      </section>
+
+      <Shelf id="budget" anchor="sasti" title="Sab se sasti: har category se" href="/products" products={budget} tone="bg-gold/5 p-3 sm:p-4" />
 
       <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="cats">
         <h2 id="cats" className="section-title mb-3">Shop by category</h2>

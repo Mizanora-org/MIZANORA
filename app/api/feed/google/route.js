@@ -3,6 +3,9 @@ import { SITE, absUrl, shippingFor } from '@/lib/config';
 
 export const revalidate = 600;
 
+// Needs: a photo and a price (Google rejects products without them). Sold-out products stay in the feed as out_of_stock.
+// ?skipped=1 lists the products that were left out and why, so nothing disappears silently.
+
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const money = (n) => `${Number(n).toFixed(2)} PKR`;
 
@@ -27,8 +30,12 @@ const gender = (p) => (/\b(women|woman|ladies|girls?)\b|women's|womens/i.test(p.
 
 // Product feed for Google Merchant Center (free listings in Google Search, Shopping tab and Images).
 // Merchant Center > Products > Feeds > add a "scheduled fetch" feed and use  https://YOUR-DOMAIN/api/feed/google
-export async function GET() {
+export async function GET(req) {
   const products = await getProducts();
+  if (new URL(req.url).searchParams.get('skipped')) {
+    const out = products.filter((p) => !p.images[0] || !(p.price > 0)).map((p) => ({ slug: p.slug, name: p.name, why: !p.images[0] ? 'no photo' : 'no price' }));
+    return Response.json({ total: products.length, inFeed: products.length - out.length, skipped: out });
+  }
   const items = products.filter((p) => p.images[0] && p.price > 0).map((p) => `
     <item>
       <g:id>${esc(p.slug)}</g:id>
@@ -43,7 +50,12 @@ export async function GET() {
       <g:sale_price>${money(p.price)}</g:sale_price>${p.saleEndsAtMs ? `
       <g:sale_price_effective_date>${new Date().toISOString().slice(0, 19)}+00:00/${new Date(p.saleEndsAtMs).toISOString().slice(0, 19)}+00:00</g:sale_price_effective_date>` : ''}` : ''}
       <g:brand>${esc(SITE.name)}</g:brand>
-      <g:identifier_exists>no</g:identifier_exists>${gcat(p) ? `
+      <g:identifier_exists>no</g:identifier_exists>
+      <g:mpn>${esc(p.slug)}</g:mpn>
+      <g:adult>no</g:adult>
+      <g:custom_label_0>${esc(p.category || 'General')}</g:custom_label_0>
+      <g:custom_label_1>${p.price <= 500 ? 'under-500' : p.price <= 1000 ? 'under-1000' : p.price <= 2000 ? 'under-2000' : p.price <= 5000 ? 'under-5000' : 'premium'}</g:custom_label_1>
+      <g:custom_label_2>${p.comparePrice > p.price ? 'on-sale' : 'regular'}</g:custom_label_2>${gcat(p) ? `
       <g:google_product_category>${esc(gcat(p))}</g:google_product_category>` : ''}${wearable(gcat(p)) ? `
       <g:gender>${gender(p)}</g:gender>
       <g:age_group>${/kid|child|baby/i.test(p.name) ? 'kids' : 'adult'}</g:age_group>` : ''}${(p.options.find((o) => /size/i.test(o.name)) || { values: [] }).values[0] && wearable(gcat(p)) ? `

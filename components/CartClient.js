@@ -39,7 +39,7 @@ export default function CartClient() {
             <div className="min-w-0 flex-1">
               <Link href={`/product/${i.slug}`} className="line-clamp-2 font-medium">{i.name}</Link>
               {i.size && <p className="text-sm text-dim">{i.size}</p>}
-              <p className="mt-1 font-bold text-gold">{formatPKR(i.price)}</p>
+              <p className="mt-1 font-bold text-gold">{formatPKR(i.price)}{i.deal && <span className="ml-2 rounded-full bg-saffron/20 px-2 py-0.5 text-[0.65rem] font-bold text-gold">Deal -Rs {i.deal.off}</span>}</p>
               <div className="mt-2 flex items-center justify-between">
                 <div className="flex items-center rounded-xl border border-line">
                   <button aria-label="Decrease" className="p-2.5" onClick={() => setQty(i.key, i.qty - 1)}><Minus size={15} /></button>

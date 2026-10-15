@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { geminiCall, loadAssistant, textOf } from '@/lib/gemini';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,8 +10,8 @@ const hits = new Map();
 const SYSTEM = 'You turn a shopper\'s search sentence (English, Roman Urdu or Hindi) into JSON for a Pakistani online shop. Reply with JSON only, in this shape: {"keywords":["english product words"],"colors":["english colour names"],"minPrice":0,"maxPrice":0,"sort":""}. sort is "low" (cheapest first), "high" (most expensive first), "new" or "". Translate Roman Urdu to English product words (joota = shoes, kapray = clothes, ghari = watch, suit = suit). Prices are in Pakistani rupees; 0 means no limit.';
 
 export async function POST(req) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return NextResponse.json({ ok: false }, { status: 501 });
+  const { cfg, keys } = await loadAssistant();
+  if (!keys.length) return NextResponse.json({ ok: false }, { status: 501 });
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'x';
   const now = Date.now();
   const arr = (hits.get(ip) || []).filter((t) => now - t < 60000); arr.push(now); hits.set(ip, arr);
@@ -21,21 +22,15 @@ export async function POST(req) {
   try { q = String((await req.json()).q || '').slice(0, 120); } catch { /* ignore */ }
   if (q.trim().length < 3) return NextResponse.json({ ok: false }, { status: 400 });
 
-  const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  // Uses the same pool of Gemini keys as the assistant (admin panel keys + Vercel variables), with automatic key switching.
+  const r = await geminiCall(cfg.model, {
+    systemInstruction: { parts: [{ text: SYSTEM }] },
+    contents: [{ role: 'user', parts: [{ text: q }] }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0, maxOutputTokens: 600 },
+  }, { timeoutMs: 8000 });
+  if (!r.ok) { console.error('Gemini search HTTP', r.status); return NextResponse.json({ ok: false }, { status: 502 }); }
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST', signal: AbortSignal.timeout(8000),
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents: [{ role: 'user', parts: [{ text: q }] }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0, maxOutputTokens: 600 },
-      }),
-    });
-    if (!r.ok) { console.error('Gemini HTTP', r.status); return NextResponse.json({ ok: false }, { status: 502 }); }
-    const j = await r.json();
-    const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map((c) => c.text || '').join('');
-    const m = txt.match(/\{[\s\S]*\}/);
+    const m = textOf(r.json).match(/\{[\s\S]*\}/);
     const o = m ? JSON.parse(m[0]) : null;
     if (!o) return NextResponse.json({ ok: false });
     const list = (v) => (Array.isArray(v) ? v.map((x) => String(x).toLowerCase().slice(0, 30)).slice(0, 8) : []);

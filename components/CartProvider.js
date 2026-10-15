@@ -1,5 +1,6 @@
 'use client';
 import { getMarkup } from '@/lib/refClient';
+import { getDeal } from '@/lib/dealStore';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const StateCtx = createContext(null);
@@ -12,7 +13,11 @@ export function CartProvider({ children }) {
 
   useEffect(() => {
     const load = () => {
-      try { setItems(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch (_) { setItems([]); }
+      try {
+        // An expired assistant deal goes back to the normal price, so the cart never shows a price the shop will not honour.
+        const now = Date.now();
+        setItems(JSON.parse(localStorage.getItem(KEY) || '[]').map((i) => (i.deal && i.deal.exp < now ? { ...i, price: i.basePrice || i.price + i.deal.off, deal: undefined } : i)));
+      } catch (_) { setItems([]); }
     };
     load();
     setReady(true);
@@ -27,15 +32,20 @@ export function CartProvider({ children }) {
   }, [items, ready]);
 
   const add = useCallback((p, { size = '', qty = 1 } = {}) => {
+    const d = getDeal(p.id); // price the assistant agreed with this shopper (if any, still valid)
+    const base = p.price + getMarkup(p.id);
+    const price = d ? Math.max(1, base - d.off) : base;
+    const deal = d ? { off: d.off, token: d.token, exp: d.exp } : undefined;
+    const cap = deal ? 5 : 10;
     setItems((cur) => {
       const key = `${p.id}|${size}`;
       const found = cur.find((i) => i.key === key);
-      if (found) return cur.map((i) => (i.key === key ? { ...i, qty: Math.min(10, i.qty + qty) } : i));
-      return [...cur, { key, id: p.id, slug: p.slug || p.id, name: p.name, price: p.price + getMarkup(p.id), image: (p.images && p.images[0]) || p.image || '', size, qty: Math.min(10, qty) }];
+      if (found) return cur.map((i) => (i.key === key ? { ...i, price, basePrice: base, deal, qty: Math.min(cap, i.qty + qty) } : i));
+      return [...cur, { key, id: p.id, slug: p.slug || p.id, name: p.name, price, basePrice: base, deal, image: (p.images && p.images[0]) || p.image || '', size, qty: Math.min(cap, qty) }];
     });
   }, []);
   const setQty = useCallback((key, qty) => {
-    setItems((cur) => cur.map((i) => (i.key === key ? { ...i, qty: Math.max(1, Math.min(10, qty)) } : i)));
+    setItems((cur) => cur.map((i) => (i.key === key ? { ...i, qty: Math.max(1, Math.min(i.deal ? 5 : 10, qty)) } : i)));
   }, []);
   const remove = useCallback((key) => setItems((cur) => cur.filter((i) => i.key !== key)), []);
   const clear = useCallback(() => setItems([]), []);
