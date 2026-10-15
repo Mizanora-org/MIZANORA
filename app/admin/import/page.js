@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { collection, doc, getDocs, writeBatch } from 'firebase/firestore';
-import { dbClient } from '@/lib/firebase-client';
+import { authClient, dbClient } from '@/lib/firebase-client';
 import { formatPKR } from '@/lib/format';
 import { downloadCsv } from '@/lib/csv';
 import { revalidateSite } from '@/lib/admin-cache';
@@ -20,6 +20,8 @@ export default function AdminImport() {
   const [affOn, setAffOn] = useState(true);
   const [overwrite, setOverwrite] = useState(true);
   const [featured, setFeatured] = useState(8);
+  const [copyPhotos, setCopyPhotos] = useState(true); // copy supplier photos to your own ImgBB
+  const [copyCount, setCopyCount] = useState(3);
   const [deduct, setDeduct] = useState(0); // supplier price already includes delivery? subtract it first
   const [minProfit, setMinProfit] = useState(PROFIT_MIN);
   const [existing, setExisting] = useState(null);
@@ -49,12 +51,43 @@ export default function AdminImport() {
   const setTier = (n, v) => setTiers((t) => t.map((r, i) => (i === n ? [r[0], clampProfit(v, minProfit)] : r)));
   const setProfit = (handle, v) => setProfits((p) => ({ ...p, [handle]: v === '' ? undefined : Number(v) }));
 
+  // Copies one supplier photo to ImgBB through the server. Returns the new link, or the old one when copying fails.
+  async function copyOne(url, token) {
+    if (!/markaz\.app/.test(url)) return { url, ok: true };
+    try {
+      const res = await fetch('/api/import-image', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ url }) });
+      const j = await res.json().catch(() => null);
+      return j && j.ok ? { url: j.url, ok: true } : { url, ok: false, error: j && j.error };
+    } catch (e) { return { url, ok: false, error: e.message }; }
+  }
+
   async function run() {
     if (!picked.length) { setMsg('Nothing selected.'); return; }
     setBusy(true); setMsg('');
     try {
       const db = dbClient();
-      const todo = picked.filter((p) => overwrite || !(existing && existing.has(p.slug)));
+      let todo = picked.filter((p) => overwrite || !(existing && existing.has(p.slug)));
+      if (copyPhotos) {
+        const token = await authClient().currentUser.getIdToken();
+        const jobs = [];
+        todo.forEach((p, pi) => p.doc.images.slice(0, copyCount).forEach((u, ii) => jobs.push({ pi, ii, u })));
+        const out = new Map();
+        let n = 0, failed = 0, firstErr = '';
+        let next = 0;
+        const worker = async () => {
+          while (next < jobs.length) {
+            const j = jobs[next++];
+            const r = await copyOne(j.u, token);
+            out.set(`${j.pi}:${j.ii}`, r.url);
+            if (!r.ok) { failed++; firstErr = firstErr || r.error || ''; }
+            n++;
+            setMsg(`Copying photos to ImgBB: ${n} of ${jobs.length}${failed ? ` (${failed} kept as original links)` : ''}...`);
+          }
+        };
+        await Promise.all([worker(), worker(), worker(), worker()]);
+        if (jobs.length && failed === jobs.length) { setMsg(`Photo copy failed (${firstErr}). Check IMGBB_API_KEY in Vercel, or untick "Copy photos" to import with the original links.`); setBusy(false); return; }
+        todo = todo.map((p, pi) => ({ ...p, doc: { ...p.doc, images: p.doc.images.map((u, ii) => out.get(`${pi}:${ii}`) || u) } }));
+      }
       let done = 0;
       for (let i = 0; i < todo.length; i += 200) { // 2 writes per product, Firestore allows 500 per batch
         const batch = writeBatch(db);
@@ -118,6 +151,8 @@ export default function AdminImport() {
             <label className="flex items-center gap-2"><input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> Show on shop immediately</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> Update products that already exist</label>
             {isMarkaz && <label className="flex items-center gap-2"><input type="checkbox" checked={affOn} onChange={(e) => setAffOn(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> Workers can earn commission (capped to protect profit)</label>}
+            <label className="flex items-center gap-2"><input type="checkbox" checked={copyPhotos} onChange={(e) => setCopyPhotos(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> Copy photos to my ImgBB (safe, slower)</label>
+            {copyPhotos && <label className="flex items-center gap-2">Photos per product <input type="number" min="1" max="8" className="input !w-16 !py-1.5" value={copyCount} onChange={(e) => setCopyCount(Math.max(1, Math.min(8, Number(e.target.value) || 1)))} /></label>}
             {isMarkaz && <label className="flex items-center gap-2">Featured on home <input type="number" min="0" max="30" className="input !w-16 !py-1.5" value={featured} onChange={(e) => setFeatured(Math.max(0, Number(e.target.value) || 0))} /></label>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
