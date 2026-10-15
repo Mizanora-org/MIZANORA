@@ -1,9 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { doc, setDoc } from 'firebase/firestore';
 import { Star } from 'lucide-react';
-import { dbClient } from '@/lib/firebase-client';
 import { useAuth } from './AuthProvider';
 
 export default function ReviewForm({ productId, productName }) {
@@ -20,6 +18,8 @@ export default function ReviewForm({ productId, productName }) {
     if (text.trim().length < 10) { setMsg('Please write at least 10 characters.'); return; }
     setBusy(true); setMsg('');
     try {
+      // loaded only when a review is sent, so product pages stay light
+      const [{ doc, setDoc }, { dbClient }] = await Promise.all([import('firebase/firestore'), import('@/lib/firebase-client')]);
       await setDoc(doc(dbClient(), 'reviews', `${user.uid}_${productId}`), {
         productId, productName, uid: user.uid, name: (user.displayName || 'Customer').slice(0, 40), rating, text: text.trim().slice(0, 600), approved: false, createdAtMs: Date.now(),
       });

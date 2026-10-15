@@ -1,7 +1,7 @@
 /* Mizanora service worker: offline fallback + fast repeat visits. Never touches /api or /admin. */
-const VERSION = 'mz-v1';
+const VERSION = 'mz-v2';
 const PRECACHE = ['/offline', '/icons/icon-192.png', '/icons/icon-512.png'];
-const MAX_ENTRIES = 120;
+const MAX_ENTRIES = 300;
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -25,20 +25,49 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/admin')) return;
 
-  // Pages: always try the network first so prices and stock are fresh; show the offline page if there is no connection.
+  // Pages: network first so prices and stock are fresh. If the network is very slow (over 8 s) or gone, show the
+  // last copy of that page, else the offline page. (Before, a weak connection could hang forever.)
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).catch(() => caches.match('/offline')));
+    e.respondWith((async () => {
+      const cache = await caches.open(VERSION);
+      try {
+        const res = await Promise.race([
+          fetch(req),
+          new Promise((_, no) => setTimeout(() => no(new Error('slow')), 8000)),
+        ]);
+        if (res && res.ok && url.pathname === '/') cache.put('/', res.clone()); // only the home page is kept for offline
+        return res;
+      } catch (_) {
+        return (await cache.match(req)) || (url.pathname === '/' && (await cache.match('/'))) || (await caches.match('/offline'));
+      }
+    })());
     return;
   }
 
-  // Static files and images: serve from cache instantly, refresh in the background (good on slow 3G/4G).
-  if (url.pathname.startsWith('/_next/static') || url.pathname.startsWith('/_next/image') || /\.(png|jpe?g|webp|avif|svg|ico|woff2?)$/.test(url.pathname)) {
-    e.respondWith(
-      caches.open(VERSION).then(async (cache) => {
-        const hit = await cache.match(req);
-        const net = fetch(req).then((res) => { if (res.ok) { cache.put(req, res.clone()); trim(cache); } return res; }).catch(() => hit);
-        return hit || net;
-      })
-    );
+  // Hashed build files never change: serve from cache, no background refresh (saves data and keeps scrolling smooth).
+  if (url.pathname.startsWith('/_next/static')) {
+    e.respondWith(caches.open(VERSION).then(async (cache) => {
+      const hit = await cache.match(req);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res.ok) { cache.put(req, res.clone()); trim(cache); }
+      return res;
+    }));
+    return;
+  }
+
+  // Product photos and icons: cache first, refresh quietly only when the copy is older than a day.
+  if (url.pathname.startsWith('/_next/image') || /\.(png|jpe?g|webp|avif|svg|ico|woff2?)$/.test(url.pathname)) {
+    e.respondWith(caches.open(VERSION).then(async (cache) => {
+      const hit = await cache.match(req);
+      if (hit) {
+        const age = Date.now() - Number(new Date(hit.headers.get('date') || 0));
+        if (age > 864e5) fetch(req).then((res) => { if (res.ok) cache.put(req, res); }).catch(() => {});
+        return hit;
+      }
+      const res = await fetch(req);
+      if (res.ok) { cache.put(req, res.clone()); trim(cache); }
+      return res;
+    }));
   }
 });

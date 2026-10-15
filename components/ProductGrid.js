@@ -1,8 +1,14 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import ProductCard from './ProductCard';
+
+const Card = memo(ProductCard);
+// The list of cards only re-renders when the visible products really change (not on every key press or filter tap).
+const Cards = memo(function Cards({ items }) {
+  return items.map((p, i) => <Card key={p.id} p={p} priority={i < 4} />);
+});
 import VoiceButton from './VoiceButton';
 import { search as trackSearch } from '@/lib/metaPixel';
 import { describeIntent, smartSearch } from '@/lib/search';
@@ -24,14 +30,16 @@ export default function ProductGrid({ products }) {
   useEffect(() => { const t = q.trim(); if (t.length < 3) return undefined; const h = setTimeout(() => trackSearch(t), 1200); return () => clearTimeout(h); }, [q]);
 
   const [ai, setAi] = useState(null);
-  const found = useMemo(() => (q.trim() ? smartSearch(products, q, { limit: 500 }) : { results: products, intent: {} }), [products, q]);
+  // The box always stays instant; matching runs right after typing (useDeferredValue) and never blocks the keyboard.
+  const dq = useDeferredValue(q);
+  const found = useMemo(() => (dq.trim() ? smartSearch(products, dq, { limit: 500 }) : { results: products, intent: {} }), [products, dq]);
   useEffect(() => {
     setAi(null);
-    if (q.trim().length < 4 || found.results.length) return undefined;
+    if (dq.trim().length < 5 || found.results.length) return undefined;
     let live = true;
-    const t = setTimeout(async () => { const i = await aiIntent(q); if (live && i) setAi(smartSearch(products, q, { limit: 500, intent: i })); }, 700);
+    const t = setTimeout(async () => { const i = await aiIntent(dq); if (live && i) setAi(smartSearch(products, dq, { limit: 500, intent: i })); }, 900);
     return () => { live = false; clearTimeout(t); };
-  }, [products, q, found.results.length]);
+  }, [products, dq, found.results.length]);
   const view = ai && ai.results.length ? ai : found;
   const chips = describeIntent(view.intent || {});
 
@@ -49,21 +57,24 @@ export default function ProductGrid({ products }) {
   const min = Number(minP) || 0;
   const max = Number(maxP) || 0;
   const filtersOn = Boolean(cat || inStock || onSale || min || max);
+  // Buttons and inputs react instantly; the (heavier) list is recomputed right after, from the deferred copy of the filters.
+  const fv = useMemo(() => ({ cat, inStock, onSale, min, max, sort }), [cat, inStock, onSale, min, max, sort]);
+  const df = useDeferredValue(fv);
   const list = useMemo(() => {
     let r = view.results.filter((p) => {
-      if (cat && !(p.categories || [p.category]).some((c) => slugify(c) === cat)) return false;
-      if (inStock && !p.inStock) return false;
-      if (onSale && !(discountPct(p.price, p.comparePrice) > 0)) return false;
-      if (min && p.price < min) return false;
-      if (max && p.price > max) return false;
+      if (df.cat && !(p.categories || [p.category]).some((c) => slugify(c) === df.cat)) return false;
+      if (df.inStock && !p.inStock) return false;
+      if (df.onSale && !(discountPct(p.price, p.comparePrice) > 0)) return false;
+      if (df.min && p.price < df.min) return false;
+      if (df.max && p.price > df.max) return false;
       return true;
     });
-    if (sort === 'low') r = [...r].sort((a, b) => a.price - b.price);
-    if (sort === 'high') r = [...r].sort((a, b) => b.price - a.price);
-    if (sort === 'discount') r = [...r].sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice));
-    if (sort === 'az') r = [...r].sort((a, b) => a.name.localeCompare(b.name));
+    if (df.sort === 'low') r = [...r].sort((a, b) => a.price - b.price);
+    if (df.sort === 'high') r = [...r].sort((a, b) => b.price - a.price);
+    if (df.sort === 'discount') r = [...r].sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice));
+    if (df.sort === 'az') r = [...r].sort((a, b) => a.name.localeCompare(b.name));
     return r;
-  }, [view, sort, cat, inStock, onSale, min, max]);
+  }, [view, df]);
   // Draw 24 cards first and more as the shopper scrolls: a big catalogue no longer freezes weak phones.
   const PAGE = 24;
   const [shown, setShown] = useState(PAGE);
@@ -76,6 +87,7 @@ export default function ProductGrid({ products }) {
     io.observe(el);
     return () => io.disconnect();
   }, [shown, list.length]);
+  const visible = useMemo(() => list.slice(0, shown), [list, shown]);
   const clear = () => { setCat(''); setInStock(false); setOnSale(false); setMinP(''); setMaxP(''); };
 
   const pill = (on) => `shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${on ? 'border-gold bg-gold text-white' : 'border-line bg-surface text-dim hover:border-gold hover:text-gold'}`;
@@ -128,7 +140,7 @@ export default function ProductGrid({ products }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
-          {list.slice(0, shown).map((p, i) => <ProductCard key={p.id} p={p} priority={i < 4} />)}
+          <Cards items={visible} />
         </div>
       )}
       {list.length > shown && (

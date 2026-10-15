@@ -64,7 +64,8 @@ export default async function Home() {
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
   const picks = all.filter((p) => p.featured).slice(0, 10);
   const fresh = all.slice(0, 12);
-  const shelves = categories.map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).slice(0, 10) }));
+  // The 8 biggest categories get their own shelf (all categories stay one tap away in the circles above). Fewer cards = a lighter, smoother home page.
+  const shelves = categories.slice(0, 8).map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).slice(0, 8) }));
   const season = seasonFor();
   const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 10) : [];
   const posts = getPosts().slice(0, 4);

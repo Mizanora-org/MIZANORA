@@ -22,9 +22,11 @@ import JsonLd from '@/components/JsonLd';
 export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const dynamicParams = true; // new products work immediately, without a redeploy
 
+// Only the newest 60 products are built ahead of time. Every other product page is built the first time someone opens it
+// and is then kept (dynamicParams) - so a catalogue with thousands of products still builds fast and never runs out of memory.
 export async function generateStaticParams() {
   const all = await getProducts();
-  return all.map((p) => ({ slug: p.slug }));
+  return all.slice(0, 60).map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }) {

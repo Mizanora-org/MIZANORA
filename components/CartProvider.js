@@ -2,7 +2,8 @@
 import { getMarkup } from '@/lib/refClient';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-const Ctx = createContext(null);
+const StateCtx = createContext(null);
+const ActionsCtx = createContext(null);
 const KEY = 'mz_cart';
 
 export function CartProvider({ children }) {
@@ -39,13 +40,21 @@ export function CartProvider({ children }) {
   const remove = useCallback((key) => setItems((cur) => cur.filter((i) => i.key !== key)), []);
   const clear = useCallback(() => setItems([]), []);
 
-  const value = useMemo(() => ({
-    items, ready, add, setQty, remove, clear,
+  // Two contexts: components that only ADD to the cart (product cards, product page) never re-render when the cart changes.
+  const actions = useMemo(() => ({ add, setQty, remove, clear }), [add, setQty, remove, clear]);
+  const state = useMemo(() => ({
+    items, ready,
     count: items.reduce((s, i) => s + i.qty, 0),
     subtotal: items.reduce((s, i) => s + i.price * i.qty, 0),
-  }), [items, ready, add, setQty, remove, clear]);
+  }), [items, ready]);
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <ActionsCtx.Provider value={actions}><StateCtx.Provider value={state}>{children}</StateCtx.Provider></ActionsCtx.Provider>;
 }
 
-export const useCart = () => useContext(Ctx);
+export const useCartActions = () => useContext(ActionsCtx);
+// Everything (same as before): cart items, count, subtotal and the actions.
+export function useCart() {
+  const state = useContext(StateCtx);
+  const actions = useContext(ActionsCtx);
+  return useMemo(() => ({ ...state, ...actions }), [state, actions]);
+}

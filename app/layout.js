@@ -18,6 +18,9 @@ import JsonLd from '@/components/JsonLd';
 import SeasonFX from '@/components/SeasonFX';
 import BackToTop from '@/components/BackToTop';
 import RefCapture from '@/components/RefCapture';
+import SplashScreen from '@/components/SplashScreen';
+import RouteProgress from '@/components/RouteProgress';
+import CardEvents from '@/components/CardEvents';
 
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
 const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
@@ -51,8 +54,10 @@ export const metadata = {
 export default async function RootLayout({ children }) {
   const categories = await getCategories();
   return (
-    <html lang="en-PK" className={`${display.variable} ${body.variable} ${arabic.variable}`}>
+    <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${body.variable} ${arabic.variable}`}>
       <body>
+        <SplashScreen />
+        <RouteProgress />
         <AuthProvider>
         <CartProvider>
           <InstallProvider>
@@ -65,6 +70,7 @@ export default async function RootLayout({ children }) {
             <InstallBanner />
             <SeasonFX />
             <BackToTop />
+            <CardEvents />
           </InstallProvider>
         </CartProvider>
         </AuthProvider>

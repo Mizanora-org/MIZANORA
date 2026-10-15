@@ -6,13 +6,14 @@ import { useRouter } from 'next/navigation';
 import { Clock, Search, X } from 'lucide-react';
 import { describeIntent, smartSearch } from '@/lib/search';
 import { aiIntent } from '@/lib/aiSearch';
+import { getSearchIndex, peekSearchIndex } from '@/lib/searchIndex';
 import { formatPKR } from '@/lib/format';
 import VoiceButton from './VoiceButton';
 
 // Search with live suggestions (loads the small product list the first time you tap the box).
 export default function SearchBox({ id, className = '', categories = [] }) {
   const [q, setQ] = useState('');
-  const [list, setList] = useState(null);
+  const [list, setList] = useState(() => peekSearchIndex());
   const [open, setOpen] = useState(false);
   const box = useRef(null);
   const router = useRouter();
@@ -35,16 +36,16 @@ export default function SearchBox({ id, className = '', categories = [] }) {
     return () => document.removeEventListener('pointerdown', away);
   }, []);
 
-  const load = () => { if (!list) fetch('/api/search-index').then((r) => r.json()).then(setList).catch(() => setList([])); };
+  const load = () => { if (!list) getSearchIndex().then(setList); };
   const [ai, setAi] = useState(null);
   const dq = useDeferredValue(q); // typing stays instant even on slow phones; matching runs right after
   const local = useMemo(() => (list ? smartSearch(list, dq, { limit: 6 }) : { results: [], intent: {} }), [list, dq]);
   // Nothing found? Ask the optional AI helper to rephrase the sentence (does nothing if no key is set).
   useEffect(() => {
     setAi(null);
-    if (!list || q.trim().length < 4 || local.results.length) return undefined;
+    if (!list || q.trim().length < 5 || local.results.length) return undefined;
     let live = true;
-    const t = setTimeout(async () => { const i = await aiIntent(q); if (live && i) setAi(smartSearch(list, q, { limit: 6, intent: i })); }, 700);
+    const t = setTimeout(async () => { const i = await aiIntent(q); if (live && i) setAi(smartSearch(list, q, { limit: 6, intent: i })); }, 900);
     return () => { live = false; clearTimeout(t); };
   }, [list, q, local.results.length]);
   const view = ai && ai.results.length ? ai : local;

@@ -4,8 +4,8 @@ Checks without installing: `node scripts/check.js` (syntax and imports).
 
 ## Firestore reads (quota saver)
 Products/banners/reels are read from Firestore ONCE and shared by all pages through Next's data cache (tag `catalog`, see `lib/products.js`).
-Visitors and bots never trigger Firestore reads. The cache refreshes when the admin saves something (`/api/revalidate`) or after 6 hours
-(change with env var `CATALOG_CACHE_SECONDS`). Admin lists are cached in the browser session and updated locally after saves; orders load 100 at a time.
+Visitors and bots never trigger Firestore reads. The cache refreshes when the admin saves something (`/api/revalidate`) or after 12 hours
+(change with env var `CATALOG_CACHE_SECONDS`). Admin lists are cached in the browser session and updated locally after saves; orders load 50 at a time.
 
 ## Promo codes (Admin > Promo codes)
 - Every code belongs to a partner (name), has its own discount (percent or flat), min order, max discount, use limit, expiry and optional partner commission %.

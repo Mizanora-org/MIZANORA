@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, Minus, Plus, ShoppingBag, Zap } from 'lucide-react';
-import { useCart } from './CartProvider';
+import { useCartActions } from './CartProvider';
 import { addToCart } from '@/lib/metaPixel';
 import { waLink } from '@/lib/config';
 import { formatPKR } from '@/lib/format';
@@ -13,7 +13,7 @@ import { useRefMarkup } from '@/lib/refClient';
 import { colorHex, isColorOption, variantLabel } from '@/lib/options';
 
 export default function ProductActions({ product }) {
-  const { add } = useCart();
+  const { add } = useCartActions();
   const router = useRouter();
   const [sel, setSel] = useState({});
   const [qty, setQty] = useState(1);

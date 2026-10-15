@@ -9,6 +9,7 @@ import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import ProductGrid from '@/components/ProductGrid';
 import JsonLd from '@/components/JsonLd';
+import { toCard } from '@/lib/cardData';
 
 export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const dynamicParams = true;
@@ -54,7 +55,7 @@ export default async function CategoryPage({ params }) {
       <div className="mx-auto max-w-7xl px-3 py-8 sm:px-4">
         {empty ? (
           <div className="card text-center"><p className="text-dim">We are adding {cat.name} products. Meanwhile, explore everything else in the market.</p><Link href="/products" className="btn-gold mt-4">Browse all products</Link></div>
-        ) : <Suspense fallback={null}><ProductGrid products={items} /></Suspense>}
+        ) : <Suspense fallback={null}><ProductGrid products={items.map(toCard)} /></Suspense>}
         <p className="mt-8 text-sm text-dim">Looking for something else? <Link href="/products" className="text-gold underline underline-offset-4">See all products</Link>.</p>
       </div>
       <JsonLd data={[list, breadcrumbJsonLd([['/', 'Home'], ['/products', 'Products'], [`/category/${cat.slug}`, cat.name]])]} />

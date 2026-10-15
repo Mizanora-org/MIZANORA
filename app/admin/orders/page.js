@@ -30,7 +30,7 @@ export default function AdminOrders() {
   const [filter, setFilter] = useState('All');
   const [q, setQ] = useState('');
   const [open, setOpen] = useState('');
-  const [max, setMax] = useState(100); // newest 100 orders first; "Load more" adds 100 (each order read costs 1 Firestore read)
+  const [max, setMax] = useState(50); // newest 50 orders first; "Load more" adds 50 (each order read costs 1 Firestore read)
 
   useEffect(() => {
     const qy = query(collection(dbClient(), 'orders'), orderBy('createdAtMs', 'desc'), limit(max));
@@ -157,7 +157,7 @@ export default function AdminOrders() {
           );
         })}
       </ul>
-      {orders.length >= max && <button type="button" className="btn-ghost mt-4 w-full" onClick={() => setMax((m) => m + 100)}>Load 100 older orders</button>}
+      {orders.length >= max && <button type="button" className="btn-ghost mt-4 w-full" onClick={() => setMax((m) => m + 50)}>Load 50 older orders</button>}
     </div>
   );
 }

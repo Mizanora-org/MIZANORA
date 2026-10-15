@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getRecent } from '@/lib/recent';
+import { getSearchIndex } from '@/lib/searchIndex';
 import { formatPKR } from '@/lib/format';
 
 export default function RecentlyViewed({ current = '' }) {
@@ -10,7 +11,7 @@ export default function RecentlyViewed({ current = '' }) {
   useEffect(() => {
     const ids = getRecent().filter((x) => x !== current).slice(0, 8);
     if (!ids.length) return;
-    fetch('/api/search-index').then((r) => r.json()).then((all) => setItems(ids.map((id) => all.find((p) => p.id === id)).filter(Boolean))).catch(() => {});
+    getSearchIndex().then((all) => setItems(ids.map((id) => all.find((p) => p.id === id)).filter(Boolean)));
   }, [current]);
   if (!items.length) return null;
   return (

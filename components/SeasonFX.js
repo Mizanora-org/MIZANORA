@@ -66,7 +66,7 @@ export default function SeasonFX() {
     });
   }, []);
 
-  if (!fx || off || hidden || /^\/(admin|checkout|reels)/.test(path)) return null;
+  if (!fx || off || hidden || !/^\/(?:$|about|blog|contact|how-to-order)/.test(path)) return null;
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[35] overflow-hidden" style={{ contain: 'strict' }}>
       {fx.items.map((p) => (
