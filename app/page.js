@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { ShieldCheck, Truck, Headphones, Banknote, Footprints, Shirt, Gem, Baby, Smartphone, Cpu, Home as HomeIcon, Sparkles, Dumbbell, HeartPulse, ShoppingBasket, Car, ArrowRight } from 'lucide-react';
 import { SITE } from '@/lib/config';
 import { getShopAll, getBanners, getReels, getCategories, getTotalCount } from '@/lib/products';
+import { getReelMusic } from '@/lib/reelMusicServer';
 import { getPosts } from '@/lib/blog';
 import { FAQ } from '@/lib/faq';
 import { pageMeta, faqJsonLd } from '@/lib/seo';
@@ -65,7 +66,7 @@ export default async function Home() {
   // THE WHOLE CATALOGUE: live products + the archived products that live as JSON files in the repository.
   // A shop can keep EVERY product in those files (CSV import -> data/catalog) and still fill this home page,
   // with no Firestore writes and no Firestore reads for visitors.
-  const [all, banners, reels, categories, totalCount] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount()]);
+  const [all, banners, reels, categories, totalCount, reelMusic] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount(), getReelMusic()]);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
@@ -170,7 +171,7 @@ export default async function Home() {
       {reels.length > 0 && (
         <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="reels">
           <div className="mb-3 flex items-end justify-between"><h2 id="reels" className="section-title">Reels: watch and shop</h2><Link href="/reels" className="flex items-center gap-1 text-sm font-bold text-gold">All reels <ArrowRight size={15} /></Link></div>
-          <ReelsRail reels={reels.slice(0, 12)} />
+          <ReelsRail reels={reels.slice(0, 12)} music={reelMusic} />
         </section></Reveal>
       )}
 

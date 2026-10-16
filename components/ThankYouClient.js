@@ -6,6 +6,7 @@ import { BadgeCheck, PackageCheck, PhoneCall, Truck } from 'lucide-react';
 import { SITE, waLink } from '@/lib/config';
 import { formatPKR } from '@/lib/format';
 import { purchase } from '@/lib/metaPixel';
+import { sfx } from '@/lib/sound';
 import { WhatsAppIcon } from './Icons';
 import InstallButton from './InstallButton';
 import OrderBill from './OrderBill';
@@ -23,7 +24,7 @@ export default function ThankYouClient() {
   }, [id]);
 
   // Purchase event: once per order, only here, with the real order value in PKR and the order ID.
-  useEffect(() => { if (order) purchase(order); }, [order]);
+  useEffect(() => { if (order) { purchase(order); sfx.success(); } }, [order]);
 
   const orderId = order ? order.orderId : id;
   const lines = order ? order.items.map((i) => `${i.name}${i.size ? ` (${i.size})` : ''} x${i.qty}`).join(', ') : '';

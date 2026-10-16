@@ -1,12 +1,12 @@
 {
   "name": "mizanora-store",
-  "version": "16.0.0",
+  "version": "17.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs"
+    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs"
   },
   "dependencies": {
     "firebase": "^11.0.0",

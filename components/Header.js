@@ -1,4 +1,5 @@
 'use client';
+import SoundToggle from './SoundToggle';
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -27,6 +28,7 @@ export default function Header({ categories = [] }) {
         {searchForm('s-d', 'hidden flex-1 md:mx-auto md:block md:max-w-2xl')}
         <div className="ml-auto flex items-center gap-1">
           <div className="hidden xl:block"><InstallButton className="!border-white/60 !bg-transparent !px-4 !py-2 text-sm !text-white" /></div>
+          <SoundToggle className="text-white" />
           <Link href="/wishlist" aria-label="Wishlist" className="hidden rounded-full p-2.5 hover:bg-white/10 sm:block"><Heart size={24} /></Link>
           <Link href="/account" aria-label="My account" className="hidden rounded-full p-2.5 hover:bg-white/10 md:block"><UserRound size={25} /></Link>
           <Link href="/cart" aria-label={`Cart, ${count} items`} className="relative rounded-full p-2.5 hover:bg-white/10">

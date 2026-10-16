@@ -3,12 +3,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Check, Mic, MicOff, Play, Radio, RefreshCw, Send, Share2, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
+import { Check, Mic, MicOff, Phone, PhoneOff, Play, Radio, RefreshCw, Send, Share2, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
 import { useCartActions } from './CartProvider';
 import { addToCart } from '@/lib/metaPixel';
 import { formatPKR } from '@/lib/format';
 import { saveDeal } from '@/lib/dealStore';
-import { createVoice } from '@/lib/assistantVoice';
+import { createVoice, isEcho } from '@/lib/assistantVoice';
 import { askMic, micHelp, micPermission, micSupported, recognizer, srMessage } from '@/lib/mic';
 
 // A made-up device id (localStorage). It carries no name, phone or account - it only lets the assistant remember
@@ -53,6 +53,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
   const [lang, setLang] = useState('en-IN');
   const [note, setNote] = useState('');               // short, friendly line about the last voice problem
   const [added, setAdded] = useState({});
+  const [call, setCall] = useState(false);            // voice call mode: big orb, hands-free, hang-up button
 
   // Everything the voice code reads lives in refs, so a callback can never see an old value (no stale closures).
   const modeRef = useRef(cfg.voiceMode);
@@ -82,6 +83,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
   const didRef = useRef('');
   const scroller = useRef(null);
   const greeted = useRef(false);
+  const lastSpokenRef = useRef('');       // her last words (used to recognise her own voice in the microphone)
 
   const setPermission = (p) => { permRef.current = p; setPerm(p); };
 
@@ -123,6 +125,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
 
   // Speak, and tell the screen when she is talking (only the newest speech counts, so the status never flickers).
   const say = (t) => {
+    lastSpokenRef.current = String(t || '');
     if (!voiceOnRef.current) return Promise.resolve();
     const id = ++speakId.current;
     setSpeaking(true);
@@ -155,15 +158,20 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     msgsRef.current = withReply; setMsgs(withReply);
     busyRef.current = false; setBusy(false);
     await say(reply.text);
-    // Voice conversation: after she answers, listen again by herself.
+    // Voice conversation: after she answers, wait a moment (so the microphone does not hear the end of her voice), then listen again.
     if (fromVoice && autoRef.current && loopRef.current && openRef.current) {
-      timer.current = setTimeout(() => listenRef.current && listenRef.current(true), 350);
+      timer.current = setTimeout(() => {
+        if (voice.isBusy()) { timer.current = setTimeout(() => listenRef.current && listenRef.current(true), 500); return; }
+        listenRef.current && listenRef.current(true);
+      }, 800);
     }
   };
 
   // Start listening. quiet = started by the assistant itself (no popup-style error messages for a missed turn).
   const listenNow = async (quiet = false) => {
     if (startingRef.current) return;
+    // She is still talking: the microphone waits, otherwise it would hear her and answer herself.
+    if (voice.isBusy()) { clearTimeout(timer.current); timer.current = setTimeout(() => listenRef.current && listenRef.current(quiet), 300); return; }
     startingRef.current = true;
     try { await startRecognition(quiet); } finally { startingRef.current = false; }
   };
@@ -211,8 +219,10 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     };
     r.onend = () => {
       listeningRef.current = false; recRef.current = null; setListening(false);
-      const heard = finalRef.current.trim();
+      let heard = finalRef.current.trim();
       finalRef.current = '';
+      // Her own voice picked up by the microphone is not a question from the shopper: drop it.
+      if (heard && isEcho(heard, lastSpokenRef.current)) heard = '';
       if (heard) { misses.current = 0; sendRef.current(heard, true); return; }
       if (!openRef.current) return;
       if (autoRef.current && loopRef.current) {
@@ -292,6 +302,16 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     return () => window.removeEventListener('keydown', k);
   }, [open, onClose]);
 
+  // Voice call: one tap starts a hands-free conversation (like a phone call), the hang-up button ends it.
+  const startCall = () => {
+    voice.unlock();
+    setCall(true);
+    loopRef.current = true; setLoop(true);
+    autoRef.current = true; misses.current = 0;
+    say('Ji, boliye. Main sun rahi hoon.').then(() => { if (openRef.current && autoRef.current) listenRef.current(false); });
+  };
+  const endCall = () => { setCall(false); stopAll(); };
+
   const addCard = (p) => {
     const prod = { id: p.slug, slug: p.slug, name: p.name, price: p.price, images: p.image ? [p.image] : [] };
     add(prod, { qty: 1 }); addToCart(prod, 1);
@@ -314,7 +334,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
   return (
     <div className="fixed inset-0 z-[60] md:inset-auto md:bottom-5 md:right-5" role="dialog" aria-modal="true" aria-label={`${cfg.name} - Mizanora assistant`}>
       <button type="button" className="absolute inset-0 bg-black/40 md:hidden" aria-label="Close assistant" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 flex h-[84dvh] flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-2xl md:static md:h-[620px] md:w-[400px] md:rounded-3xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="absolute inset-x-0 bottom-0 flex h-[84dvh] flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-2xl md:relative md:h-[620px] md:w-[400px] md:rounded-3xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <header className="flex items-center gap-3 bg-gradient-to-r from-[#0B6B45] to-[#0E8556] px-4 py-3 text-white">
           <span className={`relative grid h-10 w-10 place-items-center rounded-full bg-white/15 ${listening ? 'ring-2 ring-red-300' : speaking ? 'ring-2 ring-gold' : ''}`}>
             <Sparkles size={20} />
@@ -342,6 +362,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
             <button type="button" onClick={toggleLoop} aria-pressed={loop} className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 font-bold ${loop ? 'bg-gold/15 text-gold' : 'text-dim'}`}>
               <Radio size={12} /> Hands-free {loop ? 'ON' : 'OFF'}
             </button>
+            <button type="button" onClick={startCall} className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-2.5 py-1 font-bold text-white"><Phone size={12} /> Voice call</button>
             <select value={lang} onChange={(e) => changeLang(e.target.value)} aria-label="Bolne ki zubaan" className="rounded-full border border-line bg-surface px-2 py-0.5 text-[0.7rem] font-semibold text-cream outline-none">
               {LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
@@ -351,6 +372,24 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
           <p className="border-b border-line bg-amber-50 px-4 py-1.5 text-[0.7rem] font-semibold text-amber-900">{note}</p>
         )}
 
+        {call && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-[#0B6B45] to-[#06301F] px-6 text-center text-white">
+            <p className="text-xs font-bold uppercase tracking-widest text-white/70">Voice call - {cfg.name}</p>
+            <span className="relative grid h-40 w-40 place-items-center">
+              {(listening || speaking || busy) && <span className="absolute inset-0 animate-ping rounded-full bg-gold/40 [animation-duration:2s]" aria-hidden="true" />}
+              <span className={`relative grid h-32 w-32 place-items-center rounded-full bg-gradient-to-br from-gold to-[#0E8556] shadow-2xl ${listening ? 'ring-4 ring-red-300' : speaking ? 'ring-4 ring-white/60' : ''}`}>
+                <Sparkles size={44} />
+              </span>
+            </span>
+            <p className="text-xl font-extrabold" aria-live="polite">{status}</p>
+            <p className="line-clamp-3 min-h-[3rem] max-w-xs text-sm text-white/85">{listening && text ? `"${text}"` : (msgs.length && msgs[msgs.length - 1].role === 'assistant' ? msgs[msgs.length - 1].text : '')}</p>
+            <p className="max-w-xs text-xs text-white/60">Headphones lagaayein to behtar: speaker ki awaaz dobara nahi sunai degi.</p>
+            <div className="flex items-center gap-5">
+              <button type="button" onClick={toggleMic} aria-label={listening ? 'Stop listening' : 'Speak'} className={`grid h-14 w-14 place-items-center rounded-full ${listening ? 'bg-white text-red-600' : 'bg-white/15 text-white'}`}>{listening ? <MicOff size={24} /> : <Mic size={24} />}</button>
+              <button type="button" onClick={endCall} aria-label="End call" className="grid h-16 w-16 place-items-center rounded-full bg-red-600 text-white shadow-xl active:scale-95"><PhoneOff size={28} /></button>
+            </div>
+          </div>
+        )}
         <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-4" style={{ touchAction: 'pan-y' }}>
           {msgs.map((m, i) => (
             <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start gap-2'}>

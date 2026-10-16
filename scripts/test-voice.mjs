@@ -1,7 +1,7 @@
 // Tests for the assistant's speech splitting (Chrome stops long speech, so answers are spoken in short pieces).
 // Usage: node scripts/test-voice.mjs
 import assert from 'node:assert/strict';
-import { speechChunks } from '../lib/assistantVoice.js';
+import { speechChunks, isEcho } from '../lib/assistantVoice.js';
 
 let fails = 0;
 const test = (name, fn) => { try { fn(); console.log('ok   ', name); } catch (e) { fails++; console.log('FAIL ', name, '\n     ', e.message); } };
@@ -25,6 +25,17 @@ test('Urdu full stop and question mark split too', () => {
 test('empty / spaces give no pieces', () => {
   assert.deepEqual(speechChunks('   '), []);
   assert.deepEqual(speechChunks(''), []);
+});
+
+test('echo: her own sentence heard by the mic is recognised', () => {
+  assert.equal(isEcho('ji aap ke liye yeh cheezein mili hain', 'Ji, aap ke liye yeh cheezein mili hain.'), true);
+});
+test('echo: a real question from the shopper is NOT dropped', () => {
+  assert.equal(isEcho('kya is ki delivery kal tak hogi', 'Ji, mujhe 3 cheezein mili hain.'), false);
+});
+test('echo: single word or empty heard text is never an echo', () => {
+  assert.equal(isEcho('ji', 'Ji, aap ke liye'), false);
+  assert.equal(isEcho('', 'anything'), false);
 });
 
 console.log(fails ? `\n${fails} voice test(s) FAILED` : '\nAll voice tests passed.');

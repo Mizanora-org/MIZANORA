@@ -13,6 +13,7 @@ export async function POST(req) {
   // Clear the shared data cache first (this is the ONE Firestore re-read), then rebuild every page from it.
   revalidateTag('catalog');
   revalidateTag('reviews');
+  revalidateTag('reel-music');
   revalidatePath('/', 'layout');
   ['/sitemap.xml', '/api/search-index', '/api/feed'].forEach((p) => revalidatePath(p));
   if (slug) revalidatePath(`/product/${String(slug).slice(0, 80)}`);

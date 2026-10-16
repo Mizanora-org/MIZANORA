@@ -1,6 +1,7 @@
 'use client';
 import { getMarkup } from '@/lib/refClient';
 import { getDeal } from '@/lib/dealStore';
+import { sfx } from '@/lib/sound';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const StateCtx = createContext(null);
@@ -32,6 +33,7 @@ export function CartProvider({ children }) {
   }, [items, ready]);
 
   const add = useCallback((p, { size = '', qty = 1 } = {}) => {
+    sfx.add();
     const d = getDeal(p.id); // price the assistant agreed with this shopper (if any, still valid)
     const base = p.price + getMarkup(p.id);
     const price = d ? Math.max(1, base - d.off) : base;

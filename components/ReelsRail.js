@@ -2,12 +2,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Flame, Heart, Pause, Play, Share2, ShoppingBag, Shuffle, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Flame, Heart, Music, Pause, Play, Share2, ShoppingBag, Shuffle, Volume2, VolumeX, X } from 'lucide-react';
 import { parseVideo } from '@/lib/video';
 import { formatPKR } from '@/lib/format';
 
 const LIKE_KEY = 'mz_reel_likes';
+const MUSIC_KEY = 'mz_reel_music';
 const readLikes = () => { try { return JSON.parse(localStorage.getItem(LIKE_KEY) || '[]'); } catch { return []; } };
+
+// Fisher-Yates shuffle: every reel gets an equal chance to come first.
+export function shuffleReels(list) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Does the reel's own video carry sound? Only a plain video file (.mp4) can be checked; YouTube / Facebook / Instagram / TikTok
+// embeds are treated as "has sound" (so the Mizanora music never fights with a real soundtrack).
+// Returns 'audio' | 'silent' | null (not known yet).
+function probeVideo(el) {
+  if (!el) return null;
+  if (typeof el.mozHasAudio === 'boolean') return el.mozHasAudio ? 'audio' : 'silent';
+  if (typeof el.webkitAudioDecodedByteCount === 'number') {
+    if (el.webkitAudioDecodedByteCount > 0) return 'audio';
+    return el.currentTime > 1.5 ? 'silent' : null;
+  }
+  if (el.audioTracks && typeof el.audioTracks.length === 'number' && el.readyState >= 1) return el.audioTracks.length ? 'audio' : 'silent';
+  return el.currentTime > 1.5 ? 'audio' : null; // browser cannot tell: assume sound, so the music stays quiet
+}
 
 // ---------------------------------------------------------------------------------------------
 // Poster: the picture shown for a reel before it plays (video thumbnail, else the product photo, else brand colours)
@@ -21,25 +46,38 @@ function Poster({ reel, v, sizes = '240px', priority = false, className = '' }) 
 
 // ---------------------------------------------------------------------------------------------
 // Full-screen, swipe-up feed (like Instagram / TikTok). Only the reel you are watching is loaded.
+// Mizanora music: plays behind reels that have NO sound, and stays silent on reels that have their own sound.
 // ---------------------------------------------------------------------------------------------
-function Viewer({ reels, start, onClose }) {
+function Viewer({ reels, start, onClose, music }) {
+  const [deck, setDeck] = useState(reels);          // this viewer's own order (the Shuffle button mixes it)
   const [active, setActive] = useState(start);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);        // sound on when the reel was opened by a tap; the browser may force mute (see effect)
   const [paused, setPaused] = useState(false);
   const [likes, setLikes] = useState([]);
   const [toast, setToast] = useState('');
+  const [probe, setProbe] = useState({});           // reel id -> 'audio' | 'silent'
+  const [brandOn, setBrandOn] = useState(true);
+  const [brandPlaying, setBrandPlaying] = useState(false);
   const scroller = useRef(null);
   const slides = useRef([]);
-  const media = useRef(null); // the live <iframe> or <video> of the active reel
+  const media = useRef(null);                       // the live <iframe> or <video> of the active reel
+  const bg = useRef(null);                          // the Mizanora music (one audio element for the whole viewer)
+  const wantBg = useRef(false);
 
-  useEffect(() => { setLikes(readLikes()); }, []);
+  const r = deck[active] || deck[0];
+  const v = parseVideo(r.url);
+  const sound = probe[r.id] || (v.type === 'file' ? 'pending' : 'audio');
+  const musicWanted = Boolean(music && music.url) && brandOn && sound === 'silent';
+  wantBg.current = musicWanted;
+
+  useEffect(() => { setLikes(readLikes()); try { setBrandOn(localStorage.getItem(MUSIC_KEY) !== '0'); } catch (_) { /* ignore */ } }, []);
 
   // Lock the page behind, open on the tapped reel, close with Esc, move with the arrow keys.
   const goTo = useCallback((i) => {
-    const n = Math.min(reels.length - 1, Math.max(0, i));
+    const n = Math.min(deck.length - 1, Math.max(0, i));
     const el = slides.current[n];
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [reels.length]);
+  }, [deck.length]);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -64,10 +102,63 @@ function Viewer({ reels, start, onClose }) {
     }, { root: scroller.current, threshold: 0.65 });
     slides.current.forEach((el) => el && io.observe(el));
     return () => io.disconnect();
-  }, [reels.length]);
+  }, [deck.length]);
 
-  const r = reels[active];
-  const v = parseVideo(r.url);
+  // Shuffle inside the viewer: a new random order, starting from the first reel.
+  const reshuffle = () => {
+    setDeck(shuffleReels(reels));
+    setActive(0);
+    setTimeout(() => { if (scroller.current) scroller.current.scrollTo({ top: 0, behavior: 'smooth' }); }, 60);
+    setToast('Naye random reels');
+    setTimeout(() => setToast(''), 1600);
+  };
+
+  // ---- Reel sound: the browser may refuse sound without a tap; then the reel plays muted instead of stopping.
+  useEffect(() => {
+    const el = media.current;
+    if (!el || v.type !== 'file') return;
+    el.muted = muted;
+    const p = el.play && el.play();
+    if (p && p.catch) p.catch(() => { if (!el.muted) { el.muted = true; setMuted(true); el.play().catch(() => {}); } });
+  }, [active, muted]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- Mizanora music element (created once, source changes when the admin changes the link).
+  useEffect(() => {
+    if (!music || !music.url || typeof Audio === 'undefined') return undefined;
+    if (!bg.current) { bg.current = new Audio(); bg.current.loop = true; bg.current.preload = 'auto'; }
+    const a = bg.current;
+    if (a.getAttribute('data-src') !== music.url) { a.setAttribute('data-src', music.url); a.src = music.url; }
+    a.volume = Math.min(1, Math.max(0, music.volume || 0));
+    a.onplaying = () => setBrandPlaying(true);
+    a.onpause = () => setBrandPlaying(false);
+    return () => { a.pause(); };
+  }, [music]);
+  useEffect(() => {
+    const a = bg.current;
+    if (!a || !music || !music.url) return;
+    if (musicWanted) { const p = a.play(); if (p && p.catch) p.catch(() => { /* blocked until the first tap: see below */ }); }
+    else a.pause();
+  }, [musicWanted]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Browsers block music that starts without a tap: the first tap anywhere starts it.
+  useEffect(() => {
+    const unlock = () => { const a = bg.current; if (a && a.paused && wantBg.current) a.play().catch(() => {}); };
+    document.addEventListener('pointerdown', unlock, { passive: true });
+    return () => document.removeEventListener('pointerdown', unlock);
+  }, []);
+  useEffect(() => () => { if (bg.current) bg.current.pause(); }, []);
+
+  const onVideoTime = (e) => {
+    if (probe[r.id]) return;
+    const s = probeVideo(e.currentTarget);
+    if (s) setProbe((p) => ({ ...p, [r.id]: s }));
+  };
+  const toggleBrand = () => {
+    const n = !brandOn;
+    setBrandOn(n);
+    try { localStorage.setItem(MUSIC_KEY, n ? '1' : '0'); } catch (_) { /* ignore */ }
+    setToast(n ? 'Mizanora music on' : 'Mizanora music off');
+    setTimeout(() => setToast(''), 1400);
+  };
 
   // Sound / pause for YouTube (iframe API) and for direct video files.
   const yt = (func) => { try { media.current && media.current.contentWindow && media.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*'); } catch (_) {} };
@@ -91,11 +182,14 @@ function Viewer({ reels, start, onClose }) {
   };
 
   const btn = 'grid h-11 w-11 place-items-center rounded-full bg-black/55 text-white transition active:scale-90';
+  const hasMusic = Boolean(music && music.url);
+  const chip = sound === 'silent' && hasMusic && brandOn ? `${music.title} chal raha hai`
+    : sound === 'audio' ? 'Reel ki apni awaaz' : '';
 
   return (
     <div className="fixed inset-0 z-[80] bg-black text-white" role="dialog" aria-modal="true" aria-label="Reels">
       <div ref={scroller} className="no-sb h-dvh snap-y snap-mandatory overflow-y-scroll overscroll-contain">
-        {reels.map((reel, i) => {
+        {deck.map((reel, i) => {
           const rv = parseVideo(reel.url);
           const live = i === active;
           const liked = likes.includes(reel.id);
@@ -109,7 +203,7 @@ function Viewer({ reels, start, onClose }) {
                 {live ? (
                   <>
                     {rv.type === 'file' && (
-                      <video ref={media} key={reel.id} src={rv.src} autoPlay loop muted={muted} playsInline onClick={togglePlay} className="h-full w-full bg-black object-contain" />
+                      <video ref={media} key={reel.id} src={rv.src} autoPlay loop muted={muted} playsInline onClick={togglePlay} onTimeUpdate={onVideoTime} onLoadedMetadata={onVideoTime} className="h-full w-full bg-black object-contain" />
                     )}
                     {rv.type !== 'file' && (
                       <div className={rv.vertical ? 'h-full w-full' : 'absolute inset-x-0 top-1/2 aspect-video -translate-y-1/2'}>
@@ -137,9 +231,14 @@ function Viewer({ reels, start, onClose }) {
                 {/* top bar */}
                 <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
                   <button type="button" onClick={onClose} aria-label="Close reels" className={btn}><X size={22} /></button>
-                  <span className="rounded-full bg-black/55 px-3 py-1 text-xs font-bold">{i + 1} / {reels.length}</span>
-                  <span className="w-11" />
+                  <span className="rounded-full bg-black/55 px-3 py-1 text-xs font-bold">{i + 1} / {deck.length}</span>
+                  <button type="button" onClick={reshuffle} aria-label="Shuffle reels" className={btn}><Shuffle size={19} /></button>
                 </div>
+                {live && chip && (
+                  <div className="absolute inset-x-0 top-16 z-20 flex justify-center px-3">
+                    <span className="flex max-w-[85%] items-center gap-1.5 truncate rounded-full bg-black/60 px-3 py-1 text-[0.7rem] font-semibold"><Music size={12} className={brandPlaying ? 'animate-pulse text-saffron' : 'text-white/70'} /> <span className="truncate">{chip}</span></span>
+                  </div>
+                )}
 
                 {/* right-hand actions */}
                 <div className="absolute bottom-40 right-3 z-20 flex flex-col items-center gap-4">
@@ -147,6 +246,7 @@ function Viewer({ reels, start, onClose }) {
                   <button type="button" onClick={share} aria-label="Share" className={btn}><Share2 size={20} /></button>
                   {live && canControl && <button type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? 'Turn sound on' : 'Mute'} className={btn}>{muted ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>}
                   {live && canControl && <button type="button" onClick={togglePlay} aria-label={paused ? 'Play' : 'Pause'} className={btn}>{paused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>}
+                  {live && hasMusic && <button type="button" onClick={toggleBrand} aria-label={brandOn ? 'Turn Mizanora music off' : 'Turn Mizanora music on'} aria-pressed={brandOn} className={`${btn} ${brandOn ? '!bg-saffron/90 !text-[#2B1B00]' : ''}`}><Music size={20} /></button>}
                   <a href={reel.url} target="_blank" rel="noopener noreferrer" aria-label="Open the original video" className={btn}><ExternalLink size={18} /></a>
                 </div>
 
@@ -161,7 +261,7 @@ function Viewer({ reels, start, onClose }) {
                     </span>
                     <Link href={reel.href} onClick={onClose} className="btn-sun !px-5 !py-3"><ShoppingBag size={18} /> Shop now</Link>
                   </div>
-                  {live && i === 0 && reels.length > 1 && <p className="mt-2 flex animate-bounce items-center justify-center gap-1 text-xs text-white/80"><ChevronUp size={14} /> Swipe up for the next reel</p>}
+                  {live && i === 0 && deck.length > 1 && <p className="mt-2 flex animate-bounce items-center justify-center gap-1 text-xs text-white/80"><ChevronUp size={14} /> Swipe up for the next reel</p>}
                 </div>
               </div>
             </section>
@@ -172,9 +272,9 @@ function Viewer({ reels, start, onClose }) {
       {/* desktop arrows */}
       <div className="absolute right-6 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-3 md:flex">
         <button type="button" onClick={() => goTo(active - 1)} disabled={active === 0} aria-label="Previous reel" className={`${btn} disabled:opacity-30`}><ChevronUp size={24} /></button>
-        <button type="button" onClick={() => goTo(active + 1)} disabled={active === reels.length - 1} aria-label="Next reel" className={`${btn} disabled:opacity-30`}><ChevronDown size={24} /></button>
+        <button type="button" onClick={() => goTo(active + 1)} disabled={active === deck.length - 1} aria-label="Next reel" className={`${btn} disabled:opacity-30`}><ChevronDown size={24} /></button>
       </div>
-      {toast && <p role="status" className="absolute left-1/2 top-20 z-40 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#12201A] shadow-xl">{toast}</p>}
+      {toast && <p role="status" className="absolute left-1/2 top-24 z-40 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#12201A] shadow-xl">{toast}</p>}
     </div>
   );
 }
@@ -210,19 +310,11 @@ function Card({ reel, index, onOpen, grid }) {
   );
 }
 
-// Fisher-Yates shuffle: every reel gets an equal chance to come first.
-export function shuffleReels(list) {
-  const a = list.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-// A row (home page) or grid (/reels) of vertical video cards. Tap one to watch full screen and shop from it.
-// shuffle = true: the order is random on every visit, and the "Naye random reels" button (or the Reels tab tapped again) mixes them again.
-export default function ReelsRail({ reels, grid = false, shuffle = false }) {
+// A row (home page) or grid of vertical video cards. Tap one to watch full screen and shop from it.
+// shuffle = true: random order on every visit; "Naye random reels" (or the Reels tab tapped again) mixes them again.
+// autoOpen = true: the full-screen reels open straight away (the /reels page). Closing shows the grid.
+// music = { url, title, volume } from the admin (Mizanora background music).
+export default function ReelsRail({ reels, grid = false, shuffle = false, autoOpen = false, music = null }) {
   const [open, setOpen] = useState(-1);
   const row = useRef(null);
   const usable = useMemo(() => reels.filter((r) => parseVideo(r.url)), [reels]);
@@ -235,6 +327,7 @@ export default function ReelsRail({ reels, grid = false, shuffle = false }) {
     window.addEventListener('mz-reels-shuffle', reshuffle);
     return () => window.removeEventListener('mz-reels-shuffle', reshuffle);
   }, [shuffle, reshuffle]);
+  useEffect(() => { if (autoOpen && usable.length) setOpen(0); }, [autoOpen, usable.length]);
   const list = order.length ? order : usable;
   if (!usable.length) return null;
   const scrollBy = (d) => row.current && row.current.scrollBy({ left: d * 440, behavior: 'smooth' });
@@ -265,7 +358,7 @@ export default function ReelsRail({ reels, grid = false, shuffle = false }) {
           <button type="button" onClick={() => scrollBy(1)} aria-label="Scroll reels right" className="absolute -right-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white shadow-lg md:grid"><ChevronRight size={22} /></button>
         </div>
       )}
-      {open >= 0 && <Viewer reels={list} start={open} onClose={() => setOpen(-1)} />}
+      {open >= 0 && <Viewer reels={list} start={open} music={music} onClose={() => setOpen(-1)} />}
     </>
   );
 }

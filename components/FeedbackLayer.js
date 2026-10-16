@@ -12,6 +12,8 @@ export default function FeedbackLayer() {
     const onClick = (e) => {
       const el = e.target.closest && e.target.closest('button, [role="button"], a.btn-gold, a.btn-sun, a.btn-ghost, label.btn-ghost');
       if (!el || el.disabled || el.closest('[data-nosound]')) return;
+      // Buttons with their own sound (add to cart, wishlist, coupon, place order) play that one instead.
+      if (el.tagName === 'BUTTON' && /add to (cart|bag)|wish|apply|place (your )?order|confirm/i.test(`${el.getAttribute('aria-label') || ''} ${el.textContent || ''}`)) return;
       sfx.tap();
     };
     document.addEventListener('click', onClick, true);

@@ -15,6 +15,7 @@ import { validateCustomer } from '@/lib/validate';
 import { formatPKR } from '@/lib/format';
 import { initiateCheckout, getCookie } from '@/lib/metaPixel';
 import { getRef } from '@/lib/refClient';
+import { sfx } from '@/lib/sound';
 import { PAY_METHODS, PREPAID_PERCENT, payMethod, prepaidOff, cleanPayRef } from '@/lib/payments';
 
 const EMPTY = { name: '', phone: '', address: '', landmark: '', city: '', cityOther: '', province: '', notes: '', website: '' };
@@ -85,8 +86,8 @@ export default function CheckoutClient() {
     try {
       const r = await fetch('/api/coupon', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: val, items: items.map((i) => ({ id: i.id, qty: i.qty })) }) });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok || !d.ok) { setCoupon(null); setCouponMsg(d.error || 'Could not apply this promo code.'); return; }
-      setCoupon(d); setCode(d.code);
+      if (!r.ok || !d.ok) { sfx.error(); setCoupon(null); setCouponMsg(d.error || 'Could not apply this promo code.'); return; }
+      sfx.coupon(); setCoupon(d); setCode(d.code);
       setCouponMsg(`Promo code ${d.code} applied: ${d.label}${d.scoped && d.appliesTo.length ? ` on ${d.appliesTo.join(', ')}` : ''}.`);
     } catch { if (!quiet) setCouponMsg('Could not check the promo code. Try again.'); }
   }
