@@ -34,3 +34,13 @@ in daily pieces with *Start at* / *Import how many* (the page shows the number o
 * Archive files change only by a commit (about 1 to 3 min to go live). Archived stock/price are fixed until you copy the product to Firebase.
 * Keep live Firebase products around 1,000 to 2,500: each admin save refreshes that list (one read per live product).
 * A very large archive (50k) keeps about 15 MB of cards in each server instance's memory: fine on Vercel's default 1 GB.
+
+## Control room (Admin > Control room)
+* **Shut down website**: visitors see your reason (and an optional "back at" text) instead of the shop; every public function answers "closed" and nothing reads Firebase. `/admin` stays open for you. The big red **PANIC** button does it in one click.
+* **High alert (save reads)**: shop stays online, never refreshes products from Firebase, assistant / AI search / photo reports are off. Orders keep working.
+* **Feature switches**: orders, assistant, AI search, photo reports, tracking, workers, each on/off.
+* **Delete recently added products**: "added in the last N hours/days", count first, optional backup download, type DELETE, deletes in batches of 200 with a Stop button and a "delete at most" cap. Shows how many writes were used today (free limit 20,000 per day for everything together; each product here uses up to 3 writes).
+* **Firebase tools**: link to the Firebase usage page, a "Test Firebase now" button (real write test), refresh shop data.
+* Emergency without Firebase: Vercel variables `SITE_MODE=down` (or `saver`) and `SITE_DOWN_REASON=...`, then redeploy.
+* Publish the new `firestore.rules` again (it has the `siteMeta` rule).
+* The status costs at most 1 read per 10 minutes. Pages switch within about a minute after you press Apply.

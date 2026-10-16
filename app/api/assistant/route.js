@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { getCategories, getProduct, getTotalCount } from '@/lib/products';
 import { browseRemote, searchRemote } from '@/lib/catalogQuery';
 import { parseQuery } from '@/lib/search';
@@ -114,6 +115,8 @@ ${cur ? `The shopper is looking at this product right now: ${JSON.stringify(brie
 }
 
 export async function POST(req) {
+  const closed = await denyIf('assistant');
+  if (closed) return closed;
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'x';
   if (rate(ip)) return NextResponse.json({ ok: false, text: 'Thori der ruk kar dobara poochein, bohat zyada messages aa gaye.' }, { status: 429 });
 

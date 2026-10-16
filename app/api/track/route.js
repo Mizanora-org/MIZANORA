@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { normalizePhone } from '@/lib/validate';
 
@@ -15,6 +16,8 @@ const limited = (ip) => {
 
 // Guests can look up an order with the order ID AND the phone number used on the order.
 export async function POST(req) {
+  const closed = await denyIf('tracking');
+  if (closed) return closed;
   if (!adminReady()) return NextResponse.json({ ok: false, error: 'Tracking is not available right now.' }, { status: 503 });
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
   if (limited(ip)) return NextResponse.json({ ok: false, error: 'Too many tries. Please wait a few minutes.' }, { status: 429 });

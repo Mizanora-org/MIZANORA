@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 
@@ -9,6 +10,8 @@ const seen = new Map();
 
 // Counts what shoppers search for. Only the words are saved (no IP, no account), so you can see what to stock.
 export async function POST(req) {
+  const closed = await denyIf();
+  if (closed) return closed;
   if (!adminReady()) return new NextResponse(null, { status: 204 });
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'x';
   const now = Date.now();

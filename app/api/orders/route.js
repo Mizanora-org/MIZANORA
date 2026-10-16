@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { denyIf } from '@/lib/siteGate';
 import { NextResponse, after } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
@@ -29,6 +30,8 @@ const newOrderId = () => `MZ-${crypto.randomBytes(4).toString('hex').toUpperCase
 const fail = (msg, status = 400) => NextResponse.json({ ok: false, error: msg }, { status });
 
 export async function POST(req) {
+  const closed = await denyIf('orders');
+  if (closed) return closed;
   if (!adminReady()) return fail('The store is not fully set up yet. Please contact support on WhatsApp.', 503);
 
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { getProduct } from '@/lib/products';
 import { browseRemote, searchRemote } from '@/lib/catalogQuery';
 
@@ -14,6 +15,8 @@ const slim = (p) => ({ id: p.id, name: p.name, price: p.price, image: (p.images 
 const nums = (v) => Math.max(0, Math.floor(Number(v) || 0));
 
 export async function GET(req) {
+  const closed = await denyIf('workers');
+  if (closed) return closed;
   const u = new URL(req.url).searchParams;
   try {
     const id = String(u.get('id') || '').slice(0, 120);

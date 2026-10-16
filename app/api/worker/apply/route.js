@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { denyIf } from '@/lib/siteGate';
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
@@ -27,6 +28,8 @@ async function newCode(db, name) {
 // A customer account applies to become a worker. KYC photos and the CNIC number go to the private "workerKyc" collection
 // (only the admin can read it). The "workers" doc holds only what the worker needs to see.
 export async function POST(req) {
+  const closed = await denyIf('workers');
+  if (closed) return closed;
   const u = await verifyUser(req);
   if (!u.ok) return json({ ok: false, error: u.error }, u.status);
   let b; try { b = await req.json(); } catch { return json({ ok: false, error: 'Invalid request' }, 400); }

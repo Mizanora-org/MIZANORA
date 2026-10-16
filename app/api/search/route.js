@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { searchRemote } from '@/lib/catalogQuery';
 
 export const runtime = 'nodejs';
@@ -12,6 +13,8 @@ const hits = new Map();
 const nums = (v) => Math.max(0, Math.floor(Number(v) || 0));
 
 export async function GET(req) {
+  const closed = await denyIf();
+  if (closed) return closed;
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'x';
   const now = Date.now();
   const a = (hits.get(ip) || []).filter((t) => now - t < 60000); a.push(now); hits.set(ip, a);

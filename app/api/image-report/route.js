@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { adminReady } from '@/lib/firebase-admin';
 import { inspectProduct } from '@/lib/imageErrors';
 
@@ -14,6 +15,8 @@ const recent = new Map(); // slug -> time of the last check (one check per produ
 let running = 0;
 
 export async function POST(req) {
+  const closed = await denyIf('imageReport');
+  if (closed) return closed;
   if (!adminReady()) return NextResponse.json({ ok: false }, { status: 501 });
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'x';
   const now = Date.now();

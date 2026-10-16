@@ -24,6 +24,9 @@ import CardEvents from '@/components/CardEvents';
 import AppFeel from '@/components/AppFeel';
 import AssistantFab from '@/components/AssistantFab';
 import { getPublicAssistant } from '@/lib/assistantPublic';
+import { getSiteStatus } from '@/lib/siteGate';
+import SiteGate from '@/components/SiteGate';
+import Maintenance from '@/components/Maintenance';
 
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
 const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
@@ -57,11 +60,15 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
+  const status = await getSiteStatus();
+  const down = status.mode === 'down';
   const categories = await getCategories();
-  const assistant = await getPublicAssistant();
+  // The assistant button disappears while the site is shut, on high alert, or when its switch is off in Admin > Control.
+  const assistant = down || status.mode === 'saver' || status.features.assistant === false ? { enabled: false, name: 'Noor', voiceMode: 'browser', greeting: '' } : await getPublicAssistant();
   return (
     <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${body.variable} ${arabic.variable}`}>
       <body>
+        <SiteGate down={down} maintenance={<Maintenance reason={status.reason} backAt={status.backAt} />}>
         <SplashScreen />
         <RouteProgress />
         <AuthProvider>
@@ -82,6 +89,7 @@ export default async function RootLayout({ children }) {
           </InstallProvider>
         </CartProvider>
         </AuthProvider>
+        </SiteGate>
         <RefCapture />
         <MetaPixel />
         <PwaRegister />

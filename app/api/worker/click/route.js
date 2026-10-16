@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { findWorkerByCode } from '@/lib/workerAuth';
@@ -10,6 +11,8 @@ const seen = new Map();
 
 // Counts one visit per visitor per link (the browser sends it once per session). Only for the worker's own "visits" number.
 export async function POST(req) {
+  const closed = await denyIf('workers');
+  if (closed) return closed;
   if (!adminReady()) return NextResponse.json({ ok: false });
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'x';
   let code = ''; try { code = cleanWorkerCode((await req.json()).code); } catch { /* ignore */ }

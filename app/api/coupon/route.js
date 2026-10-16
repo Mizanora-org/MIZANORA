@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { priceCoupon } from '@/lib/coupons';
 import { getProductsByIds } from '@/lib/products';
@@ -9,6 +10,8 @@ export const dynamic = 'force-dynamic';
 // Checks a promo code against the real prices in the catalog (not the browser's numbers).
 // Product prices come from the shared cached catalog, so this costs only ONE Firestore read (the coupon itself).
 export async function POST(req) {
+  const closed = await denyIf('orders');
+  if (closed) return closed;
   if (!adminReady()) return NextResponse.json({ ok: false, error: 'Promo codes are not available right now.' }, { status: 503 });
   let b;
   try { b = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'Invalid request' }, { status: 400 }); }

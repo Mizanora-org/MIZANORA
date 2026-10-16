@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { geminiCall, ladderFor, loadAssistant, textOf } from '@/lib/gemini';
 import { getCategories } from '@/lib/products';
 
@@ -40,6 +41,8 @@ async function ask(q) {
 }
 
 export async function POST(req) {
+  const closed = await denyIf('aiSearch');
+  if (closed) return closed;
   const { keys } = await loadAssistant();
   if (!keys.length) return NextResponse.json({ ok: false }, { status: 501 });
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'x';

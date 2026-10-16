@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyIf } from '@/lib/siteGate';
 import { adminDb } from '@/lib/firebase-admin';
 import { verifyWorker } from '@/lib/workerAuth';
 import { MIN_PAYOUT, isAvailable } from '@/lib/workers';
@@ -9,6 +10,8 @@ const json = (b, s = 200) => NextResponse.json(b, { status: s });
 
 // Worker asks for the money of all APPROVED (delivered) commissions. Admin pays it and marks it paid.
 export async function POST(req) {
+  const closed = await denyIf('workers');
+  if (closed) return closed;
   const a = await verifyWorker(req);
   if (!a.ok) return json({ ok: false, error: a.error }, a.status);
   const db = adminDb();
