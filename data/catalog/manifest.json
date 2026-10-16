@@ -1,6 +1,6 @@
 {
  "version": 1,
- "total": 8741,
+ "total": 9805,
  "parts": [
   {
    "n": 1,
@@ -169,6 +169,27 @@
    "cards": "cards-0024.json",
    "count": 87,
    "at": 1792154573259
+  },
+  {
+   "n": 25,
+   "file": "part-0025.json",
+   "cards": "cards-0025.json",
+   "count": 500,
+   "at": 1792154640710
+  },
+  {
+   "n": 26,
+   "file": "part-0026.json",
+   "cards": "cards-0026.json",
+   "count": 500,
+   "at": 1792154647820
+  },
+  {
+   "n": 27,
+   "file": "part-0027.json",
+   "cards": "cards-0027.json",
+   "count": 64,
+   "at": 1792154652094
   }
  ]
 }
