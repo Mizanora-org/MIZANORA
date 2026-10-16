@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -11,7 +11,6 @@ import { saveDeal } from '@/lib/dealStore';
 import { createVoice } from '@/lib/assistantVoice';
 import { askMic, micHelp, micPermission, micSupported, recognizer, srMessage } from '@/lib/mic';
 
-
 // A made-up device id (localStorage). It carries no name, phone or account - it only lets the assistant remember
 // which categories THIS phone likes, and it is the same id the home page "Aap ke liye" shelf reads.
 function deviceId() {
@@ -21,6 +20,10 @@ function deviceId() {
     return d;
   } catch (_) { return ''; }
 }
+
+// Languages the shopper can speak in. en-IN understands Roman Urdu and Hinglish best (it writes them in Latin letters).
+const LANGS = [['en-IN', 'Roman Urdu / English'], ['ur-PK', 'اردو (Urdu)']];
+const LANG_KEY = 'mz_voice_lang';
 
 function Dots() {
   return <span className="inline-flex gap-1" aria-label="typing"><i className="h-2 w-2 animate-bounce rounded-full bg-dim [animation-delay:-.3s]" /><i className="h-2 w-2 animate-bounce rounded-full bg-dim [animation-delay:-.15s]" /><i className="h-2 w-2 animate-bounce rounded-full bg-dim" /></span>;
@@ -41,56 +44,98 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [voiceOn, setVoiceOn] = useState(true);
   const [micOk, setMicOk] = useState(false);          // does this browser support voice at all?
   const [perm, setPerm] = useState('unknown');        // granted | prompt | denied | unknown
   const [help, setHelp] = useState(null);             // { title, steps[] } shown inside the chat
-  const [loop, setLoop] = useState(true);             // hands-free: keep listening after every answer
+  const [loop, setLoop] = useState(true);             // hands-free: keep the conversation going by voice
+  const [lang, setLang] = useState('en-IN');
   const [note, setNote] = useState('');               // short, friendly line about the last voice problem
   const [added, setAdded] = useState({});
 
+  // Everything the voice code reads lives in refs, so a callback can never see an old value (no stale closures).
+  const modeRef = useRef(cfg.voiceMode);
+  modeRef.current = cfg.voiceMode;
+  const voice = useMemo(() => createVoice(() => modeRef.current), []);
   const neg = useRef('');
   const msgsRef = useRef([]);
+  const busyRef = useRef(false);
   const voiceOnRef = useRef(true);
-  const recRef = useRef(null);
-  const viaVoice = useRef(false);
+  const loopRef = useRef(true);
+  const permRef = useRef('unknown');
+  const langRef = useRef('en-IN');
+  const openRef = useRef(open);
+  openRef.current = open;
+  const slugRef = useRef(slug);
+  slugRef.current = slug;
+  const recRef = useRef(null);            // the running SpeechRecognition (if any)
+  const listeningRef = useRef(false);
+  const startingRef = useRef(false);     // a start is in progress (waiting for the mic permission)
+  const autoRef = useRef(false);          // true while a voice conversation is going on (keep listening after each answer)
+  const finalRef = useRef('');            // what was heard in this listening turn
+  const misses = useRef(0);               // turns in a row with nothing heard
+  const speakId = useRef(0);
+  const timer = useRef(null);
+  const sendRef = useRef(null);
+  const listenRef = useRef(null);
+  const didRef = useRef('');
   const scroller = useRef(null);
   const greeted = useRef(false);
-  const busyRef = useRef(false);
-  const modeRef = useRef(cfg.voiceMode);
-  const didRef = useRef('');
-  const loopRef = useRef(true);
-  const voice = useMemo(() => createVoice(() => modeRef.current), []);
+
+  const setPermission = (p) => { permRef.current = p; setPerm(p); };
+
+  // Stop everything that is running: speech, the timer, the microphone.
+  const stopAll = () => {
+    autoRef.current = false;
+    clearTimeout(timer.current);
+    voice.stop();
+    const r = recRef.current;
+    recRef.current = null;
+    listeningRef.current = false;
+    if (r) { r.onresult = null; r.onend = null; r.onerror = null; try { r.abort(); } catch (_) { /* ignore */ } }
+    setListening(false);
+  };
 
   useEffect(() => { msgsRef.current = msgs; if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight; }, [msgs, busy]);
   useEffect(() => { voiceOnRef.current = voiceOn; if (!voiceOn) voice.stop(); }, [voiceOn, voice]);
+  useEffect(() => { loopRef.current = loop; if (!loop) autoRef.current = false; }, [loop]);
   useEffect(() => { didRef.current = deviceId(); }, []);
   useEffect(() => {
     setMicOk(micSupported());
     try {
       if (localStorage.getItem('mz_ai_voice') === '0') setVoiceOn(false);
       if (localStorage.getItem('mz_voice_loop') === '0') { setLoop(false); loopRef.current = false; }
+      const l = localStorage.getItem(LANG_KEY);
+      if (l === 'en-IN' || l === 'ur-PK') { setLang(l); langRef.current = l; }
     } catch (_) { /* ignore */ }
-    return () => { voice.stop(); try { if (recRef.current) recRef.current.abort(); } catch (_) { /* ignore */ } };
+    return () => { stopAll(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voice]);
 
   // Permission state is re-read every time the panel opens (the shopper may have just allowed it in settings).
   useEffect(() => {
     if (!open) return undefined;
     let live = true;
-    micPermission().then((p) => { if (live) setPerm(p); }).catch(() => {});
+    micPermission().then((p) => { if (live) setPermission(p); }).catch(() => {});
     return () => { live = false; };
   }, [open]);
 
-  const stopListen = useCallback(() => { viaVoice.current = false; try { if (recRef.current) recRef.current.stop(); } catch (_) { /* ignore */ } setListening(false); }, []);
+  // Speak, and tell the screen when she is talking (only the newest speech counts, so the status never flickers).
+  const say = (t) => {
+    if (!voiceOnRef.current) return Promise.resolve();
+    const id = ++speakId.current;
+    setSpeaking(true);
+    return voice.speak(t).finally(() => { if (speakId.current === id) setSpeaking(false); });
+  };
 
-  const say = useCallback(async (t) => { if (voiceOnRef.current) await voice.speak(t); }, [voice]);
-
-  const send = useCallback(async (raw, fromVoice = false) => {
+  // Send one message (typed or spoken) and speak the answer.
+  const send = async (raw, fromVoice = false) => {
     const t = String(raw || '').trim().slice(0, 300);
     if (!t || busyRef.current) return;
-    viaVoice.current = fromVoice;
+    clearTimeout(timer.current);
     voice.stop();
+    setSpeaking(false);
     busyRef.current = true; setBusy(true); setText('');
     const next = [...msgsRef.current, { role: 'user', text: t }];
     msgsRef.current = next; setMsgs(next);
@@ -98,7 +143,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     try {
       const r = await fetch('/api/assistant', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, text: m.text })), slug, neg: neg.current, did: didRef.current }),
+        body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, text: m.text })), slug: slugRef.current, neg: neg.current, did: didRef.current }),
       });
       const j = await r.json().catch(() => ({}));
       if (j.neg) neg.current = j.neg;
@@ -110,74 +155,116 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     msgsRef.current = withReply; setMsgs(withReply);
     busyRef.current = false; setBusy(false);
     await say(reply.text);
-    if (fromVoice && viaVoice.current && micSupported() && loopRef.current) startListen(true); // keep the conversation going by voice
-  }, [slug, say, voice]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const startListen = useCallback(async (quiet = false) => {
-    const Rec = recognizer();
-    if (!Rec) { setHelp(micHelp('unsupported')); setMicOk(false); return; }
-    voice.stop();
-    // Ask for the microphone (this is what shows the Allow popup). Without this the first tap could do nothing at all.
-    const ask = await askMic();
-    if (!ask.ok) {
-      setPerm(ask.reason === 'denied' ? 'denied' : perm);
-      if (!quiet) setHelp(micHelp(ask.reason));
-      viaVoice.current = false;
-      return;
+    // Voice conversation: after she answers, listen again by herself.
+    if (fromVoice && autoRef.current && loopRef.current && openRef.current) {
+      timer.current = setTimeout(() => listenRef.current && listenRef.current(true), 350);
     }
-    setPerm('granted');
-    setHelp(null);
-    setNote('');
-    let lang = 'ur-PK';
-    try { const l = localStorage.getItem('mz_voice_lang'); if (l === 'en-PK' || l === 'ur-PK') lang = l; } catch (_) { /* ignore */ }
+  };
+
+  // Start listening. quiet = started by the assistant itself (no popup-style error messages for a missed turn).
+  const listenNow = async (quiet = false) => {
+    if (startingRef.current) return;
+    startingRef.current = true;
+    try { await startRecognition(quiet); } finally { startingRef.current = false; }
+  };
+  const startRecognition = async (quiet) => {
+    const Rec = recognizer();
+    if (!Rec) { setHelp(micHelp('unsupported')); setMicOk(false); autoRef.current = false; return; }
+    if (listeningRef.current || busyRef.current || !openRef.current) return;
+    voice.stop();
+    // Ask for the microphone (this is what shows the Allow popup). Once granted, it is not asked again.
+    if (permRef.current !== 'granted') {
+      const ask = await askMic();
+      if (!ask.ok) {
+        autoRef.current = false;
+        if (ask.reason === 'denied') setPermission('denied');
+        if (!quiet) setHelp(micHelp(ask.reason));
+        return;
+      }
+      setPermission('granted');
+    }
+    if (busyRef.current || !openRef.current) return;
+    setHelp(null); setNote('');
     const r = new Rec();
-    r.lang = lang; r.interimResults = true; r.maxAlternatives = 1;
-    let finalText = '';
+    r.lang = langRef.current; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
+    finalRef.current = '';
+    r.onstart = () => { listeningRef.current = true; setListening(true); };
     r.onresult = (e) => {
-      setNote('');
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) { const s = e.results[i][0].transcript; if (e.results[i].isFinal) finalText += s; else interim += s; }
-      setText(finalText + interim);
+      misses.current = 0; setNote('');
+      let fin = finalRef.current, interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const s = e.results[i][0].transcript;
+        if (e.results[i].isFinal) fin += s; else interim += s;
+      }
+      finalRef.current = fin;
+      setText(fin + interim);
     };
     r.onerror = (e) => {
-      setListening(false);
       const code = String((e && e.error) || '');
-      const soft = srMessage(code);
-      if (soft) setNote(soft);
-      viaVoice.current = loopRef.current && quiet && code !== 'not-allowed' && code !== 'service-not-allowed';
-      if (!quiet && code !== 'aborted' && code !== 'no-speech') { setHelp(micHelp(code === 'audio-capture' ? 'nodevice' : 'denied')); viaVoice.current = false; }
-      // Hands-free: nothing was heard -> listen again by itself (no tapping every time).
-      if (viaVoice.current) setTimeout(() => { if (viaVoice.current && !busyRef.current) startListen(true); }, 700);
+      if (code === 'aborted') return;                         // we stopped it on purpose
+      if (code === 'no-speech') return;                       // nothing said: onend decides whether to listen again
+      const msg = srMessage(code);
+      if (msg) setNote(msg);
+      if (code === 'not-allowed') { autoRef.current = false; setPermission('denied'); setHelp(micHelp('denied')); }
+      else if (code === 'service-not-allowed') { autoRef.current = false; setHelp(micHelp('unsupported')); }
+      else if (code === 'audio-capture') { autoRef.current = false; setHelp(micHelp('nodevice')); }
     };
     r.onend = () => {
-      setListening(false);
-      if (finalText.trim()) send(finalText, true);
-      else if (viaVoice.current && loopRef.current) setTimeout(() => { if (viaVoice.current && !busyRef.current) startListen(true); }, 500);
-      else viaVoice.current = false;
+      listeningRef.current = false; recRef.current = null; setListening(false);
+      const heard = finalRef.current.trim();
+      finalRef.current = '';
+      if (heard) { misses.current = 0; sendRef.current(heard, true); return; }
+      if (!openRef.current) return;
+      if (autoRef.current && loopRef.current) {
+        misses.current += 1;
+        if (misses.current >= 3) {
+          autoRef.current = false;
+          setNote('Main kuch sun nahi pa rahi. Mic button dabayein, phir boliye.');
+          return;
+        }
+        timer.current = setTimeout(() => listenRef.current && listenRef.current(true), 500);
+      }
     };
     recRef.current = r;
-    try { r.start(); setListening(true); } catch (_) { setListening(false); }
-  }, [send, voice, perm]);
+    try { r.start(); }
+    catch (_) { listeningRef.current = false; setListening(false); autoRef.current = false; }
+  };
 
-  // Barge-in: tap the mic while she is speaking and she stops, then listens (like talking over her on a phone call).
+  // Keep the latest functions reachable from the recogniser callbacks and timers.
+  sendRef.current = send;
+  listenRef.current = listenNow;
+
+  // Tap the mic: start, or stop (sends what was heard so far). While she is speaking, a tap stops her and listens (barge-in).
   const toggleMic = () => {
-    voice.unlock(); voice.stop();
-    if (listening) { viaVoice.current = false; stopListen(); return; }
-    viaVoice.current = loopRef.current;
-    startListen();
+    voice.unlock();
+    if (listeningRef.current) { autoRef.current = false; try { if (recRef.current) recRef.current.stop(); } catch (_) { /* ignore */ } return; }
+    clearTimeout(timer.current);
+    voice.stop();
+    misses.current = 0;
+    autoRef.current = loopRef.current;
+    listenNow(false);
   };
   const toggleLoop = () => {
-    setLoop((v) => {
-      const next = !v; loopRef.current = next;
-      try { localStorage.setItem('mz_voice_loop', next ? '1' : '0'); } catch (_) { /* ignore */ }
-      if (!next) viaVoice.current = false;
-      return next;
-    });
+    const n = !loopRef.current;
+    loopRef.current = n; setLoop(n);
+    if (!n) autoRef.current = false;
+    try { localStorage.setItem('mz_voice_loop', n ? '1' : '0'); } catch (_) { /* ignore */ }
   };
-  const retryMic = () => { setHelp(null); voice.unlock(); viaVoice.current = loopRef.current; startListen(); };
-  const toggleVoice = () => { voice.unlock(); setVoiceOn((v) => { try { localStorage.setItem('mz_ai_voice', v ? '0' : '1'); } catch (_) { /* ignore */ } return !v; }); };
+  const changeLang = (v) => {
+    langRef.current = v; setLang(v);
+    try { localStorage.setItem(LANG_KEY, v); } catch (_) { /* ignore */ }
+  };
+  const retryMic = () => { setHelp(null); voice.unlock(); misses.current = 0; autoRef.current = loopRef.current; listenNow(false); };
+  const toggleVoice = () => {
+    voice.unlock();
+    const n = !voiceOnRef.current;
+    voiceOnRef.current = n; setVoiceOn(n);
+    try { localStorage.setItem('mz_ai_voice', n ? '1' : '0'); } catch (_) { /* ignore */ }
+    if (!n) voice.stop();
+  };
 
-  // Opening: greet (spoken), then answer a question that was handed over from the search box.
+  // Opening: greet (spoken). If the mic is already allowed and hands-free is on, she starts listening by herself after the greeting.
+  // A question handed over from the search box is answered straight away.
   useEffect(() => {
     if (!open || greeted.current) return;
     greeted.current = true;
@@ -185,10 +272,19 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     const hello = cfg.greeting || `Assalam o Alaikum! Main ${cfg.name} hoon, Mizanora ki assistant. Main aapko deals ya cheezein dikha sakti hoon. Aap bol kar ya likh kar bataiye, kya dekhna hai?`;
     setMsgs([{ role: 'assistant', text: hello }]);
     msgsRef.current = [{ role: 'assistant', text: hello }];
-    if (initialQuery) setTimeout(() => send(initialQuery), 150); else say(hello);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (open && greeted.current && initialQuery) send(initialQuery); }, [initialQuery]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!open) { voice.stop(); stopListen(); } }, [open, voice, stopListen]);
+    if (initialQuery) { setTimeout(() => sendRef.current(initialQuery), 150); return; }
+    (async () => {
+      await say(hello);
+      if (permRef.current === 'granted' && loopRef.current && openRef.current && !busyRef.current) {
+        autoRef.current = true;
+        listenRef.current(true);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  useEffect(() => { if (open && greeted.current && initialQuery) sendRef.current(initialQuery); }, [initialQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Closing the panel stops the voice and the microphone at once.
+  useEffect(() => { if (!open) stopAll(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return undefined;
     const k = (e) => { if (e.key === 'Escape') onClose(); };
@@ -210,26 +306,34 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
   const chips = [slug ? 'Is ka rate kam karo' : 'Sab se sasti deals dikhao', 'Rs 1000 se kam cheezein', 'Aaj ki best deals', 'Delivery kaise hoti hai?'];
   if (!open) return null;
 
+  const status = listening ? 'Sun rahi hoon... boliye'
+    : busy ? 'Soch rahi hoon...'
+      : speaking ? 'Bol rahi hoon...'
+        : loop && micOk ? 'Hands-free: boliye ya likhein' : 'Boliye ya likhein';
+
   return (
     <div className="fixed inset-0 z-[60] md:inset-auto md:bottom-5 md:right-5" role="dialog" aria-modal="true" aria-label={`${cfg.name} - Mizanora assistant`}>
       <button type="button" className="absolute inset-0 bg-black/40 md:hidden" aria-label="Close assistant" onClick={onClose} />
       <div className="absolute inset-x-0 bottom-0 flex h-[84dvh] flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-2xl md:static md:h-[620px] md:w-[400px] md:rounded-3xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <header className="flex items-center gap-3 bg-gradient-to-r from-[#0B6B45] to-[#0E8556] px-4 py-3 text-white">
-          <span className="relative grid h-10 w-10 place-items-center rounded-full bg-white/15"><Sparkles size={20} />{(busy || listening) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full bg-gold" />}</span>
+          <span className={`relative grid h-10 w-10 place-items-center rounded-full bg-white/15 ${listening ? 'ring-2 ring-red-300' : speaking ? 'ring-2 ring-gold' : ''}`}>
+            <Sparkles size={20} />
+            {(busy || listening || speaking) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full bg-gold" />}
+          </span>
           <div className="min-w-0 flex-1">
             <p className="font-display text-base font-bold leading-tight">{cfg.name}</p>
-            <p className="text-xs text-white/80">
-              {listening ? (
-                <span className="flex items-center gap-1.5">Sun rahi hoon<span className="mz-wave" aria-hidden="true"><i /><i /><i /><i /></span></span>
-              ) : busy ? 'Soch rahi hoon...' : 'Mizanora shopping assistant - boliye ya likhein'}
+            <p className="flex items-center gap-1.5 text-xs text-white/85" aria-live="polite">
+              {listening && <span className="mz-wave" aria-hidden="true"><i /><i /><i /><i /></span>}
+              {status}
             </p>
           </div>
-          <button type="button" onClick={toggleMic} aria-label="Talk to the assistant" aria-pressed={listening} className={`grid h-9 w-9 place-items-center rounded-full hover:bg-white/15 ${listening ? 'bg-red-600/90' : ''}`}>{micOk ? <Mic size={18} /> : <MicOff size={18} />}</button>
+          <button type="button" onClick={toggleMic} aria-label={listening ? 'Stop listening' : 'Talk to the assistant'} aria-pressed={listening} disabled={!micOk}
+            className={`grid h-9 w-9 place-items-center rounded-full hover:bg-white/15 disabled:opacity-50 ${listening ? 'bg-red-600/90' : ''}`}>{micOk ? <Mic size={18} /> : <MicOff size={18} />}</button>
           <button type="button" onClick={toggleVoice} aria-label={voiceOn ? 'Mute her voice' : 'Turn her voice on'} aria-pressed={voiceOn} className="grid h-9 w-9 place-items-center rounded-full hover:bg-white/15">{voiceOn ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
           <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-full hover:bg-white/15"><X size={20} /></button>
         </header>
 
-        {/* Mic status + hands-free switch: everything about the voice in ONE slim bar, in plain words. */}
+        {/* Mic status, hands-free switch and language: everything about the voice in ONE slim bar, in plain words. */}
         {micOk && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-raised px-4 py-1.5 text-[0.7rem]">
             <button type="button" onClick={retryMic} className="flex items-center gap-1.5 font-bold text-cream">
@@ -238,7 +342,9 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
             <button type="button" onClick={toggleLoop} aria-pressed={loop} className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 font-bold ${loop ? 'bg-gold/15 text-gold' : 'text-dim'}`}>
               <Radio size={12} /> Hands-free {loop ? 'ON' : 'OFF'}
             </button>
-            <span className="text-faint">{loop ? 'Har jawab ke baad khud sun leti hai' : 'Har dafa mic dabana hoga'}</span>
+            <select value={lang} onChange={(e) => changeLang(e.target.value)} aria-label="Bolne ki zubaan" className="rounded-full border border-line bg-surface px-2 py-0.5 text-[0.7rem] font-semibold text-cream outline-none">
+              {LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
           </div>
         )}
         {note && (

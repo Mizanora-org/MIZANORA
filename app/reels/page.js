@@ -11,9 +11,9 @@ export default async function ReelsPage() {
   const reels = await getReels();
   return (
     <>
-      <PageHead title="Reels: watch and shop" intro="Short videos of real products. Open a reel, swipe up for the next one, and tap Shop now on anything you like." crumbs={[['/', 'Home'], [null, 'Reels']]} />
+      <PageHead title="Reels: watch and shop" intro="Short videos of real products, in a fresh random order every time you open this page. Open a reel, swipe up for the next one, and tap Shop now on anything you like." crumbs={[['/', 'Home'], [null, 'Reels']]} />
       <div className="mx-auto max-w-7xl px-3 py-8 sm:px-4">
-        {reels.length ? <ReelsRail reels={reels} grid /> : (
+        {reels.length ? <ReelsRail reels={reels} grid shuffle /> : (
           <div className="card text-center"><p className="text-dim">Reels are coming soon.</p><Link href="/products" className="btn-gold mt-4">Browse products</Link></div>
         )}
       </div>

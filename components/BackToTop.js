@@ -15,7 +15,7 @@ export default function BackToTop() {
   if (!show) return null;
   return (
     <button type="button" aria-label="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      className="fixed bottom-36 right-3 z-30 grid h-11 w-11 place-items-center rounded-full border border-line bg-white text-gold shadow-lg transition hover:bg-gold hover:text-white md:bottom-24 md:right-5" style={{ animation: 'mz-pop .3s ease-out' }}>
+      className="fixed bottom-[12.5rem] right-3 z-30 grid h-11 w-11 place-items-center rounded-full border border-line bg-white text-gold shadow-lg transition hover:bg-gold hover:text-white md:bottom-[9rem] md:right-5" style={{ animation: 'mz-pop .3s ease-out' }}>
       <ArrowUp size={20} />
     </button>
   );

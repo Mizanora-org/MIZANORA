@@ -1,8 +1,8 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Flame, Heart, Pause, Play, Share2, ShoppingBag, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Flame, Heart, Pause, Play, Share2, ShoppingBag, Shuffle, Volume2, VolumeX, X } from 'lucide-react';
 import { parseVideo } from '@/lib/video';
 import { formatPKR } from '@/lib/format';
 
@@ -210,11 +210,32 @@ function Card({ reel, index, onOpen, grid }) {
   );
 }
 
+// Fisher-Yates shuffle: every reel gets an equal chance to come first.
+export function shuffleReels(list) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // A row (home page) or grid (/reels) of vertical video cards. Tap one to watch full screen and shop from it.
-export default function ReelsRail({ reels, grid = false }) {
+// shuffle = true: the order is random on every visit, and the "Naye random reels" button (or the Reels tab tapped again) mixes them again.
+export default function ReelsRail({ reels, grid = false, shuffle = false }) {
   const [open, setOpen] = useState(-1);
   const row = useRef(null);
-  const usable = reels.filter((r) => parseVideo(r.url));
+  const usable = useMemo(() => reels.filter((r) => parseVideo(r.url)), [reels]);
+  // The first render uses the normal order (same on server and phone); the random order is applied right after mounting.
+  const [order, setOrder] = useState(usable);
+  const reshuffle = useCallback(() => setOrder(shuffleReels(usable)), [usable]);
+  useEffect(() => { setOrder(shuffle ? shuffleReels(usable) : usable); }, [usable, shuffle]);
+  useEffect(() => {
+    if (!shuffle) return undefined;
+    window.addEventListener('mz-reels-shuffle', reshuffle);
+    return () => window.removeEventListener('mz-reels-shuffle', reshuffle);
+  }, [shuffle, reshuffle]);
+  const list = order.length ? order : usable;
   if (!usable.length) return null;
   const scrollBy = (d) => row.current && row.current.scrollBy({ left: d * 440, behavior: 'smooth' });
   return (
@@ -226,22 +247,25 @@ export default function ReelsRail({ reels, grid = false }) {
               <p className="flex items-center gap-2 text-lg font-extrabold sm:text-xl"><Flame className="text-saffron" size={22} /> {usable.length} reels to watch and shop</p>
               <p className="text-sm text-white/80">Swipe like Instagram. Tap Shop now on anything you love.</p>
             </div>
-            <button type="button" onClick={() => setOpen(0)} className="btn-sun"><Play size={18} fill="currentColor" /> Start watching</button>
+            <div className="flex flex-wrap gap-2">
+              {shuffle && <button type="button" onClick={reshuffle} className="inline-flex items-center gap-2 rounded-full border-2 border-white/70 px-4 py-2.5 text-sm font-extrabold text-white active:scale-95"><Shuffle size={16} /> Naye random reels</button>}
+              <button type="button" onClick={() => setOpen(0)} className="btn-sun"><Play size={18} fill="currentColor" /> Start watching</button>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
-            {usable.map((r, n) => <Card key={r.id} reel={r} index={n} grid onOpen={() => setOpen(n)} />)}
+            {list.map((r, n) => <Card key={r.id} reel={r} index={n} grid onOpen={() => setOpen(n)} />)}
           </div>
         </>
       ) : (
         <div className="relative">
           <div ref={row} className="no-sb -mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-3 pt-1 sm:mx-0 sm:px-0">
-            {usable.map((r, n) => <Card key={r.id} reel={r} index={n} onOpen={() => setOpen(n)} />)}
+            {list.map((r, n) => <Card key={r.id} reel={r} index={n} onOpen={() => setOpen(n)} />)}
           </div>
           <button type="button" onClick={() => scrollBy(-1)} aria-label="Scroll reels left" className="absolute -left-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white shadow-lg md:grid"><ChevronLeft size={22} /></button>
           <button type="button" onClick={() => scrollBy(1)} aria-label="Scroll reels right" className="absolute -right-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white shadow-lg md:grid"><ChevronRight size={22} /></button>
         </div>
       )}
-      {open >= 0 && <Viewer reels={usable} start={open} onClose={() => setOpen(-1)} />}
+      {open >= 0 && <Viewer reels={list} start={open} onClose={() => setOpen(-1)} />}
     </>
   );
 }

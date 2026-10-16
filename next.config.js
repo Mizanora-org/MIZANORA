@@ -39,7 +39,8 @@ const nextConfig = {
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        // microphone=(self): the shop's own pages may ask for the mic (voice assistant). Other websites embedded in the shop still cannot.
+        { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
       ] },
     ];
   },
