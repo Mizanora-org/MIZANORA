@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SITE } from '@/lib/config';
+import { CREDIT, FOUNDER } from '@/lib/team';
 import { SOCIAL_ICONS } from './Icons';
 import FxToggle from './FxToggle';
 
@@ -16,6 +17,11 @@ export default function Footer({ categories = [] }) {
         <div className="lg:col-span-2">
           <p className="font-display text-2xl font-bold tracking-[0.14em]">MIZANORA</p>
           <p className="mt-3 max-w-sm text-sm text-dim">{SITE.tagline} A Pakistani online store built on honest dealing. Cash on delivery across Pakistan. WhatsApp support is always here to help.</p>
+          <p className="mt-3 max-w-sm rounded-xl border border-line bg-raised p-3 text-sm text-dim">
+            <b className="text-cream">{FOUNDER.name}</b> — <b className="text-gold">{FOUNDER.role}</b>
+            <span className="mt-1 block text-xs">Mizanora ka pura web app, assistant Noor aur worker programme inhi ne banaya.</span>
+            <Link href="/team" className="mt-1.5 inline-block text-xs font-bold text-gold underline underline-offset-4">Team &amp; public profiles</Link>
+          </p>
           <div className="mt-4 flex gap-3">
             {socials.map((s) => {
               const Icon = SOCIAL_ICONS[s.id];
@@ -25,9 +31,9 @@ export default function Footer({ categories = [] }) {
         </div>
         <FooterCol title="Shop" links={[['/products', 'All products'], ...categories.slice(0, 5).map((c) => [`/category/${c.slug}`, c.name]), ['/cart', 'Cart']]} />
         <FooterCol title="Help" links={[['/workers', 'Earn with Mizanora'], ['/reels', 'Reels'], ['/account', 'My account'], ['/track', 'Track order'], ['/wishlist', 'Wishlist'], ['/how-to-order', 'How to order'], ['/faq', 'FAQ'], ['/returns', 'Returns'], ['/contact', 'Contact support'], ['/connect', 'Official accounts']]} />
-        <FooterCol title="Company" links={[['/about', 'About us'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
+        <FooterCol title="Company" links={[['/about', 'About us'], ['/team', 'Team & profiles'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
       </div>
-      <p className="mx-auto mt-8 max-w-7xl border-t border-line px-4 pt-5 text-xs text-faint">© {new Date().getFullYear()} Mizanora, {SITE.city}.</p>
+      <p className="mx-auto mt-8 max-w-7xl border-t border-line px-4 pt-5 text-xs text-faint">© {new Date().getFullYear()} Mizanora, {SITE.city}. {CREDIT}</p>
     </footer>
   );
 }

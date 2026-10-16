@@ -28,6 +28,7 @@ export default function AdminImport() {
   const [featured, setFeatured] = useState(8);
   const [mode, setMode] = useState('firebase'); // firebase | archive
   const [checkPhotos, setCheckPhotos] = useState(true);
+  const [priceLock, setPriceLock] = useState(true);   // never change the price of a product that already exists
   const [copyPhotos, setCopyPhotos] = useState(false);
   const [copyCount, setCopyCount] = useState(3);
   const [saveCosts, setSaveCosts] = useState(true);
@@ -121,6 +122,26 @@ export default function AdminImport() {
     const writes = todo.length * (saveCosts ? 2 : 1);
     if (writes > 12000 && !window.confirm(`This needs about ${writes.toLocaleString()} Firebase writes. The free (Spark) plan allows 20,000 writes a DAY, and when it is used up orders also fail until it resets. For big files choose "Save to archive" instead. Continue anyway?`)) return;
     let work = todo.filter((p) => overwrite || !(existing && existing.has(p.slug)));
+    // PRICE LOCK: read what already exists (30 ids per query) and keep those prices exactly as they are on the shop.
+    let locked = 0;
+    if (priceLock && work.length <= 4000) {
+      try {
+        const map = new Map();
+        for (const c of chunk(work.map((p) => p.slug), 30)) {
+          const snap = await getDocs(query(collection(dbClient(), 'products'), where(documentId(), 'in', c)));
+          snap.docs.forEach((d) => { const x = d.data(); if (Number(x.price) > 0) map.set(d.id, { price: Number(x.price), comparePrice: Number(x.comparePrice) || 0 }); });
+          if (stop.current) break;
+        }
+        if (map.size) {
+          work = work.map((p) => {
+            const o = map.get(p.slug);
+            if (!o) return p;
+            if (Number(p.doc.price) !== o.price) locked++;
+            return { ...p, doc: { ...p.doc, price: o.price, ...(o.comparePrice ? { comparePrice: o.comparePrice } : {}) } };
+          });
+        }
+      } catch (e) { setMsg(`Price lock could not read the existing prices (${e.message}); the CSV prices are used.`); }
+    }
     const bad = checkPhotos ? await badPhotos(work) : new Map(work.filter((p) => !p.doc.images[0]).map((p) => [p.slug, 'no photo']));
     if (copyPhotos) {
       const tk = await token();
@@ -146,7 +167,7 @@ export default function AdminImport() {
     }
     await revalidateSite();
     try { sessionStorage.removeItem('mz_admin_products'); } catch (_) { /* ignore */ }
-    setMsg(`Done: ${done - bad.size} products are live${bad.size ? `, ${bad.size} had no working photo and were put in Admin > Photo errors (hidden)` : ''}${work.length < todo.length ? `, ${todo.length - work.length} existing ones skipped` : ''}.`);
+    setMsg(`Done: ${done - bad.size} products are live${bad.size ? `, ${bad.size} had no working photo and were put in Admin > Photo errors (hidden)` : ''}${locked ? `, ${locked} existing price(s) were kept exactly as they were (price lock)` : ''}${work.length < todo.length ? `, ${todo.length - work.length} existing ones skipped` : ''}.`);
   }
 
   async function runArchive(todo) {
@@ -156,17 +177,17 @@ export default function AdminImport() {
     const parts = chunk(good, PART);
     const github = st.github && st.github.ready;
     if (!github) { setMsg(`This needs GitHub: add GITHUB_TOKEN and GITHUB_REPO in Vercel (see Admin > Archive), redeploy, then try again. Until then use "Save to Firebase" in daily pieces (Start at / Import how many), and move old products to the archive later.`); return; }
-    const metas = [], files = [];
+    const metas = [], files = []; let locked = 0;
     for (let k = 0; k < parts.length && !stop.current; k++) {
       const products = parts[k].map((p) => ({ id: p.slug, data: p.doc }));
       const n = st.nextN + k;
-      const j = await api('/api/admin/archive', { action: 'stage', n, products });
-      metas.push(j.meta); files.push(...j.files);
-      setMsg(`Preparing archive files: ${k + 1} of ${parts.length}...`);
+      const j = await api('/api/admin/archive', { action: 'stage', n, products, priceLock });
+      metas.push(j.meta); files.push(...j.files); locked += Number(j.locked) || 0;
+      setMsg(`Preparing archive files: ${k + 1} of ${parts.length}${locked ? ` (${locked} prices kept as they are)` : ''}...`);
     }
     if (stop.current) { setMsg('Stopped. Nothing was saved.'); return; }
     const c = await api('/api/admin/archive', { action: 'commit', metas, files });
-    setMsg(`Saved ${good.length.toLocaleString()} products as ${metas.length} archive file(s) in ONE commit${bad.size ? ` (${bad.size} skipped: no working photo)` : ''}. Vercel is deploying now (1 to 3 minutes); then they are live on the shop. Archive total: ${c.total.toLocaleString()}.`);
+    setMsg(`Saved ${good.length.toLocaleString()} products as ${metas.length} archive file(s) in ONE commit${bad.size ? ` (${bad.size} skipped: no working photo)` : ''}${locked ? ` - ${locked} product(s) already existed, so their price was NOT changed (price lock)` : ''}. Vercel is deploying now (1 to 3 minutes); then they are live on the shop. Archive total: ${c.total.toLocaleString()}.`);
   }
 
   async function run() {
@@ -236,6 +257,7 @@ export default function AdminImport() {
           </div>
           <div className="flex flex-wrap gap-4 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={checkPhotos} onChange={(e) => setCheckPhotos(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> Check the main photo of each product first (broken ones are not shown on the shop)</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={priceLock} onChange={(e) => setPriceLock(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> <b>Price lock:</b> keep the price of products that already exist (only new products take the CSV price)</label>
             {mode === 'firebase' && <label className="flex items-center gap-2"><input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> Show on shop immediately</label>}
             {mode === 'firebase' && <label className="flex items-center gap-2"><input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> Update products that already exist</label>}
             {isMarkaz && <label className="flex items-center gap-2"><input type="checkbox" checked={affOn} onChange={(e) => setAffOn(e.target.checked)} className="h-4 w-4 accent-[#0B6B45]" /> Workers can earn commission (capped to protect profit)</label>}

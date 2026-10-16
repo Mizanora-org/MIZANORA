@@ -4,6 +4,7 @@ import { verifyAdmin } from '@/lib/adminAuth';
 import { archiveManifest, archiveProduct } from '@/lib/archive';
 import { buildPart, mergeManifest, repoManifest, stageFiles } from '@/lib/archiveBuild';
 import { ghBlob, ghCommit, ghInfo, ghReadFile, ghReady } from '@/lib/github';
+import { pingIndexNow } from '@/lib/indexnow';
 import { MANIFEST_PATH } from '@/lib/archiveFormat';
 
 export const runtime = 'nodejs';
@@ -78,6 +79,30 @@ export async function POST(req) {
       });
     }
 
+    if (act === 'hideMany') {
+      // Bulk show/hide (used by the photo check: every product whose photo is broken is hidden in ONE commit).
+      const ids = (Array.isArray(b.ids) ? b.ids : []).slice(0, 400).map((x) => clip(x, 140).trim()).filter(Boolean);
+      if (!ids.length) return json({ ok: false, error: 'Which products?' }, 400);
+      const hide = b.hidden !== false;
+      const docs = [];
+      for (const id of ids) {
+        let data = await archiveProduct(id).then((p) => (p ? p.data : null)).catch(() => null);
+        if (!data) data = await findDoc(id, 8);
+        if (data) docs.push({ id, data: cleanDoc({ ...data, id: undefined, active: !hide }) });
+      }
+      if (!docs.length) return json({ ok: false, error: 'These products are not in the deployed archive yet. Wait for the deploy (1 to 3 minutes) and try again.' }, 404);
+      const old = await repoManifest();
+      const n = Math.max(0, ...(old.parts || []).map((p) => Number(p.n) || 0)) + 1;
+      const built = buildPart(docs, n);
+      const files = await stageFiles(built);
+      const manifest = mergeManifest(old, [built.meta]);
+      const msh = await ghBlob(JSON.stringify(manifest, null, 1));
+      const sha = await ghCommit([...files, { path: MANIFEST_PATH, sha: msh }], `Catalogue: ${hide ? 'hide' : 'show'} ${docs.length} product(s) (part ${n})`);
+      try { revalidateTag('catalog'); } catch { /* the next deploy refreshes it anyway */ }
+      pingIndexNow(['/products']).catch(() => {});
+      return json({ ok: true, commit: sha, n, count: docs.length, hidden: hide });
+    }
+
     if (act === 'save' || act === 'patch') {
       const id = clip(b.id, 140).trim();
       if (!id) return json({ ok: false, error: 'Which product?' }, 400);
@@ -101,6 +126,7 @@ export async function POST(req) {
       const msh = await ghBlob(JSON.stringify(manifest, null, 1));
       const sha = await ghCommit([...files, { path: MANIFEST_PATH, sha: msh }], `Catalogue: ${act === 'save' ? 'edit' : 'update'} ${id} (part ${n})`);
       try { revalidateTag('catalog'); } catch { /* the next deploy refreshes it anyway */ }
+      pingIndexNow(doc.active === false ? '/' : [`/product/${id}`, '/products']).catch(() => {});
       return json({ ok: true, commit: sha, n, id, price: doc.price, active: doc.active, inStock: doc.inStock, featured: doc.featured });
     }
 

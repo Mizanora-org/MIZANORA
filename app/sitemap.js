@@ -6,7 +6,7 @@ import { getPosts } from '@/lib/blog';
 export const revalidate = 3600;
 
 export default async function sitemap() {
-  const products = await getProducts();
+  const products = (await getProducts()).filter((p) => (p.images || [])[0]); // pages without a photo are not advertised
   const cats = await getCategories();
   let archived = [];
   try { archived = (await allCards()).archived; } catch { /* no archive */ }
@@ -14,7 +14,7 @@ export default async function sitemap() {
   const now = new Date();
   const fixed = [
     ['/', 1.0, 'daily'], ['/products', 0.9, 'daily'], ['/how-to-order', 0.7, 'monthly'], ['/blog', 0.8, 'weekly'], ['/workers', 0.8, 'monthly'], ['/reels', 0.6, 'weekly'], ['/track', 0.4, 'monthly'],
-    ['/about', 0.5, 'monthly'], ['/contact', 0.5, 'monthly'], ['/faq', 0.6, 'monthly'], ['/connect', 0.4, 'monthly'],
+    ['/about', 0.5, 'monthly'], ['/team', 0.7, 'weekly'], ['/contact', 0.5, 'monthly'], ['/faq', 0.6, 'monthly'], ['/connect', 0.4, 'monthly'],
     ['/returns', 0.3, 'yearly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'],
   ].map(([p, priority, changeFrequency]) => ({ url: absUrl(p), lastModified: now, changeFrequency, priority }));
   return [

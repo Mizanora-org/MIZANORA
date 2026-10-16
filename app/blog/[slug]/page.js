@@ -37,14 +37,14 @@ export default async function BlogPost({ params }) {
     '@context': 'https://schema.org', '@type': 'BlogPosting', headline: p.title, description: p.description,
     datePublished: p.date, dateModified: p.date, wordCount: p.words, inLanguage: 'en',
     image: absUrl('/img/hero-banner.jpg'), mainEntityOfPage: absUrl(`/blog/${p.slug}`),
-    author: { '@type': 'Organization', name: SITE.name, url: absUrl('/') },
+    author: { '@type': 'Person', name: p.author || 'Muaaz Iqbal', jobTitle: 'Founder & Developer', url: absUrl('/team'), worksFor: { '@type': 'Organization', name: SITE.name, url: absUrl('/') } },
     publisher: { '@type': 'Organization', name: SITE.name, logo: { '@type': 'ImageObject', url: absUrl('/icons/icon-512.png') } },
   };
   return (
     <>
       <PageHead title={p.title} intro={p.description} crumbs={[['/', 'Home'], ['/blog', 'Blog'], [null, 'Guide']]} />
       <article className="prose-mz mx-auto max-w-3xl px-4 py-8">
-        <p className="mb-6 text-sm text-faint">Published {p.date} · {p.mins} min read · By the Mizanora team</p>
+        <p className="mb-6 text-sm text-faint">Published {p.date} · {p.mins} min read · By <b className="text-dim">{p.author || 'Muaaz Iqbal'}</b>, Founder &amp; Developer · <Link href="/team" className="font-semibold text-gold underline underline-offset-4">team page</Link></p>
         {p.heads.length > 2 && (
           <nav aria-label="In this guide" className="mb-8 rounded-2xl border border-line bg-surface p-4">
             <p className="mb-2 font-display text-xl font-semibold">In this guide</p>

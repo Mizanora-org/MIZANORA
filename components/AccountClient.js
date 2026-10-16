@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { GoogleAuthProvider, createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
-import { BadgePercent, ChevronDown, ChevronUp, Heart, LogOut, MapPin, Package, Plus, RotateCcw, ShieldCheck, Star, Trash2, Truck, UserRound } from 'lucide-react';
+import { BadgePercent, ChevronDown, ChevronUp, Heart, KeyRound, LogOut, MapPin, Package, Pencil, Plus, RotateCcw, ShieldCheck, Smartphone, Star, Trash2, Truck, UserRound } from 'lucide-react';
 import { authClient, dbClient, firebaseConfigured } from '@/lib/firebase-client';
 import { explain, inAppBrowser } from '@/lib/authErrors';
 import { CITIES, CITY_PROVINCE, PROVINCES } from '@/lib/constants';
@@ -15,6 +15,7 @@ import { completeRegistration } from '@/lib/metaPixel';
 import { useAuth } from './AuthProvider';
 import { useCart } from './CartProvider';
 import OrderBill from './OrderBill';
+import { getWish } from '@/lib/wish';
 
 const EMPTY_ADDR = { label: 'Home', name: '', phone: '', address: '', landmark: '', city: '', cityOther: '', province: '' };
 
@@ -137,7 +138,7 @@ function Addresses({ user }) {
   const edit = (a) => setForm({ ...EMPTY_ADDR, ...a, cityOther: CITIES.includes(a.city) ? '' : a.city, city: CITIES.includes(a.city) ? a.city : 'Other' });
   const err = (k) => errors[k] && <p className="field-err">{errors[k]}</p>;
 
-  if (!list) return <p className="text-dim">Loading addresses...</p>;
+  if (!list) return <ListSkeleton rows={2} />;
   return (
     <div className="space-y-3">
       {msg && <p role="status" className="rounded-xl bg-raised p-3 text-sm">{msg}</p>}
@@ -202,7 +203,7 @@ function Orders({ user }) {
 
   const again = (o) => { o.items.forEach((i) => add({ id: i.id, slug: i.slug, name: i.name, price: i.price, images: i.image ? [i.image] : [] }, { size: i.size || '', qty: i.qty })); router.push('/checkout'); };
 
-  if (!orders) return <p className="text-dim">Loading orders...</p>;
+  if (!orders) return <ListSkeleton rows={3} />;
   return (
     <div className="space-y-3">
       {err && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{err}</p>}
@@ -233,7 +234,7 @@ export default function AccountClient() {
   const { user, ready } = useAuth();
   const [tab, setTab] = useState('orders');
   if (!firebaseConfigured) return <p className="card text-dim">Accounts are not set up yet.</p>;
-  if (!ready) return <p className="text-dim">Loading...</p>;
+  if (!ready) return <AccountSkeleton />;
   if (!user) {
     return (
       <div className="space-y-8">
@@ -249,6 +250,7 @@ export default function AccountClient() {
   const tabs = [['orders', 'My orders', Package], ['addresses', 'Saved addresses', MapPin], ['worker', 'Earn with us', BadgePercent], ['profile', 'Profile', UserRound]];
   return (
     <div>
+      <AccountHeader user={user} />
       <div className="no-sb mb-5 flex gap-2 overflow-x-auto" role="tablist">
         {tabs.map(([k, l, Icon]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold ${tab === k ? 'bg-gold text-white' : 'bg-surface text-dim border border-line'}`}><Icon size={16} />{l}</button>)}
       </div>
@@ -261,13 +263,137 @@ export default function AccountClient() {
           <div className="flex flex-wrap gap-3"><Link href="/worker" className="btn-gold !py-2.5">Open worker dashboard / apply</Link><Link href="/workers" className="btn-ghost !py-2.5">How it works</Link></div>
         </div>
       )}
-      {tab === 'profile' && (
-        <div className="card space-y-3">
-          <p className="text-lg font-bold">{user.displayName || 'Mizanora customer'}</p>
-          <p className="text-sm text-dim">{user.email}</p>
-          <div className="flex flex-wrap gap-3 pt-2"><Link href="/wishlist" className="btn-ghost !py-2.5">My wishlist</Link><Link href="/track" className="btn-ghost !py-2.5">Track an order</Link><button type="button" onClick={() => signOut(authClient())} className="btn-ghost !py-2.5 !border-red-400 !text-red-700"><LogOut size={16} /> Sign out</button></div>
+      {tab === 'profile' && <Profile user={user} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// The signed-in header: who you are, since when, and the numbers of your account.
+// ---------------------------------------------------------------------------------------------
+function initials(name = '', email = '') {
+  const base = (name || email.split('@')[0] || 'M').trim();
+  return base.split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('') || 'M';
+}
+const fmtDay = (t) => { try { return new Date(t).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' }); } catch { return '-'; } };
+
+function AccountHeader({ user }) {
+  const [wish, setWish] = useState([]);
+  useEffect(() => {
+    const read = () => setWish(getWish());
+    read();
+    window.addEventListener('mz-wish', read);
+    return () => window.removeEventListener('mz-wish', read);
+  }, []);
+  const provider = (user.providerData || [])[0]?.providerId || 'password';
+  const via = provider.includes('google') ? 'Google' : provider.includes('apple') ? 'Apple' : provider.includes('facebook') ? 'Facebook' : 'Email and password';
+  const created = user.metadata?.creationTime;
+  const last = user.metadata?.lastSignInTime;
+  return (
+    <div className="card mb-5 bg-gradient-to-br from-[#0B6B45] to-[#073D28] !border-0 text-white">
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/15 font-display text-2xl font-extrabold ring-2 ring-white/20">{initials(user.displayName, user.email || '')}</span>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-2xl font-extrabold leading-tight">{user.displayName || 'Mizanora customer'}</p>
+          <p className="truncate text-sm text-white/85">{user.email}</p>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/75">
+            <span className="inline-flex items-center gap-1"><ShieldCheck size={12} /> Signed in with {via}</span>
+            {created && <span>Member since {fmtDay(created)}</span>}
+            {last && <span>Last sign-in {fmtDay(last)}</span>}
+          </p>
         </div>
-      )}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {[['Wishlist', wish.length], ['Saved adds', '-'], ['Orders', '-']].map(([l, v], i) => (
+            <div key={l} className="rounded-2xl bg-white/10 px-3 py-2">
+              <p className="font-display text-lg font-extrabold">{i === 1 ? <SavedCount /> : i === 2 ? <OrderCount user={user} /> : v}</p>
+              <p className="text-[0.65rem] text-white/80">{l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="mt-3 rounded-xl bg-white/10 p-3 text-xs text-white/85">Tip: on a shared phone always press <b>Sign out</b> in the Profile tab when you finish - your addresses and order history stay safe.</p>
+    </div>
+  );
+}
+
+function SavedCount() {
+  const { user } = useAuth();
+  const [n, setN] = useState('-');
+  useEffect(() => { if (!user) return; getDoc(doc(dbClient(), 'users', user.uid)).then((s) => setN(s.exists() && Array.isArray(s.data().addresses) ? s.data().addresses.length : 0)).catch(() => setN('-')); }, [user]);
+  return <>{n}</>;
+}
+function OrderCount({ user }) {
+  const [n, setN] = useState('-');
+  useEffect(() => { if (!user) return; getDocs(query(collection(dbClient(), 'orders'), where('uid', '==', user.uid), limit(50))).then((s) => setN(s.size)).catch(() => setN('-')); }, [user]);
+  return <>{n}</>;
+}
+
+// The Profile tab: edit your name and phone, session tools, password reset and sign out.
+function Profile({ user }) {
+  const [name, setName] = useState(user.displayName || '');
+  const [phone, setPhone] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { getDoc(doc(dbClient(), 'users', user.uid)).then((s) => { if (s.exists()) { const d = s.data(); setName((x) => x || d.name || ''); setPhone(d.phone || ''); } }).catch(() => {}); }, [user.uid]);
+
+  async function save() {
+    setBusy(true); setMsg('');
+    try {
+      if (name.trim().length >= 2) await updateProfile(authClient().currentUser, { displayName: name.trim() });
+      await setDoc(doc(dbClient(), 'users', user.uid), { name: name.trim(), phone: phone.trim(), updatedAtMs: Date.now() }, { merge: true });
+      setMsg('Profile saved. Your name now appears on orders and reviews.');
+    } catch (e) { setMsg(e.code === 'permission-denied' ? 'Publishing needs the updated Firestore rules (see SETUP.md).' : e.message); }
+    setBusy(false);
+  }
+  async function resetPw() {
+    if (!user.email) return;
+    try { await sendPasswordResetEmail(authClient(), user.email); setMsg('Password reset email sent. Check your inbox and spam folder.'); } catch (e) { setMsg(e.message); }
+  }
+  const provider = (user.providerData || [])[0]?.providerId || 'password';
+  return (
+    <div className="space-y-4">
+      <div className="card space-y-3">
+        <p className="text-lg font-bold">My details</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><label className="label" htmlFor="pn">Name</label><input id="pn" className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></div>
+          <div><label className="label" htmlFor="pp">Mobile number</label><input id="pp" className="input" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0300-1234567" autoComplete="tel" /></div>
+        </div>
+        <button type="button" className="btn-gold !py-2.5" disabled={busy} onClick={save}><Pencil size={15} /> {busy ? 'Saving...' : 'Save my details'}</button>
+        {msg && <p role="status" className="rounded-xl bg-raised p-3 text-sm text-cream">{msg}</p>}
+      </div>
+
+      <div className="card space-y-3">
+        <p className="text-lg font-bold">Session &amp; security</p>
+        <p className="flex items-start gap-2 text-sm text-dim"><Smartphone size={16} className="mt-0.5 shrink-0" /> You are signed in with <b>{provider.includes('google') ? 'Google' : 'Email and password'}</b> on this device{user.metadata?.lastSignInTime ? `, last on ${fmtDay(user.metadata.lastSignInTime)}` : ''}.</p>
+        <div className="flex flex-wrap gap-3">
+          {provider.includes('password') && <button type="button" className="btn-ghost !py-2.5" onClick={resetPw}><KeyRound size={15} /> Change password (email link)</button>}
+          <Link href="/track" className="btn-ghost !py-2.5">Track an order</Link>
+          <Link href="/wishlist" className="btn-ghost !py-2.5"><Heart size={15} /> My wishlist</Link>
+          <button type="button" onClick={() => signOut(authClient())} className="btn-ghost !py-2.5 !border-red-400 !text-red-700"><LogOut size={16} /> Sign out</button>
+        </div>
+        <p className="text-xs text-faint">Signing out only clears this device. Your orders, addresses and wishlist stay with your account.</p>
+      </div>
+    </div>
+  );
+}
+
+// Pretty placeholders while the account loads (no bare "Loading..." text anywhere).
+function ListSkeleton({ rows = 3 }) {
+  return (
+    <div className="space-y-3" aria-hidden="true">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="card space-y-2">
+          <div className="mz-skel h-4 w-1/3" /><div className="mz-skel h-3.5 w-2/3" /><div className="mz-skel h-3.5 w-1/2" />
+        </div>
+      ))}
+    </div>
+  );
+}
+function AccountSkeleton() {
+  return (
+    <div className="space-y-4" aria-hidden="true">
+      <div className="card flex items-center gap-4"><div className="mz-skel h-16 w-16 !rounded-2xl" /><div className="flex-1 space-y-2"><div className="mz-skel h-4 w-40" /><div className="mz-skel h-3.5 w-56" /></div></div>
+      <ListSkeleton rows={2} />
     </div>
   );
 }

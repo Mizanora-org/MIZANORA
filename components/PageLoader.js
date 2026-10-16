@@ -28,3 +28,34 @@ export function CardSkeletons({ count = 10 }) {
     </div>
   );
 }
+
+// Skeleton for a product page (photo left, details right) - shown while the product is being fetched.
+export function ProductSkeleton() {
+  return (
+    <div className="mx-auto max-w-7xl px-3 py-6 sm:px-4" aria-hidden="true">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="mz-skel aspect-square !rounded-3xl" />
+        <div className="space-y-4">
+          <div className="mz-skel h-7 w-4/5" />
+          <div className="mz-skel h-6 w-1/3" />
+          <div className="mz-skel h-4 w-full" />
+          <div className="mz-skel h-4 w-5/6" />
+          <div className="mz-skel h-11 w-full !rounded-full" />
+          <div className="mz-skel h-11 w-full !rounded-full" />
+          <div className="grid grid-cols-3 gap-3"><div className="mz-skel h-20" /><div className="mz-skel h-20" /><div className="mz-skel h-20" /></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Skeleton for a listing page: title, chips, then the card grid.
+export function ListSkeleton() {
+  return (
+    <div className="mx-auto max-w-7xl px-3 py-6 sm:px-4" aria-hidden="true">
+      <div className="mz-skel h-8 w-56" />
+      <div className="mt-3 flex gap-2">{[0, 1, 2, 3].map((i) => <div key={i} className="mz-skel h-9 w-24 !rounded-full" />)}</div>
+      <div className="mt-5"><CardSkeletons count={10} /></div>
+    </div>
+  );
+}

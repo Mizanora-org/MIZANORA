@@ -4,9 +4,10 @@ import { FieldPath } from 'firebase-admin/firestore';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { archiveManifest, archiveProduct } from '@/lib/archive';
-import { ghBlob, ghCommit, ghInfo, ghReady } from '@/lib/github';
+import { ghBlob, ghCommit, ghInfo, ghReadFile, ghReady } from '@/lib/github';
 import { buildPart, mergeManifest, repoManifest, stageFiles } from '@/lib/archiveBuild';
 import { MANIFEST_PATH, PART_SIZE, cleanDoc } from '@/lib/archiveFormat';
+import { pingIndexNow } from '@/lib/indexnow';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -79,8 +80,33 @@ export async function POST(req) {
       const n = Math.floor(Number(b.n));
       const docs = (Array.isArray(b.products) ? b.products : []).slice(0, 1000).filter((d) => d && d.id && d.data);
       if (!(n >= 1) || !docs.length) return json({ ok: false, error: 'Nothing to stage.' }, 400);
+
+      // PRICE LOCK (on by default). A product that already exists in the archive keeps the price it has -
+      // re-uploading your CSV, or an export downloaded earlier, can never change a live price by accident.
+      // Only products that are NEW in this import get the price from the CSV.
+      let locked = 0;
+      if (b.priceLock !== false) {
+        try {
+          const old = await repoManifest();
+          const map = new Map();
+          const parts = [...(old.parts || [])].sort((x, y) => (Number(y.n) || 0) - (Number(x.n) || 0)).slice(0, 200);
+          for (const p of parts) {
+            let rows = [];
+            try { rows = JSON.parse((await ghReadFile(`data/catalog/${p.cards}`)) || '[]'); } catch { continue; }
+            for (const r of rows) if (r && r.id && !map.has(r.id)) map.set(r.id, { price: Number(r.p) || 0, comparePrice: Number(r.c) || 0 });
+            if (map.size >= docs.length * 6 + 2000) break; // enough to match this batch (newest parts first)
+          }
+          for (const d of docs) {
+            const o = map.get(d.id);
+            if (o && o.price > 0 && Number(d.data.price) !== o.price) {
+              d.data = { ...d.data, price: o.price, ...(o.comparePrice ? { comparePrice: o.comparePrice } : {}) };
+              locked++;
+            }
+          }
+        } catch (e) { console.error('price lock skipped:', e.message); }
+      }
       const built = buildPart(docs, n);
-      return json({ ok: true, meta: built.meta, files: await stageFiles(built) });
+      return json({ ok: true, meta: built.meta, files: await stageFiles(built), locked });
     }
     if (act === 'commit') {
       if (!ghReady()) return json({ ok: false, error: 'GitHub is not connected.' }, 503);
@@ -90,6 +116,7 @@ export async function POST(req) {
       const manifest = mergeManifest(await repoManifest(), metas);
       const msh = await ghBlob(JSON.stringify(manifest, null, 1));
       const sha = await ghCommit([...files, { path: MANIFEST_PATH, sha: msh }], `Archive: add ${metas.length} product part(s), ${manifest.total} products in total`);
+      pingIndexNow(['/products', '/', '/sitemap.xml']).catch(() => {});
       return json({ ok: true, commit: sha, total: manifest.total });
     }
 

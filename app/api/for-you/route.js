@@ -27,14 +27,14 @@ export async function GET(req) {
     try {
       for (const sort of ['low', 'new']) {
         const r = await browseRemote({ cat, sort, size: 12 });
-        for (const p of r.items || []) if (!out.has(p.id) && p.inStock !== false) out.set(p.id, p);
+        for (const p of r.items || []) if (!out.has(p.id) && p.inStock !== false && ((p.images || [])[0] || p.image)) out.set(p.id, p);
         if (out.size >= limit) break;
       }
     } catch (e) { console.error('for-you browse failed:', cat, e.message); }
   }));
   let items = [...out.values()];
   if (!items.length && use.length) { // very small shop: fall back to a plain search of the category words
-    try { items = (await searchRemote(use.join(' '), { limit })).items.filter((p) => p.inStock !== false); } catch { /* ignore */ }
+    try { items = (await searchRemote(use.join(' '), { limit })).items.filter((p) => p.inStock !== false && ((p.images || [])[0] || p.image)); } catch { /* ignore */ }
   }
   items = items.slice(0, limit).map((p) => ({
     id: p.id, slug: p.slug, name: p.name, price: p.price, comparePrice: p.comparePrice || 0,

@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, MAX_MARKUP_PCT, MIN_PAYOUT, TIERS, deliveryRate, effe
 import { SITE, waLink } from '@/lib/config';
 import { useAuth } from './AuthProvider';
 import WorkerApply from './WorkerApply';
+import WorkerPublicProfile from './WorkerPublicProfile';
 
 const STATUS = { pending: 'bg-yellow-500/15 text-yellow-800', holding: 'bg-sky-500/15 text-sky-800', approved: 'bg-emerald-600/20 text-emerald-900', requested: 'bg-blue-500/15 text-blue-800', paid: 'bg-green-600/20 text-green-900', cancelled: 'bg-red-500/15 text-red-700' };
 const LABEL = { pending: 'Waiting for delivery', holding: 'Delivered: releasing to wallet', approved: 'In wallet', requested: 'Payout requested', paid: 'Paid', cancelled: 'Cancelled' };
@@ -239,7 +240,7 @@ export default function WorkerClient() {
       <div className="no-sb mb-5 flex gap-2 overflow-x-auto" role="tablist">
         {tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold ${tab === k ? 'bg-gold text-white' : 'border border-line bg-surface text-dim'}`}>{l}</button>)}
       </div>
-      {tab === 'home' && <Overview w={w} comm={comm} settings={settings} />}
+      {tab === 'home' && (<><Overview w={w} comm={comm} settings={settings} /><div className="mt-4"><WorkerPublicProfile worker={w} /></div></>) }
       {tab === 'products' && <Products w={w} setW={setW} />}
       {tab === 'orders' && <Orders comm={comm} />}
       {tab === 'payout' && <Payout w={w} comm={comm} payouts={payouts} reload={load} settings={settings} />}

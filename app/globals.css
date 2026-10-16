@@ -145,6 +145,10 @@ a:active, button:not(:disabled):active { opacity: .92; }
 
 /* Soft fade between pages (opacity only: cheap) */
 .mz-page { animation: mz-fadein .22s ease-out both; }
+
+/* A product whose photo cannot load is taken out of the grid completely (no empty card, no grey box). */
+[data-card][data-dead], [data-dead-wrap][data-dead] { display: none !important; }
+.mz-card img { animation: mz-fadein .3s ease-out both; }
 @keyframes mz-fadein { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- Splash (first open of the shop in a visit) ---- */

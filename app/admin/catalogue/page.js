@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Archive, Check, Eye, EyeOff, Loader2, Pencil, RefreshCw, RotateCcw, Search, Star, X } from 'lucide-react';
+import { Archive, Check, Eye, EyeOff, Loader2, Pencil, RefreshCw, RotateCcw, Search, ShieldAlert, Sparkles, Star, X } from 'lucide-react';
 import { authClient, dbClient } from '@/lib/firebase-client';
 import { doc, setDoc } from 'firebase/firestore';
 import { formatPKR } from '@/lib/format';
@@ -24,6 +24,8 @@ export default function AdminCatalogue() {
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
   const [edit, setEdit] = useState(null); // { id, form }
+  const [scan, setScan] = useState(null); // { running, checked, total, bad: [{id,name,why}] }
+  const [scanMsg, setScanMsg] = useState('');
   const [show, setShow] = useState(0);    // rows drawn
 
   const token = useCallback(async () => authClient().currentUser.getIdToken(), []);
@@ -71,6 +73,42 @@ export default function AdminCatalogue() {
     const t = setTimeout(() => { if (q.trim().length >= 2) runSearch(q); else setHits(null); }, 450);
     return () => clearTimeout(t);
   }, [q, runSearch]);
+
+  // PHOTO CHECK: looks at the main photo of every product shown here (30 links per request) and lists the broken ones.
+  // Then "Hide all broken" writes ONE small part file - the products disappear from the shop, the files stay for you to fix.
+  const checkPhotoList = async () => {
+    const rowsNow = (list || []).filter((r) => r && r.id);
+    if (!rowsNow.length) { setScanMsg('Load a part or search first.'); return; }
+    const noPhoto = rowsNow.filter((r) => !r.image).map((r) => ({ id: r.id, name: r.name, why: 'no photo' }));
+    const withPhoto = rowsNow.filter((r) => r.image);
+    const bad = [...noPhoto];
+    let checked = 0;
+    setScan({ running: true, checked: 0, total: withPhoto.length, bad });
+    try {
+      for (let i = 0; i < withPhoto.length; i += 30) {
+        const group = withPhoto.slice(i, i + 30);
+        try {
+          const j = await api('/api/admin/image-check', { action: 'urls', urls: group.map((r) => r.image) });
+          (j.results || []).forEach((res, k) => { if (res.state === 'bad') bad.push({ id: group[k].id, name: group[k].name, why: res.why || 'photo does not load' }); });
+        } catch { /* this group could not be checked */ }
+        checked += group.length;
+        setScan({ running: true, checked, total: withPhoto.length, bad: [...bad] });
+      }
+      setScan({ running: false, checked, total: withPhoto.length, bad });
+      setScanMsg(bad.length ? `${bad.length} of ${rowsNow.length} product(s) have a photo problem. Hide them in one click - the files stay in the archive so you can fix the photo later.` : `All ${rowsNow.length} photos load correctly.`);
+    } catch (e) { setScan({ running: false, checked, total: withPhoto.length, bad }); setScanMsg(e.message); }
+  };
+
+  const hideBroken = async () => {
+    if (!scan || !scan.bad.length) return;
+    setBusy('hideMany'); setScanMsg('');
+    try {
+      const j = await api('/api/admin/archive-edit', { action: 'hideMany', ids: scan.bad.map((b) => b.id).slice(0, 400), hidden: true });
+      setScanMsg(`${j.count} product(s) hidden in one commit (part ${j.n}, ${String(j.commit || '').slice(0, 7)}). They are gone from the shop after the deploy (1 to 3 minutes). Nothing was written to Firebase.`);
+      setScan({ ...scan, bad: [] });
+      setRows((rs) => (rs ? rs.map((r) => (scan.bad.some((b) => b.id === r.id) ? { ...r, active: false } : r)) : rs));
+    } catch (e) { setScanMsg(e.message); } finally { setBusy(''); }
+  };
 
   const patch = async (id, changes, label) => {
     setBusy(id); setMsg('');
@@ -176,6 +214,37 @@ export default function AdminCatalogue() {
       </div>
 
       {msg && <p role="status" className="rounded-xl bg-raised p-3 text-sm text-cream">{msg}</p>}
+
+      <div className="card !p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-bold">Photo check (no empty cards on the shop)</p>
+            <p className="text-xs text-dim">A product whose photo does not load is hidden from the shop. Check the list you are viewing and hide every broken one in a single commit.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn-ghost !px-3.5 !py-2 text-xs" disabled={scan?.running || busy === 'hideMany'} onClick={checkPhotoList}>
+              {scan?.running ? <><Loader2 size={14} className="animate-spin" /> Checking {scan.checked}/{scan.total}...</> : <><Sparkles size={14} /> Check photos in this list</>}
+            </button>
+            {scan && scan.bad.length > 0 && (
+              <button type="button" className="btn-gold !px-3.5 !py-2 text-xs" disabled={busy === 'hideMany'} onClick={hideBroken}>
+                {busy === 'hideMany' ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />} Hide {scan.bad.length} broken product(s)
+              </button>
+            )}
+          </div>
+        </div>
+        {scanMsg && <p role="status" className="mt-2 rounded-xl bg-raised p-3 text-sm text-cream">{scanMsg}</p>}
+        {scan && scan.bad.length > 0 && (
+          <ul className="mt-2 max-h-48 space-y-1 overflow-auto text-xs">
+            {scan.bad.slice(0, 40).map((b) => (
+              <li key={b.id} className="flex items-center justify-between gap-2 rounded-lg bg-raised px-3 py-1.5">
+                <span className="min-w-0 truncate"><b>{b.name}</b> <span className="text-faint">({b.id})</span></span>
+                <span className="shrink-0 font-semibold text-red-700">{b.why}</span>
+              </li>
+            ))}
+            {scan.bad.length > 40 && <li className="px-3 py-1 text-faint">...and {scan.bad.length - 40} more</li>}
+          </ul>
+        )}
+      </div>
 
       {parts && parts.length === 0 && (
         <div className="card">

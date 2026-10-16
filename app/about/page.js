@@ -3,6 +3,7 @@ import { SITE } from '@/lib/config';
 import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead, Prose } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
+import { CREDIT, FOUNDER } from '@/lib/team';
 
 export const metadata = pageMeta({
   title: 'About Mizanora, a Halal-Minded Pakistani Store',
@@ -26,6 +27,9 @@ export default function About() {
           <li><strong>Respect for your time.</strong> Real replies, not automated runarounds.</li>
           <li><strong>Halal-minded trade.</strong> We avoid anything clearly haram and deal fairly. Read our <Link href="/blog/what-is-halal-shopping">halal shopping guide</Link>.</li>
         </ul>
+        <h2>Who built Mizanora</h2>
+        <p>Mizanora is built and maintained by <strong>{FOUNDER.name}</strong> - {FOUNDER.role}. He wrote the website, the phone-friendly design, the Urdu and English voice assistant <em>Noor</em>, the worker programme and the file-based catalogue that keeps the shop working even on a day the free database limit is finished. The rest of the team (support, dispatch, catalogue and workers) is on the <Link href="/team">team page</Link>.</p>
+        <p className="text-sm text-faint">{CREDIT}</p>
         <h2>Find us</h2>
         <p>See all our <Link href="/connect">official accounts</Link>, or go to the <Link href="/contact">contact page</Link>.</p>
       </Prose>

@@ -226,6 +226,30 @@ export default async function Home() {
 
       <Reveal><DailyReminder /></Reveal>
 
+      <Reveal><section className="mx-auto max-w-7xl px-3 pt-14 sm:px-4" aria-labelledby="earn">
+        <div className="overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-[#0B6B45] via-[#0E8556] to-[#073D28] p-6 text-white shadow-xl sm:p-9">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-2xl">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider">Earn with us</p>
+              <h2 id="earn" className="mt-3 font-display text-2xl font-extrabold sm:text-3xl">Share products, earn 10% to 50% commission</h2>
+              <p className="mt-2 text-white/90">No investment and no stock. You share a link, the customer pays cash on delivery, and your commission lands in your wallet after delivery. Built for Pakistan: JazzCash, Easypaisa and bank payouts.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link href="/worker" className="btn-gold !py-2.5">Join as a worker</Link>
+                <Link href="/team" className="btn-ghost !border-white/40 !py-2.5 !text-white">Meet the team &amp; workers</Link>
+              </div>
+            </div>
+            <div className="grid shrink-0 grid-cols-2 gap-3 text-center text-white sm:w-64">
+              {[['10%', 'Starting commission'], ['50%', 'Top level'], ['8 din', 'Delivery se wallet tak'], ['0 Rs', 'Joining fee']].map(([a, b]) => (
+                <div key={b} className="rounded-2xl bg-white/10 p-3">
+                  <p className="font-display text-xl font-extrabold">{a}</p>
+                  <p className="text-[0.7rem] text-white/85">{b}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section></Reveal>
+
       <Reveal><section className="mx-auto max-w-3xl px-4 pt-14" aria-labelledby="faq">
         <h2 id="faq" className="section-title mb-4">Questions people ask</h2>
         {FAQ.slice(0, 6).map(([q, a]) => (
