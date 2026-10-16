@@ -99,8 +99,10 @@ export default function AdminImport() {
   // Looks at the main photo of every product (30 links per request, 3 requests at a time). -> Map(slug -> reason) of the products whose photo is really broken.
   async function badPhotos(todo) {
     const bad = new Map();
+    // A product whose media came as a VIDEO (Facebook / Instagram / TikTok / YouTube / .mp4 in the CSV) is complete:
+    // it gets a video card on the shop and feeds the reels rail, so it is never skipped for "no photo".
     const jobs = chunk(todo.filter((p) => p.doc.images[0]).map((p) => [p.slug, p.doc.images[0]]), 30);
-    const noPhoto = todo.filter((p) => !p.doc.images[0]);
+    const noPhoto = todo.filter((p) => !p.doc.images[0] && !(p.doc.videos || []).length);
     noPhoto.forEach((p) => bad.set(p.slug, 'no photo'));
     let next = 0, done = 0;
     const worker = async () => {
@@ -142,7 +144,7 @@ export default function AdminImport() {
         }
       } catch (e) { setMsg(`Price lock could not read the existing prices (${e.message}); the CSV prices are used.`); }
     }
-    const bad = checkPhotos ? await badPhotos(work) : new Map(work.filter((p) => !p.doc.images[0]).map((p) => [p.slug, 'no photo']));
+    const bad = checkPhotos ? await badPhotos(work) : new Map(work.filter((p) => !p.doc.images[0] && !(p.doc.videos || []).length).map((p) => [p.slug, 'no photo']));
     if (copyPhotos) {
       const tk = await token();
       const jobs = [];
@@ -172,7 +174,7 @@ export default function AdminImport() {
 
   async function runArchive(todo) {
     const st = await api('/api/admin/archive', { action: 'status' });
-    const bad = checkPhotos ? await badPhotos(todo) : new Map(todo.filter((p) => !p.doc.images[0]).map((p) => [p.slug, 'no photo']));
+    const bad = checkPhotos ? await badPhotos(todo) : new Map(todo.filter((p) => !p.doc.images[0] && !(p.doc.videos || []).length).map((p) => [p.slug, 'no photo']));
     const good = todo.filter((p) => !bad.has(p.slug));
     const parts = chunk(good, PART);
     const github = st.github && st.github.ready;

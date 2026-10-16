@@ -3,6 +3,7 @@ import { SITE } from '@/lib/config';
 import { CREDIT, FOUNDER } from '@/lib/team';
 import { SOCIAL_ICONS } from './Icons';
 import FxToggle from './FxToggle';
+import InstallApp from './InstallApp';
 
 export default function Footer({ categories = [] }) {
   const socials = SITE.social.filter((s) => s.url);
@@ -31,7 +32,12 @@ export default function Footer({ categories = [] }) {
         </div>
         <FooterCol title="Shop" links={[['/products', 'All products'], ...categories.slice(0, 5).map((c) => [`/category/${c.slug}`, c.name]), ['/cart', 'Cart']]} />
         <FooterCol title="Help" links={[['/workers', 'Earn with Mizanora'], ['/reels', 'Reels'], ['/account', 'My account'], ['/track', 'Track order'], ['/wishlist', 'Wishlist'], ['/how-to-order', 'How to order'], ['/faq', 'FAQ'], ['/returns', 'Returns'], ['/contact', 'Contact support'], ['/connect', 'Official accounts']]} />
-        <FooterCol title="Company" links={[['/about', 'About us'], ['/team', 'Team & profiles'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
+        <div>
+          <FooterCol title="Company" links={[['/about', 'About us'], ['/team', 'Team & profiles'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
+          <p className="mt-4 text-sm font-semibold text-cream">Get the app</p>
+          <span className="mt-2 block text-sm"><InstallApp /></span>
+          <p className="mt-1 text-xs text-faint">Tez khulta hai, weak internet par bhi chalta hai. Free.</p>
+        </div>
       </div>
       <p className="mx-auto mt-8 max-w-7xl border-t border-line px-4 pt-5 text-xs text-faint">© {new Date().getFullYear()} Mizanora, {SITE.city}. {CREDIT}</p>
     </footer>

@@ -16,6 +16,7 @@ import { useAuth } from './AuthProvider';
 import { useCart } from './CartProvider';
 import OrderBill from './OrderBill';
 import { getWish } from '@/lib/wish';
+import InstallApp from './InstallApp';
 
 const EMPTY_ADDR = { label: 'Home', name: '', phone: '', address: '', landmark: '', city: '', cityOther: '', province: '' };
 
@@ -369,6 +370,7 @@ function Profile({ user }) {
           {provider.includes('password') && <button type="button" className="btn-ghost !py-2.5" onClick={resetPw}><KeyRound size={15} /> Change password (email link)</button>}
           <Link href="/track" className="btn-ghost !py-2.5">Track an order</Link>
           <Link href="/wishlist" className="btn-ghost !py-2.5"><Heart size={15} /> My wishlist</Link>
+          <InstallApp variant="button" />
           <button type="button" onClick={() => signOut(authClient())} className="btn-ghost !py-2.5 !border-red-400 !text-red-700"><LogOut size={16} /> Sign out</button>
         </div>
         <p className="text-xs text-faint">Signing out only clears this device. Your orders, addresses and wishlist stay with your account.</p>

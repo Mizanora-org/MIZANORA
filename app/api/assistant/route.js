@@ -57,7 +57,7 @@ const brief = (p) => ({
   slug: p.slug, name: clip(p.name, 90), price_pkr: p.price, old_price_pkr: p.comparePrice > p.price ? p.comparePrice : undefined,
   category: p.category, options: optsText(p) || undefined,
 });
-const card = (p) => ({ slug: p.slug, name: p.name, price: p.price, comparePrice: p.comparePrice, image: (p.images && p.images[0]) || '', hasOptions: hasOpts(p) });
+const card = (p) => ({ slug: p.slug, name: p.name, price: p.price, comparePrice: p.comparePrice, image: (p.images && p.images[0]) || '', video: (p.videos || [])[0] || '', hasOptions: hasOpts(p) });
 
 // Product search over the WHOLE shop (live + archived): from memory, no Firestore reads, no Gemini call.
 async function runSearch(a, liked = []) {

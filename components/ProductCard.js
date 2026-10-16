@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Check, Heart, Plus, Share2 } from 'lucide-react';
-import CardPhoto from './CardPhoto';
+import CardMedia from './CardMedia';
+import { firstVideo } from '@/lib/media';
 import { formatPKR, discountPct } from '@/lib/format';
 
 // A product card is plain markup (no state, no per-card listeners). The heart, share and "Add to cart" buttons are
@@ -9,6 +10,7 @@ import { formatPKR, discountPct } from '@/lib/format';
 export default function ProductCard({ p, priority = false }) {
   const off = discountPct(p.price, p.comparePrice);
   const img = (p.images && p.images[0]) || p.image || '';
+  const video = firstVideo(p); // a product whose media is a video still gets a beautiful card
   const needsOptions = p.hasOptions !== undefined ? p.hasOptions : Boolean(p.sizes && p.sizes.length);
   return (
     <article data-card="1" data-pslug={p.slug} className="mz-card group flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(18,32,26,.06)]">
@@ -23,8 +25,8 @@ export default function ProductCard({ p, priority = false }) {
         </div>
         <Link href={`/product/${p.slug}`} prefetch={false} data-pf="1" className="block">
           <div className="relative aspect-square bg-raised">
-            {img ? (
-              <CardPhoto src={img} alt={p.name} priority={priority} sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw" />
+            {img || video ? (
+              <CardMedia img={img} video={video} alt={p.name} priority={priority} sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw" />
             ) : (
               <div className="grid h-full place-items-center font-display text-3xl text-bronze">M</div>
             )}

@@ -6,6 +6,7 @@ import { buildPart, mergeManifest, repoManifest, stageFiles } from '@/lib/archiv
 import { ghBlob, ghCommit, ghInfo, ghReadFile, ghReady } from '@/lib/github';
 import { pingIndexNow } from '@/lib/indexnow';
 import { MANIFEST_PATH } from '@/lib/archiveFormat';
+import { splitMedia } from '@/lib/media';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,12 @@ const json = (b, s = 200) => NextResponse.json(b, { status: s, headers: { 'Cache
 const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
 
 const cleanDoc = (data = {}) => {
-  const images = Array.isArray(data.images) ? data.images.filter(Boolean).slice(0, 8).map((u) => clip(u, 500)) : [];
+  const rawVideos = Array.isArray(data.videos) ? data.videos : [];
+  const media = splitMedia(
+    (Array.isArray(data.images) ? data.images : []).map((u) => clip(u, 500)),
+    rawVideos.map((u) => clip(u, 500)),
+  );
+  const images = media.images;
   const categories = (Array.isArray(data.categories) ? data.categories : String(data.categories || '').split(','))
     .map((c) => clip(c, 60).trim()).filter(Boolean).slice(0, 6);
   const out = {
@@ -35,7 +41,7 @@ const cleanDoc = (data = {}) => {
   };
   if (Array.isArray(data.options)) out.options = data.options.slice(0, 6).map((o) => ({ name: clip(o.name, 40), values: (o.values || []).slice(0, 30).map((v) => clip(v, 40)) }));
   if (Array.isArray(data.specs)) out.specs = data.specs.slice(0, 20).map((s) => clip(s, 120));
-  if (Array.isArray(data.videos)) out.videos = data.videos.filter(Boolean).slice(0, 6).map((u) => clip(u, 500));
+  out.videos = media.videos.slice(0, 6); // always an array: the reels feed can rely on it
   return out;
 };
 

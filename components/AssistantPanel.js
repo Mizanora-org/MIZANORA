@@ -3,14 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Check, Mic, Send, Share2, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
+import { Check, Mic, MicOff, Play, Radio, RefreshCw, Send, Share2, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
 import { useCartActions } from './CartProvider';
 import { addToCart } from '@/lib/metaPixel';
 import { formatPKR } from '@/lib/format';
 import { saveDeal } from '@/lib/dealStore';
 import { createVoice } from '@/lib/assistantVoice';
+import { askMic, micHelp, micPermission, micSupported, recognizer, srMessage } from '@/lib/mic';
 
-const SR = () => (typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null);
 
 // A made-up device id (localStorage). It carries no name, phone or account - it only lets the assistant remember
 // which categories THIS phone likes, and it is the same id the home page "Aap ke liye" shelf reads.
@@ -26,10 +26,10 @@ function Dots() {
   return <span className="inline-flex gap-1" aria-label="typing"><i className="h-2 w-2 animate-bounce rounded-full bg-dim [animation-delay:-.3s]" /><i className="h-2 w-2 animate-bounce rounded-full bg-dim [animation-delay:-.15s]" /><i className="h-2 w-2 animate-bounce rounded-full bg-dim" /></span>;
 }
 
-function Thumb({ src, size = 64 }) {
-  return src
-    ? <Image src={src} alt="" width={size} height={size} sizes={`${size}px`} className="h-full w-full object-cover" />
-    : <span className="grid h-full w-full place-items-center bg-raised font-display text-bronze">M</span>;
+function Thumb({ src, size = 64, video = '' }) {
+  if (src) return <Image src={src} alt="" width={size} height={size} sizes={`${size}px`} className="h-full w-full object-cover" />;
+  if (video) return <span className="grid h-full w-full place-items-center bg-gradient-to-br from-[#0E8556] to-[#073D28] text-white" title="Video product"><Play size={22} /></span>;
+  return <span className="grid h-full w-full place-items-center bg-raised font-display text-bronze">M</span>;
 }
 
 export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
@@ -42,7 +42,11 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceOn, setVoiceOn] = useState(true);
-  const [micOk, setMicOk] = useState(false);
+  const [micOk, setMicOk] = useState(false);          // does this browser support voice at all?
+  const [perm, setPerm] = useState('unknown');        // granted | prompt | denied | unknown
+  const [help, setHelp] = useState(null);             // { title, steps[] } shown inside the chat
+  const [loop, setLoop] = useState(true);             // hands-free: keep listening after every answer
+  const [note, setNote] = useState('');               // short, friendly line about the last voice problem
   const [added, setAdded] = useState({});
 
   const neg = useRef('');
@@ -55,16 +59,28 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
   const busyRef = useRef(false);
   const modeRef = useRef(cfg.voiceMode);
   const didRef = useRef('');
+  const loopRef = useRef(true);
   const voice = useMemo(() => createVoice(() => modeRef.current), []);
 
   useEffect(() => { msgsRef.current = msgs; if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight; }, [msgs, busy]);
   useEffect(() => { voiceOnRef.current = voiceOn; if (!voiceOn) voice.stop(); }, [voiceOn, voice]);
   useEffect(() => { didRef.current = deviceId(); }, []);
   useEffect(() => {
-    setMicOk(Boolean(SR()));
-    try { if (localStorage.getItem('mz_ai_voice') === '0') setVoiceOn(false); } catch (_) { /* ignore */ }
+    setMicOk(micSupported());
+    try {
+      if (localStorage.getItem('mz_ai_voice') === '0') setVoiceOn(false);
+      if (localStorage.getItem('mz_voice_loop') === '0') { setLoop(false); loopRef.current = false; }
+    } catch (_) { /* ignore */ }
     return () => { voice.stop(); try { if (recRef.current) recRef.current.abort(); } catch (_) { /* ignore */ } };
   }, [voice]);
+
+  // Permission state is re-read every time the panel opens (the shopper may have just allowed it in settings).
+  useEffect(() => {
+    if (!open) return undefined;
+    let live = true;
+    micPermission().then((p) => { if (live) setPerm(p); }).catch(() => {});
+    return () => { live = false; };
+  }, [open]);
 
   const stopListen = useCallback(() => { viaVoice.current = false; try { if (recRef.current) recRef.current.stop(); } catch (_) { /* ignore */ } setListening(false); }, []);
 
@@ -94,31 +110,71 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     msgsRef.current = withReply; setMsgs(withReply);
     busyRef.current = false; setBusy(false);
     await say(reply.text);
-    if (fromVoice && viaVoice.current && SR()) startListen(true); // keep the conversation going by voice
+    if (fromVoice && viaVoice.current && micSupported() && loopRef.current) startListen(true); // keep the conversation going by voice
   }, [slug, say, voice]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const startListen = useCallback((quiet = false) => {
-    const Rec = SR();
-    if (!Rec) return;
+  const startListen = useCallback(async (quiet = false) => {
+    const Rec = recognizer();
+    if (!Rec) { setHelp(micHelp('unsupported')); setMicOk(false); return; }
     voice.stop();
+    // Ask for the microphone (this is what shows the Allow popup). Without this the first tap could do nothing at all.
+    const ask = await askMic();
+    if (!ask.ok) {
+      setPerm(ask.reason === 'denied' ? 'denied' : perm);
+      if (!quiet) setHelp(micHelp(ask.reason));
+      viaVoice.current = false;
+      return;
+    }
+    setPerm('granted');
+    setHelp(null);
+    setNote('');
     let lang = 'ur-PK';
     try { const l = localStorage.getItem('mz_voice_lang'); if (l === 'en-PK' || l === 'ur-PK') lang = l; } catch (_) { /* ignore */ }
     const r = new Rec();
     r.lang = lang; r.interimResults = true; r.maxAlternatives = 1;
     let finalText = '';
     r.onresult = (e) => {
+      setNote('');
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) { const s = e.results[i][0].transcript; if (e.results[i].isFinal) finalText += s; else interim += s; }
       setText(finalText + interim);
     };
-    r.onerror = () => { setListening(false); if (quiet) viaVoice.current = false; };
-    r.onend = () => { setListening(false); if (finalText.trim()) send(finalText, true); else viaVoice.current = false; };
+    r.onerror = (e) => {
+      setListening(false);
+      const code = String((e && e.error) || '');
+      const soft = srMessage(code);
+      if (soft) setNote(soft);
+      viaVoice.current = loopRef.current && quiet && code !== 'not-allowed' && code !== 'service-not-allowed';
+      if (!quiet && code !== 'aborted' && code !== 'no-speech') { setHelp(micHelp(code === 'audio-capture' ? 'nodevice' : 'denied')); viaVoice.current = false; }
+      // Hands-free: nothing was heard -> listen again by itself (no tapping every time).
+      if (viaVoice.current) setTimeout(() => { if (viaVoice.current && !busyRef.current) startListen(true); }, 700);
+    };
+    r.onend = () => {
+      setListening(false);
+      if (finalText.trim()) send(finalText, true);
+      else if (viaVoice.current && loopRef.current) setTimeout(() => { if (viaVoice.current && !busyRef.current) startListen(true); }, 500);
+      else viaVoice.current = false;
+    };
     recRef.current = r;
     try { r.start(); setListening(true); } catch (_) { setListening(false); }
-  }, [send, voice]);
+  }, [send, voice, perm]);
 
   // Barge-in: tap the mic while she is speaking and she stops, then listens (like talking over her on a phone call).
-  const toggleMic = () => { voice.unlock(); voice.stop(); if (listening) stopListen(); else startListen(); };
+  const toggleMic = () => {
+    voice.unlock(); voice.stop();
+    if (listening) { viaVoice.current = false; stopListen(); return; }
+    viaVoice.current = loopRef.current;
+    startListen();
+  };
+  const toggleLoop = () => {
+    setLoop((v) => {
+      const next = !v; loopRef.current = next;
+      try { localStorage.setItem('mz_voice_loop', next ? '1' : '0'); } catch (_) { /* ignore */ }
+      if (!next) viaVoice.current = false;
+      return next;
+    });
+  };
+  const retryMic = () => { setHelp(null); voice.unlock(); viaVoice.current = loopRef.current; startListen(); };
   const toggleVoice = () => { voice.unlock(); setVoiceOn((v) => { try { localStorage.setItem('mz_ai_voice', v ? '0' : '1'); } catch (_) { /* ignore */ } return !v; }); };
 
   // Opening: greet (spoken), then answer a question that was handed over from the search box.
@@ -162,11 +218,32 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
           <span className="relative grid h-10 w-10 place-items-center rounded-full bg-white/15"><Sparkles size={20} />{(busy || listening) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full bg-gold" />}</span>
           <div className="min-w-0 flex-1">
             <p className="font-display text-base font-bold leading-tight">{cfg.name}</p>
-            <p className="text-xs text-white/80">{listening ? 'Sun rahi hoon...' : busy ? 'Soch rahi hoon...' : 'Mizanora shopping assistant'}</p>
+            <p className="text-xs text-white/80">
+              {listening ? (
+                <span className="flex items-center gap-1.5">Sun rahi hoon<span className="mz-wave" aria-hidden="true"><i /><i /><i /><i /></span></span>
+              ) : busy ? 'Soch rahi hoon...' : 'Mizanora shopping assistant - boliye ya likhein'}
+            </p>
           </div>
+          <button type="button" onClick={toggleMic} aria-label="Talk to the assistant" aria-pressed={listening} className={`grid h-9 w-9 place-items-center rounded-full hover:bg-white/15 ${listening ? 'bg-red-600/90' : ''}`}>{micOk ? <Mic size={18} /> : <MicOff size={18} />}</button>
           <button type="button" onClick={toggleVoice} aria-label={voiceOn ? 'Mute her voice' : 'Turn her voice on'} aria-pressed={voiceOn} className="grid h-9 w-9 place-items-center rounded-full hover:bg-white/15">{voiceOn ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
           <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-full hover:bg-white/15"><X size={20} /></button>
         </header>
+
+        {/* Mic status + hands-free switch: everything about the voice in ONE slim bar, in plain words. */}
+        {micOk && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-raised px-4 py-1.5 text-[0.7rem]">
+            <button type="button" onClick={retryMic} className="flex items-center gap-1.5 font-bold text-cream">
+              {perm === 'granted' ? <><span className="h-2 w-2 rounded-full bg-emerald-500" /> Mic ready</> : perm === 'denied' ? <><span className="h-2 w-2 rounded-full bg-red-500" /> Mic band hai - theek karein</> : <><span className="h-2 w-2 rounded-full bg-amber-500" /> Mic permission chahiye</>}
+            </button>
+            <button type="button" onClick={toggleLoop} aria-pressed={loop} className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 font-bold ${loop ? 'bg-gold/15 text-gold' : 'text-dim'}`}>
+              <Radio size={12} /> Hands-free {loop ? 'ON' : 'OFF'}
+            </button>
+            <span className="text-faint">{loop ? 'Har jawab ke baad khud sun leti hai' : 'Har dafa mic dabana hoga'}</span>
+          </div>
+        )}
+        {note && (
+          <p className="border-b border-line bg-amber-50 px-4 py-1.5 text-[0.7rem] font-semibold text-amber-900">{note}</p>
+        )}
 
         <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-4" style={{ touchAction: 'pan-y' }}>
           {msgs.map((m, i) => (
@@ -199,7 +276,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
                   {m.products.map((p) => (
                     <div key={p.slug} className="w-36 shrink-0 overflow-hidden rounded-xl border border-line bg-surface">
                       <Link href={`/product/${p.slug}`} onClick={onClose} className="block">
-                        <div className="relative aspect-square bg-raised"><Thumb src={p.image} size={144} /></div>
+                        <div className="relative aspect-square bg-raised"><Thumb src={p.image} size={144} video={p.video} /></div>
                         <p className="line-clamp-2 min-h-[2.2rem] px-2 pt-1.5 text-xs font-medium leading-snug text-cream">{p.name}</p>
                         <p className="px-2 pb-1.5 text-sm font-bold text-gold">{formatPKR(p.price)}</p>
                       </Link>
@@ -214,6 +291,18 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
             </div>
           ))}
           {busy && <div className="flex"><p className="rounded-2xl rounded-bl-sm bg-raised px-4 py-3"><Dots /></p></div>}
+          {help && (
+            <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-3">
+              <p className="font-bold text-amber-900">{help.title}</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
+                {help.steps.map((t) => <li key={t}>{t}</li>)}
+              </ol>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={retryMic} className="rounded-full bg-gold px-4 py-2 text-xs font-bold text-white"><RefreshCw size={13} className="mr-1 inline" /> Try again</button>
+                <button type="button" onClick={() => setHelp(null)} className="rounded-full border border-line px-4 py-2 text-xs font-bold text-cream">Theek hai</button>
+              </div>
+            </div>
+          )}
           {msgs.length <= 1 && !busy && (
             <div className="flex flex-wrap gap-2 pt-1">{chips.map((c) => <button key={c} type="button" onClick={() => send(c)} className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-cream active:bg-raised">{c}</button>)}</div>
           )}
@@ -222,7 +311,10 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
         <form onSubmit={(e) => { e.preventDefault(); voice.unlock(); send(text); }} className="flex items-center gap-2 border-t border-line bg-surface px-3 py-2.5">
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder={listening ? 'Boliye, main sun rahi hoon...' : 'Likhein ya bol kar poochein...'} maxLength={300} enterKeyHint="send"
             className="min-w-0 flex-1 rounded-full border border-line bg-raised px-4 py-2.5 text-base outline-none focus:border-gold" aria-label="Message" />
-          {micOk && <button type="button" onClick={toggleMic} aria-label={listening ? 'Stop listening' : 'Speak'} aria-pressed={listening} className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${listening ? 'animate-pulse bg-red-600 text-white' : 'bg-raised text-gold'}`}><Mic size={20} /></button>}
+          <button type="button" onClick={micOk ? toggleMic : () => setHelp(micHelp('unsupported'))} aria-label={listening ? 'Stop listening' : 'Speak'} aria-pressed={listening}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${listening ? 'bg-red-600 text-white' : 'bg-raised text-gold'}`}>
+            {micOk ? <Mic size={20} className={listening ? 'animate-pulse' : ''} /> : <MicOff size={20} />}
+          </button>
           <button type="submit" disabled={busy || !text.trim()} aria-label="Send" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gold text-white disabled:opacity-40"><Send size={18} /></button>
         </form>
       </div>

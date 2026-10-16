@@ -1,10 +1,15 @@
 /* Mizanora service worker: offline fallback + fast repeat visits. Never touches /api or /admin. */
-const VERSION = 'mz-v2';
-const PRECACHE = ['/offline', '/icons/icon-192.png', '/icons/icon-512.png'];
+const VERSION = 'mz-v3';
+const PRECACHE = ['/', '/offline', '/products', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png'];
 const MAX_ENTRIES = 300;
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+});
+
+// The page can ask a freshly installed worker to take over immediately (the app then reloads itself once).
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
@@ -35,7 +40,7 @@ self.addEventListener('fetch', (e) => {
           fetch(req),
           new Promise((_, no) => setTimeout(() => no(new Error('slow')), 8000)),
         ]);
-        if (res && res.ok && url.pathname === '/') cache.put('/', res.clone()); // only the home page is kept for offline
+        if (res && res.ok) { cache.put(req, res.clone()); trim(cache); } // every page you visit stays readable offline
         return res;
       } catch (_) {
         return (await cache.match(req)) || (url.pathname === '/' && (await cache.match('/'))) || (await caches.match('/offline'));
