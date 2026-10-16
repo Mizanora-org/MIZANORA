@@ -6,7 +6,7 @@ import FxToggle from './FxToggle';
 export default function Footer({ categories = [] }) {
   const socials = SITE.social.filter((s) => s.url);
   return (
-    <footer className="mt-16 bg-surface pb-28 md:pb-10">
+    <footer className="no-print mt-16 bg-surface pb-28 md:pb-10">
       <div className="mz-band" aria-hidden="true" />
       <p lang="ar" dir="rtl" className="font-arabic pt-6 text-center text-2xl text-gold">بِسْمِ اللَّهِ تَوَكَّلْنَا عَلَى اللَّهِ</p>
       <p className="text-center text-xs text-faint">Jazakallah khair for shopping with Mizanora</p>

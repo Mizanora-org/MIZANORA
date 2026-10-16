@@ -9,6 +9,8 @@ import { formatDate, formatPKR } from '@/lib/format';
 import { normalizePhone } from '@/lib/validate';
 import { downloadCsv, ordersToCsv } from '@/lib/csv';
 import { setOrderStatus } from '@/lib/coupons-client';
+import { adminHit } from '@/lib/adminSearch';
+import { useAdminSearch } from '@/components/AdminSearch';
 
 const STATUS_STYLE = {
   Pending: 'bg-yellow-500/15 text-yellow-800',
@@ -28,7 +30,7 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState(null);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
-  const [q, setQ] = useState('');
+  const { q, setQ } = useAdminSearch(); // the SAME box as the admin sidebar: one search for the whole panel
   const [open, setOpen] = useState('');
   const [max, setMax] = useState(50); // newest 50 orders first; "Load more" adds 50 (each order read costs 1 Firestore read)
 
@@ -38,9 +40,8 @@ export default function AdminOrders() {
   }, [max]);
 
   const shown = useMemo(() => {
-    const t = q.trim().toLowerCase();
     return (orders || []).filter((o) => (filter === 'All' || o.status === filter) &&
-      (!t || `${o.orderId} ${o.customer?.name} ${o.customer?.phone} ${o.customer?.city} ${o.couponCode || ''} ${o.couponOwner || ''}`.toLowerCase().includes(t)));
+      adminHit(q, `${o.orderId} ${o.customer?.name} ${o.customer?.phone} ${o.customer?.city} ${o.customer?.province} ${o.couponCode || ''} ${o.couponOwner || ''} ${(o.items || []).map((i) => i.name).join(' ')}`));
   }, [orders, filter, q]);
 
   const counts = useMemo(() => {
@@ -96,7 +97,8 @@ export default function AdminOrders() {
             className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ${filter === s ? 'bg-gold text-ink' : 'bg-raised text-dim'}`}>{s} ({counts[s]})</button>
         ))}
       </div>
-      <input className="input mt-3" placeholder="Search by order ID, name, phone or city" value={q} onChange={(e) => setQ(e.target.value)} type="search" />
+      <input className="input mt-3" placeholder="Search by order ID, name, phone (0300 1234567), city, promo code or product" value={q} onChange={(e) => setQ(e.target.value)} type="search" />
+      {q.trim() && <p className="mt-1.5 text-xs text-dim">{shown.length} of {(orders || []).length} order(s) match “{q.trim()}” <button type="button" className="text-faint underline" onClick={() => setQ('')}>clear</button></p>}
 
       <ul className="mt-4 space-y-3">
         {shown.length === 0 && <li className="card text-center text-dim">No orders here yet.</li>}

@@ -28,6 +28,7 @@ import { getSiteStatus } from '@/lib/siteGate';
 import SiteGate from '@/components/SiteGate';
 import Tracker from '@/components/Tracker';
 import Maintenance from '@/components/Maintenance';
+import HideOnAdmin from '@/components/HideOnAdmin';
 
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
 const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
@@ -77,9 +78,13 @@ export default async function RootLayout({ children }) {
           <InstallProvider>
             <AnnouncementBar />
             <Header categories={categories} />
-            <main id="main">{children}</main>
-            <Footer categories={categories} />
-            <WhatsAppFab />
+            {/* The footer and the floating buttons sit INSIDE main: on /admin the whole main area belongs to the admin panel, so
+                nothing of the shop shows up under it (HideOnAdmin). Printing is unchanged (both carry .no-print like before). */}
+            <main id="main">
+              {children}
+              <HideOnAdmin><Footer categories={categories} /></HideOnAdmin>
+              <HideOnAdmin><WhatsAppFab /></HideOnAdmin>
+            </main>
             <AssistantFab cfg={assistant} />
             <BottomNav />
             <InstallBanner />

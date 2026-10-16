@@ -1,7 +1,11 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import Link from 'next/link';
+import { Archive, Loader2, RotateCcw, Search, Upload } from 'lucide-react';
 import { dbClient, authClient } from '@/lib/firebase-client';
+import { adminHit, adminScore } from '@/lib/adminSearch';
+import { useAdminSearch } from '@/components/AdminSearch';
 import { formatPKR, slugify } from '@/lib/format';
 import ImageUploader from '@/components/ImageUploader';
 import ProductPromo from '@/components/ProductPromo';
@@ -26,6 +30,12 @@ export default function AdminProducts() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [catDraft, setCatDraft] = useState('');
+  // SEARCH: the box in the admin sidebar writes into this shared query; this page filters the live list with it.
+  const { q, setQ } = useAdminSearch();
+  const [shown, setShown] = useState(80);   // how many rows are drawn (5,000 rows in one list freeze a phone)
+  const [arch, setArch] = useState(null);   // result of "search the archive too" (old products in the repository)
+  const [archBusy, setArchBusy] = useState(false);
+  const [archMsg, setArchMsg] = useState('');
 
   const byNew = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
   // Reads Firestore only when there is no fresh copy in this browser session (or when you press Refresh).
@@ -105,13 +115,85 @@ export default function AdminProducts() {
     await deleteDoc(doc(dbClient(), 'products', p.id)); patchList((cur) => cur.filter((x) => x.id !== p.id)); await revalidate(p.id);
   }
 
+  // Live products filtered by the shared search box. Best match first, then newest.
+  const found = useMemo(() => {
+    const all = list || [];
+    if (!q.trim()) return all;
+    return all
+      .filter((p) => adminHit(q, `${p.id} ${p.name} ${catsOf(p).join(' ')} ${p.price} ${p.inStock === false ? 'sold out' : 'in stock'} ${p.active === false ? 'hidden' : ''}`))
+      .sort((x, y) => adminScore(q, `${x.id} ${x.name}`, x.name) - adminScore(q, `${y.id} ${y.name}`, y.name) || byNew(x, y));
+  }, [list, q]);
+
+  // SEARCH THE ARCHIVE: old products live as JSON files in the repository (data/catalog), not in Firebase, so they are
+  // searched through the server (which reads only the slim cards files, newest part first).
+  async function searchArchive() {
+    const query = q.trim();
+    if (!query) { setArchMsg('Type the search text in the box first, then press "Search the archive too".'); return; }
+    setArchBusy(true); setArchMsg('');
+    try {
+      const token = await authClient().currentUser.getIdToken();
+      const r = await fetch('/api/admin/product-search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ q: query }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.error || `Error ${r.status}`);
+      setArch(j);
+      if (j.empty) setArchMsg('There is no archive yet (no parts in data/catalog).');
+    } catch (e) { setArch(null); setArchMsg((e && e.message) || 'Archive search failed.'); } finally { setArchBusy(false); }
+  }
+
+  // Bring an archived product back into Firebase so it can be edited; after this it is live on the shop again.
+  async function restore(item) {
+    if (!confirm(`Copy "${item.name}" back into Firebase so you can edit it?`)) return;
+    setBusy(true); setMsg('');
+    try {
+      const token = await authClient().currentUser.getIdToken();
+      const r = await fetch('/api/admin/archive', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'get', slug: item.id }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.error || `Error ${r.status}`);
+      const data = { ...j.data, updatedAt: Date.now() };
+      await setDoc(doc(dbClient(), 'products', item.id), data);
+      patchList((cur) => [...cur.filter((x) => x.id !== item.id), { id: item.id, ...data }]);
+      await revalidate(item.id);
+      setMsg(`"${item.name}" is back in Firebase and live on the shop.`);
+    } catch (e) { setMsg((e && e.message) || 'Could not restore this product.'); } finally { setBusy(false); }
+  }
+
   return (
     <div className="grid min-w-0 gap-8 lg:grid-cols-[1fr_24rem]">
       <section className={`min-w-0 ${showForm ? 'hidden lg:block' : ''}`}>
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-3xl font-extrabold sm:text-4xl">Products</h1>
-          <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => load(true).catch((e) => setMsg(e.message))}>Refresh list</button>
-          <button type="button" className="btn-gold !px-5 !py-2.5 lg:hidden" onClick={() => { setForm(EMPTY); setEditing(false); setShowForm(true); window.scrollTo({ top: 0 }); }}>+ Add product</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => load(true).catch((e) => setMsg(e.message))}>Refresh list</button>
+            <button type="button" className="btn-gold !px-5 !py-2.5 lg:hidden" onClick={() => { setForm(EMPTY); setEditing(false); setShowForm(true); window.scrollTo({ top: 0 }); }}>+ Add product</button>
+          </div>
+        </div>
+
+        {/* SEARCH (same box as the sidebar): filters the live list and can search the archived products as well. */}
+        <div className="mb-3 rounded-2xl border border-line bg-surface p-3">
+          <label htmlFor="psearch" className="label">Search products</label>
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+            <input
+              id="psearch"
+              type="search"
+              className="input !pl-9"
+              placeholder="Name, slug, category or price - e.g. “kurti”, “silk”, “1450”"
+              value={q}
+              onChange={(e) => { setQ(e.target.value); setShown(80); }}
+              autoComplete="off"
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-dim">
+              {q.trim() ? <><b>{found.length}</b> of {(list || []).length} live product(s) match</> : <>{(list || []).length} live product(s) loaded</>}
+            </span>
+            <Link href="/admin/import" className="btn-ghost !px-3.5 !py-1.5 text-xs"><Upload size={14} /> Import a CSV</Link>
+            <button type="button" className="btn-ghost !px-3.5 !py-1.5 text-xs" disabled={archBusy} onClick={searchArchive}>
+              {archBusy ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />} Search the archive too
+            </button>
+            {q.trim() && <button type="button" className="text-faint underline" onClick={() => { setQ(''); setArch(null); }}>clear</button>}
+          </div>
+          {archMsg && <p className="mt-2 rounded-lg bg-raised p-2 text-xs text-dim">{archMsg}</p>}
         </div>
         {msg && <p role="status" className="mb-3 rounded-xl bg-raised p-3 text-sm text-cream">{msg}</p>}
         {!list ? <p className="text-dim">Loading...</p> : list.length === 0 ? (
@@ -120,8 +202,15 @@ export default function AdminProducts() {
             <button className="btn-ghost mt-3" disabled={busy} onClick={() => save(SAMPLE, true)}>Add a sample product (Tactical Boots)</button>
           </div>
         ) : (
-          <ul className="space-y-2">
-            {list.map((p) => (
+          <>
+            {found.length === 0 && (
+              <div className="card text-center">
+                <p className="text-dim">No live product matches “{q.trim()}”.</p>
+                <p className="mt-1 text-xs text-faint">Old products that were moved out of Firebase are not in this list - press “Search the archive too”.</p>
+              </div>
+            )}
+            <ul className={`space-y-2 ${found.length === 0 ? 'hidden' : ''}`}>
+            {found.slice(0, shown).map((p) => (
               <li key={p.id} className="card !p-3">
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
@@ -138,7 +227,43 @@ export default function AdminProducts() {
                 </div>
               </li>
             ))}
-          </ul>
+            </ul>
+            {found.length > shown && (
+              <button type="button" className="btn-ghost mt-3 w-full text-sm" onClick={() => setShown((n) => n + 120)}>
+                Show {Math.min(120, found.length - shown)} more of {found.length}
+              </button>
+            )}
+
+            {/* ARCHIVE RESULTS: old products that live as JSON files in the repository (data/catalog), searched on the server. */}
+            {arch && arch.hits && arch.hits.length > 0 && (
+              <div className="mt-7">
+                <h2 className="section-title text-xl">In the archive ({arch.hits.length}{arch.truncated ? '+' : ''})</h2>
+                <p className="mb-2 text-xs text-dim">
+                  Searched {arch.scanned} of {arch.totalParts} part file(s) · {(arch.total || 0).toLocaleString('en-PK')} archived product(s) in total.
+                  These are not in Firebase; <b>Restore</b> copies one back so you can edit it (after that it is live on the shop again).
+                </p>
+                <ul className="space-y-2">
+                  {arch.hits.map((h) => (
+                    <li key={h.id} className="card !p-3">
+                      <div className="flex items-center gap-3">
+                        {h.image
+                          ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={h.image} alt="" className="h-11 w-11 rounded-lg bg-raised object-cover" />
+                          : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-raised text-faint"><Archive size={16} /></span>}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold">{h.name} <span className="rounded bg-raised px-1.5 text-[0.6rem] font-bold uppercase text-faint">archived</span></p>
+                          <p className="truncate text-sm text-dim">{formatPKR(h.price)} · {(h.categories || []).join(', ') || 'no category'} · part {h.part} · {h.inStock ? 'in stock' : 'sold out'}</p>
+                        </div>
+                        <button type="button" className="btn-ghost !px-3.5 !py-2 text-xs" disabled={busy} onClick={() => restore(h)}><RotateCcw size={14} /> Restore</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {arch && arch.hits && arch.hits.length === 0 && (
+              <p className="mt-3 text-sm text-dim">Nothing in the archive matches “{arch.q}” (searched {arch.scanned} of {arch.totalParts} part file(s)).</p>
+            )}
+          </>
         )}
       </section>
 
