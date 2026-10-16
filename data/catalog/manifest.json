@@ -1,1 +1,27 @@
-{"version":1,"total":0,"parts":[]}
+{
+ "version": 1,
+ "total": 1099,
+ "parts": [
+  {
+   "n": 1,
+   "file": "part-0001.json",
+   "cards": "cards-0001.json",
+   "count": 500,
+   "at": 1792151882898
+  },
+  {
+   "n": 2,
+   "file": "part-0002.json",
+   "cards": "cards-0002.json",
+   "count": 500,
+   "at": 1792151885597
+  },
+  {
+   "n": 3,
+   "file": "part-0003.json",
+   "cards": "cards-0003.json",
+   "count": 99,
+   "at": 1792151889247
+  }
+ ]
+}
