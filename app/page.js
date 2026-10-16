@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ShieldCheck, Truck, Headphones, Banknote, Footprints, Shirt, Gem, Baby, Smartphone, Cpu, Home as HomeIcon, Sparkles, Dumbbell, HeartPulse, ShoppingBasket, Car, ArrowRight } from 'lucide-react';
 import { SITE } from '@/lib/config';
-import { getProducts, getBanners, getReels, getCategories, getTotalCount } from '@/lib/products';
+import { getShopAll, getBanners, getReels, getCategories, getTotalCount } from '@/lib/products';
 import { getPosts } from '@/lib/blog';
 import { FAQ } from '@/lib/faq';
 import { pageMeta, faqJsonLd } from '@/lib/seo';
@@ -24,6 +24,7 @@ import { seasonFor, matchesSeason } from '@/lib/season';
 import { inCategory } from '@/lib/cats';
 import { DEPARTMENTS } from '@/lib/departments';
 import JsonLd from '@/components/JsonLd';
+import ForYouShelf from '@/components/ForYouShelf';
 import { SOCIAL_ICONS } from '@/components/Icons';
 
 export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
@@ -61,7 +62,10 @@ function Shelf({ id, title, href, products, priorityFirst = false, tone = '', an
 }
 
 export default async function Home() {
-  const [all, banners, reels, categories, totalCount] = await Promise.all([getProducts(), getBanners(), getReels(), getCategories(), getTotalCount()]);
+  // THE WHOLE CATALOGUE: live products + the archived products that live as JSON files in the repository.
+  // A shop can keep EVERY product in those files (CSV import -> data/catalog) and still fill this home page,
+  // with no Firestore writes and no Firestore reads for visitors.
+  const [all, banners, reels, categories, totalCount] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount()]);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
@@ -129,6 +133,9 @@ export default async function Home() {
       </section>
 
       <Shelf id="budget" anchor="sasti" title="Sab se sasti: har category se" href="/products" products={budget} tone="bg-gold/5 p-3 sm:p-4" />
+
+      {/* Aap ke liye: built from what THIS shopper talked about with the assistant (stored on their device, no tracking) */}
+      <ForYouShelf assistant={assistant} />
 
       <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="cats">
         <h2 id="cats" className="section-title mb-3">Shop by category</h2>

@@ -1,4 +1,5 @@
 import { getProducts } from '@/lib/products';
+import { allCards } from '@/lib/catalogQuery';
 import { SITE, absUrl } from '@/lib/config';
 import { PAY_METHODS, PREPAID_PERCENT } from '@/lib/payments';
 
@@ -6,8 +7,12 @@ export const revalidate = 900;
 
 // Clean, machine-readable catalog for AI shopping assistants and agents (ChatGPT, Gemini, Perplexity, Rufus-style bots, price comparers).
 // Same public data as the shop pages. No secrets. Linked from /llms.txt.
-export async function GET() {
-  const products = await getProducts();
+export async function GET(req) {
+  let products = await getProducts();
+  // Include the archived products (JSON files in the repository): AI assistants and price comparers see the WHOLE shop.
+  if (!new URL(req.url).searchParams.get('live')) {
+    try { products = [...products, ...(await allCards()).archived.map((c) => ({ ...c, videos: [], description: c.description || c.name }))]; } catch { /* no archive */ }
+  }
   const body = {
     store: {
       name: SITE.name, url: absUrl('/'), country: 'PK', currency: 'PKR', language: ['en', 'ur', 'roman-urdu'],

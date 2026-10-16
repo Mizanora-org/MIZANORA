@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import {
-  Bot, Clock, ImageOff, Images, LayoutDashboard, LogOut, Menu, Package, Plug, Power,
+  Bot, Boxes, Clock, ImageOff, Images, LayoutDashboard, LogOut, Menu, Package, Plug, Power,
   Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X,
 } from 'lucide-react';
 import { authClient } from '@/lib/firebase-client';
@@ -26,6 +26,7 @@ export const ADMIN_MENU = [
   {
     title: 'Catalogue',
     items: [
+      { href: '/admin/catalogue', label: 'Catalogue (files)', icon: Boxes, hint: 'Zero-Firebase shop: edit archived products in the files', tag: 'NEW' },
       { href: '/admin/products', label: 'Products', icon: Package, hint: 'Add, edit, search live + archived products' },
       { href: '/admin/import', label: 'Import CSV', icon: Upload, hint: 'Supplier CSV into Firestore or the archive', tag: 'CSV' },
       { href: '/admin/convert', label: 'CSV converter', icon: FileSpreadsheet, hint: 'Markaz/Shopify CSV to Mizanora CSV' },

@@ -3,11 +3,12 @@ import { denyIf } from '@/lib/siteGate';
 import { getCategories, getProduct, getTotalCount } from '@/lib/products';
 import { browseRemote, searchRemote } from '@/lib/catalogQuery';
 import { parseQuery } from '@/lib/search';
-import { formatPKR } from '@/lib/format';
+import { formatPKR, slugify } from '@/lib/format';
 import { SITE } from '@/lib/config';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { geminiCall, ladderFor, loadAssistant } from '@/lib/gemini';
 import { makeDeal, makeNeg, priceDeal, readNeg } from '@/lib/deal';
+import { learnFrom, readPrefs, topCats, writePrefs } from '@/lib/aiPrefs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,7 @@ const brief = (p) => ({
 const card = (p) => ({ slug: p.slug, name: p.name, price: p.price, comparePrice: p.comparePrice, image: (p.images && p.images[0]) || '', hasOptions: hasOpts(p) });
 
 // Product search over the WHOLE shop (live + archived): from memory, no Firestore reads, no Gemini call.
-async function runSearch(a) {
+async function runSearch(a, liked = []) {
   const q = clip(a.query, 100);
   const max = Number(a.max_price) || 0, min = Number(a.min_price) || 0;
   const sort = String(a.sort || '');
@@ -68,6 +69,12 @@ async function runSearch(a) {
   if (q.trim()) list = (await searchRemote(q, { sort: apiSort === 'new' ? '' : apiSort, min, max, limit: 60 })).items;
   else list = (await browseRemote({ sort: apiSort || 'low', min, max, size: 60 })).items;
   list = list.filter((p) => p.inStock !== false);
+  // Nothing specific asked ("kuch acha dikhao", "deals")? Then show from what THIS shopper usually likes.
+  if (!q.trim() && liked.length) {
+    const names = new Set(liked.map((c) => String(c.slug).toLowerCase()));
+    const mine = list.filter((p) => (p.categories || [p.category]).some((c) => names.has(slugify(String(c)))));
+    if (mine.length >= 2) list = [...mine, ...list.filter((p) => !mine.includes(p))];
+  }
   const cat = clip(a.category, 40).toLowerCase();
   if (cat) list = list.filter((p) => (p.categories || [p.category]).some((c) => String(c).toLowerCase().includes(cat)));
   if (max > 0) list = list.filter((p) => p.price <= max);
@@ -101,10 +108,11 @@ async function costOf(id) {
   } catch { return 0; }
 }
 
-function systemPrompt(cfg, total, catList, cur) {
+function systemPrompt(cfg, total, catList, cur, liked = []) {
   return `You are ${cfg.name}, the friendly young female shop assistant of MIZANORA, a Pakistani online store (cash on delivery all over Pakistan). You speak with customers (by voice and text) in the SAME language they use: Roman Urdu by default (English if they write English, Urdu script if they write Urdu). You are a woman: use feminine forms ("main dikha sakti hoon", "karti hoon"). Warm, polite, a little playful, never pushy.
 STYLE: very short, 1 to 3 sentences, easy words, no markdown, no emojis, no bullet lists (your words are read aloud). Do not read long lists of products aloud: say how many you found and mention the best one or two; the app shows product cards under your message.
 SHOP FACTS: ${total} products. Categories: ${catList || 'various'}. Payment: cash on delivery (some prepaid options may exist at checkout). Delivery fee Rs ${SITE.shippingFee}${SITE.freeShippingOver ? `, free over Rs ${SITE.freeShippingOver}` : ''}. Support on WhatsApp ${SITE.whatsapp}. Orders are placed on the website (cart, then checkout).
+${liked.length ? `THIS SHOPPER'S TASTE (from earlier chats on this device): ${liked.map((c) => `${c.name} (${c.count})`).join(', ')}. When the message is general ("kuch acha", "deals", "naya kya hai"), show products from these first and say it in a friendly way (for example: "aap ko pehle X pasand aaya tha, ye dekhein").` : ''}
 RULES:
 1. Never invent products, prices, stock or policies. Use search_products / get_product for anything about products. If the tools find nothing, say so and suggest a different search.
 2. When the shopper wants to see or buy something, ALWAYS call search_products (cheapest first when they ask for cheap / sasta / budget).
@@ -126,11 +134,26 @@ export async function POST(req) {
     .map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', text: clip(m.text, 400) })).filter((m) => m.text);
   if (!history.length || history[history.length - 1].role !== 'user') return NextResponse.json({ ok: false }, { status: 400 });
 
+  // Which device is talking (made up by the browser, no name/phone/account anywhere in it). Used only to remember taste.
+  const did = String(body.did || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 40);
+  let prefs = did ? await readPrefs(did) : null;
+
   const { cfg, keys } = await loadAssistant();
   if (!cfg.enabled || !keys.length) return NextResponse.json({ ok: false, text: 'Assistant abhi band hai.' }, { status: 501 });
 
   const [total, categories] = await Promise.all([getTotalCount().catch(() => 0), getCategories().catch(() => [])]);
   const catList = categories.slice(0, 30).map((c) => `${c.name} (${c.count})`).join(', ');
+  const liked = topCats(prefs, categories, 4);
+  // Learn from what the shopper says (and, at the end, from the products shown to them). Written to the Realtime Database.
+  const learn = async (texts, products) => {
+    if (!did) return;
+    try {
+      const extra = (products || []).flatMap((p) => (p.categories && p.categories.length ? p.categories : [p.category])).filter(Boolean).map((n) => ({ name: String(n), slug: slugify(String(n)) }));
+      prefs = learnFrom(prefs, texts, [...categories, ...extra]);
+      await writePrefs(did, prefs);
+    } catch (e) { console.error('prefs save failed:', e.message); }
+  };
+  const prefsOut = () => (prefs && prefs.cats ? { cats: prefs.cats } : null);
   const cur = body.slug ? await getProduct(String(body.slug).slice(0, 120)).catch(() => null) : null;
 
   const asks = readNeg(body.neg);
@@ -142,8 +165,11 @@ export async function POST(req) {
   const plain = plainSearch(lastText, Boolean(cur));
   if (plain) {
     try {
-      const list = await runSearch(plain);
-      if (list.length) return NextResponse.json({ ok: true, text: localReply(list, plain), products: list.map(card), deals: [], neg: makeNeg(asks) });
+      const list = await runSearch(plain, liked);
+      if (list.length) {
+        await learn([lastText], list);
+        return NextResponse.json({ ok: true, text: localReply(list, plain), products: list.map(card), deals: [], neg: makeNeg(asks), prefs: prefsOut() });
+      }
     } catch (e) { console.error('local search failed', e.message); }
   }
 
@@ -151,7 +177,7 @@ export async function POST(req) {
 
   const exec = async (name, a = {}) => {
     if (name === 'search_products') {
-      const list = await runSearch(a);
+      const list = await runSearch(a, liked);
       list.forEach((p) => shown.set(p.id, p));
       return { count: list.length, total_matching_shop: total, products: list.map(brief) };
     }
@@ -180,8 +206,11 @@ export async function POST(req) {
     if (i.words.length || i.colors.length || i.max) {
       try {
         const a = { query: lastText, sort: i.sort === 'low' ? 'cheapest' : '', max_price: i.max, min_price: i.min };
-        const list = await runSearch(a);
-        if (list.length) return NextResponse.json({ ok: true, text: localReply(list, a), products: list.map(card), deals: [], neg: makeNeg(asks) });
+        const list = await runSearch(a, liked);
+        if (list.length) {
+          await learn([lastText], list);
+          return NextResponse.json({ ok: true, text: localReply(list, a), products: list.map(card), deals: [], neg: makeNeg(asks), prefs: prefsOut() });
+        }
       } catch (e) { console.error('fallback search failed', e.message); }
     }
     return NextResponse.json({ ok: false, text: why === 429 ? 'Abhi bohat log mujh se baat kar rahe hain. Thori der baad dobara poochein, ya seedha kisi cheez ka naam likhein, main foran dikha dungi.' : 'Abhi mera connection thora kamzor hai, dobara koshish karein ya WhatsApp support par likhein.' }, { status: why === 429 ? 429 : 502 });
@@ -191,7 +220,7 @@ export async function POST(req) {
   try {
     for (let step = 0; step < 3; step++) {
       const r = await geminiCall(ladderFor(cfg, 'chat'), {
-        systemInstruction: { parts: [{ text: systemPrompt(cfg, total, catList, cur) }] },
+        systemInstruction: { parts: [{ text: systemPrompt(cfg, total, catList, cur, liked) }] },
         contents, tools: TOOLS,
         generationConfig: { temperature: 0.6, maxOutputTokens: 350 },
       }, { timeoutMs: 12000, deadlineMs: 24000, maxTries: 4 });
@@ -212,9 +241,11 @@ export async function POST(req) {
 
   text = text.replace(/[*_#`]+/g, '').trim() || 'Ji, bataiye main aapki kya madad kar sakti hoon?';
   const dealSlugs = new Set(deals.map((d) => d.slug));
+  const shownList = [...shown.values()];
+  await learn([lastText], shownList); // what she showed him is also a signal of what he likes
   return NextResponse.json({
     ok: true, text,
-    products: [...shown.values()].filter((p) => !dealSlugs.has(p.slug)).slice(0, 6).map(card),
-    deals, neg: makeNeg(asks),
+    products: shownList.filter((p) => !dealSlugs.has(p.slug)).slice(0, 6).map(card),
+    deals, neg: makeNeg(asks), prefs: prefsOut(),
   });
 }

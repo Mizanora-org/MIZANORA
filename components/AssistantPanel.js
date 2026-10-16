@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Check, Mic, Send, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
+import { Check, Mic, Send, Share2, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
 import { useCartActions } from './CartProvider';
 import { addToCart } from '@/lib/metaPixel';
 import { formatPKR } from '@/lib/format';
@@ -11,6 +11,16 @@ import { saveDeal } from '@/lib/dealStore';
 import { createVoice } from '@/lib/assistantVoice';
 
 const SR = () => (typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null);
+
+// A made-up device id (localStorage). It carries no name, phone or account - it only lets the assistant remember
+// which categories THIS phone likes, and it is the same id the home page "Aap ke liye" shelf reads.
+function deviceId() {
+  try {
+    let d = localStorage.getItem('mz_did');
+    if (!d) { d = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-6); localStorage.setItem('mz_did', d); }
+    return d;
+  } catch (_) { return ''; }
+}
 
 function Dots() {
   return <span className="inline-flex gap-1" aria-label="typing"><i className="h-2 w-2 animate-bounce rounded-full bg-dim [animation-delay:-.3s]" /><i className="h-2 w-2 animate-bounce rounded-full bg-dim [animation-delay:-.15s]" /><i className="h-2 w-2 animate-bounce rounded-full bg-dim" /></span>;
@@ -44,10 +54,12 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
   const greeted = useRef(false);
   const busyRef = useRef(false);
   const modeRef = useRef(cfg.voiceMode);
+  const didRef = useRef('');
   const voice = useMemo(() => createVoice(() => modeRef.current), []);
 
   useEffect(() => { msgsRef.current = msgs; if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight; }, [msgs, busy]);
   useEffect(() => { voiceOnRef.current = voiceOn; if (!voiceOn) voice.stop(); }, [voiceOn, voice]);
+  useEffect(() => { didRef.current = deviceId(); }, []);
   useEffect(() => {
     setMicOk(Boolean(SR()));
     try { if (localStorage.getItem('mz_ai_voice') === '0') setVoiceOn(false); } catch (_) { /* ignore */ }
@@ -70,11 +82,13 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     try {
       const r = await fetch('/api/assistant', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, text: m.text })), slug, neg: neg.current }),
+        body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, text: m.text })), slug, neg: neg.current, did: didRef.current }),
       });
       const j = await r.json().catch(() => ({}));
       if (j.neg) neg.current = j.neg;
       if (j.text) reply = j;
+      // Her memory of this shopper's taste, mirrored onto the device: the home page "Aap ke liye" shelf uses this copy.
+      if (j.prefs && j.prefs.cats) { try { localStorage.setItem('mz_ai_prefs', JSON.stringify({ cats: j.prefs.cats, at: Date.now() })); } catch (_) { /* ignore */ } }
     } catch (_) { /* offline: keep the polite message */ }
     const withReply = [...next, { role: 'assistant', text: reply.text, products: reply.products || [], deals: reply.deals || [] }];
     msgsRef.current = withReply; setMsgs(withReply);
@@ -103,7 +117,8 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     try { r.start(); setListening(true); } catch (_) { setListening(false); }
   }, [send, voice]);
 
-  const toggleMic = () => { voice.unlock(); if (listening) stopListen(); else startListen(); };
+  // Barge-in: tap the mic while she is speaking and she stops, then listens (like talking over her on a phone call).
+  const toggleMic = () => { voice.unlock(); voice.stop(); if (listening) stopListen(); else startListen(); };
   const toggleVoice = () => { voice.unlock(); setVoiceOn((v) => { try { localStorage.setItem('mz_ai_voice', v ? '0' : '1'); } catch (_) { /* ignore */ } return !v; }); };
 
   // Opening: greet (spoken), then answer a question that was handed over from the search box.
@@ -172,6 +187,11 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
                   ) : (
                     <button type="button" onClick={() => takeDeal(d)} className="mt-3 w-full rounded-full bg-gold py-2.5 text-sm font-bold text-white active:bg-goldhi">{d.hasOptions ? 'Take this deal' : `Add to cart at ${formatPKR(d.newPrice)}`}</button>
                   )}
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`Mizanora deal: ${d.name} - Rs ${d.newPrice} (Rs ${d.off} off) ${typeof window !== 'undefined' ? window.location.origin : ''}/product/${d.slug}`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="mt-2 flex items-center justify-center gap-1.5 rounded-full border border-gold py-2 text-xs font-bold text-gold"
+                  ><Share2 size={14} /> Share this deal</a>
                 </div>
               ))}
               {(m.products || []).length > 0 && (

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { denyIf } from '@/lib/siteGate';
-import { geminiCall, loadAssistant } from '@/lib/gemini';
+import { TTS_MODELS, geminiCall, loadAssistant } from '@/lib/gemini';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,11 +36,17 @@ export async function POST(req) {
   const ck = `${cfg.voiceName}|${text}`;
   const hit = audio.get(ck);
   if (hit) return new Response(hit, { headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=86400' } });
-  const r = await geminiCall('gemini-2.5-flash-preview-tts', {
-    contents: [{ parts: [{ text: `Say in a warm, friendly young Pakistani woman's voice, natural pace: ${text}` }] }],
-    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: cfg.voiceName } } } },
-  }, { timeoutMs: 25000 });
-  const part = r.ok && r.json.candidates && r.json.candidates[0] && r.json.candidates[0].content && r.json.candidates[0].content.parts && r.json.candidates[0].content.parts.find((p) => p.inlineData);
+  // Try every voice model in turn (auto-switch): whichever key/model is free answers first.
+  let part = null;
+  for (const model of TTS_MODELS) {
+    const r = await geminiCall(model, {
+      contents: [{ parts: [{ text: `Say in a warm, friendly young Pakistani woman's voice, natural pace: ${text}` }] }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: cfg.voiceName } } } },
+    }, { timeoutMs: 25000 });
+    const c = r.ok && r.json.candidates && r.json.candidates[0] && r.json.candidates[0].content;
+    part = c && c.parts && c.parts.find((p) => p.inlineData);
+    if (part) break;
+  }
   if (!part) return NextResponse.json({ ok: false }, { status: 502 });
   const rate = Number((/rate=(\d+)/.exec(part.inlineData.mimeType || '') || [])[1]) || 24000;
   const out = wav(Buffer.from(part.inlineData.data, 'base64'), rate);

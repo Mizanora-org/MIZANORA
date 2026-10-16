@@ -62,6 +62,13 @@ export default function AdminImport() {
       setRows(parsed); setFileName(f.name);
       const big = b.products.length > 2000;
       setMode(big ? 'archive' : 'firebase'); setCheckPhotos(!big); setSaveCosts(!big);
+      // GitHub connected? Then the default is the ARCHIVE: your whole catalogue can live in data/catalog with zero Firestore writes.
+      api('/api/admin/archive', { action: 'status' }).then((st) => {
+        if (st && st.github && st.github.ready) {
+          setMode('archive');
+          setMsg(`${b.products.length.toLocaleString()} products found. GitHub is connected, so "Save to my repository (no Firebase)" is selected: nothing is written to Firebase.`);
+        }
+      }).catch(() => { /* no GitHub: the Firebase mode stays */ });
       // Which of the FIRST rows already exist? (a few cheap reads, never the whole collection)
       const ids = b.products.slice(0, SHOW).map((p) => p.slug);
       Promise.all(chunk(ids, 30).map((c) => getDocs(query(collection(dbClient(), 'products'), where(documentId(), 'in', c))))).then((snaps) => setExisting(new Set(snaps.flatMap((s) => s.docs.map((d) => d.id))))).catch(() => setExisting(new Set()));
@@ -223,7 +230,7 @@ export default function AdminImport() {
       {rows && (
         <div className="card mt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
-            {[['firebase', 'Save to Firebase', 'Live at once, editable in Admin > Products. Best for up to a few thousand products (2 writes per product; the free plan allows 20,000 writes a day).'], ['archive', 'Save to archive (big files)', 'Writes JSON files into your repository (needs GitHub connected). No Firebase quota used, handles 50,000+ products. Edit one later by copying it to Firebase.']].map(([v, t, d]) => (
+            {[['archive', 'Save to my repository (no Firebase) — recommended', 'Your whole shop runs from JSON files in data/catalog: ZERO Firestore reads and writes, 50,000+ products fine. Search and edit them later in Admin > Catalogue (files), still without Firebase. Needs GitHub connected (GITHUB_TOKEN + GITHUB_REPO).'], ['firebase', 'Save to Firebase', 'Live at once, editable in Admin > Products. Costs 2 writes per product (the free plan allows 20,000 writes a day) - use it only for a handful of products you want to edit in the old form or attach promo codes to.']].map(([v, t, d]) => (
               <button key={v} type="button" onClick={() => setMode(v)} className={`rounded-xl border-2 p-3 text-left text-sm ${mode === v ? 'border-gold bg-gold/5' : 'border-line'}`}><b className="block">{t}</b><span className="text-xs text-dim">{d}</span></button>
             ))}
           </div>

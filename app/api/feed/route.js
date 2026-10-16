@@ -1,4 +1,5 @@
 import { getProducts } from '@/lib/products';
+import { allCards } from '@/lib/catalogQuery';
 import { SITE, absUrl } from '@/lib/config';
 
 export const revalidate = 600;
@@ -8,8 +9,13 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 // Product catalog feed for Meta Commerce Manager (Facebook + Instagram Shops and catalog ads).
 // In Commerce Manager: Catalog > Data sources > Add items > Data feed > use this URL (/api/feed) and set a daily schedule.
 // The id equals the product slug, the same id the Meta Pixel sends as content_ids, so ads match your catalog.
-export async function GET() {
-  const products = await getProducts();
+export async function GET(req) {
+  let products = await getProducts();
+  // The archive (data/catalog files) is part of the shop too: a zero-Firebase catalogue still reaches Meta.
+  // Add ?live=1 to send only the products that live in Firebase.
+  if (!new URL(req.url).searchParams.get('live')) {
+    try { products = [...products, ...(await allCards()).archived.map((c) => ({ ...c, videos: [], description: c.description || c.name }))]; } catch { /* no archive */ }
+  }
   const items = products.filter((p) => p.images[0]).map((p) => `
     <item>
       <g:id>${esc(p.slug)}</g:id>
