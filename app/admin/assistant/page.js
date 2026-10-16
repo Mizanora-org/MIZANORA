@@ -29,7 +29,7 @@ export default function AdminAssistant() {
     try { await fn(); if (ok) setMsg(ok); } catch (e) { setMsg(e.message); }
     setBusy(false);
   };
-  const addKey = (e) => { e.preventDefault(); run(async () => { apply(await call('POST', { action: 'addKey', label, key })); setKey(''); setLabel(''); }, 'Key added. It is used together with your other keys.'); };
+  const addKey = (e) => { e.preventDefault(); run(async () => { apply(await call('POST', { action: 'addKey', label, key })); setKey(''); setLabel(''); }, 'Key(s) added. They are used together with your other keys.'); };
   const saveCfg = () => run(async () => { const j = await call('POST', { action: 'saveConfig', cfg }); setData(j); setCfg(j.cfg); }, 'Saved. The change shows on the website within a minute.');
   const del = (id) => { if (window.confirm('Delete this key?')) run(async () => apply(await call('POST', { action: 'deleteKey', id }))); };
   const testKey = (id) => run(async () => { const j = await call('POST', { action: 'testKey', id }); setTest((t) => ({ ...t, [id]: j })); });
@@ -52,7 +52,7 @@ export default function AdminAssistant() {
             <li key={k.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2.5 text-sm">
               <span className="font-mono text-cream">{k.masked}</span>
               <span className="text-dim">{k.label}{k.fromEnv ? ' (Vercel variable)' : ''}</span>
-              {k.resting && <span className="rounded-full bg-saffron/20 px-2 py-0.5 text-xs font-semibold text-gold">resting (limit reached)</span>}
+              {k.resting && <span className="rounded-full bg-saffron/20 px-2 py-0.5 text-xs font-semibold text-gold">resting (limit reached, back soon)</span>}
               <span className="ml-auto flex gap-2">
                 <button type="button" disabled={busy} onClick={() => testKey(k.id)} className="btn-ghost !px-3 !py-1.5 text-xs">Test</button>
                 {!k.fromEnv && <button type="button" disabled={busy} onClick={() => del(k.id)} className="btn-ghost !px-3 !py-1.5 text-xs text-red-600">Delete</button>}
@@ -64,9 +64,10 @@ export default function AdminAssistant() {
         </ul>
         <form onSubmit={addKey} className="mt-4 grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
           <input className="input" placeholder="Name (e.g. Key 2)" value={label} onChange={(e) => setLabel(e.target.value)} />
-          <input className="input font-mono" placeholder="AIza..." value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" />
+          <textarea className="input min-h-[2.75rem] font-mono" rows={2} placeholder="AQ.Ab8... or AIza...  (you can paste several keys, one per line)" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" spellCheck={false} />
           <button className="btn-gold" disabled={busy || !key.trim()}>Add key</button>
         </form>
+        <p className="mt-2 text-xs text-dim">New AI Studio keys start with <b>AQ.</b> (with a dot). Both AQ. and AIza keys work. Tip: every key is a separate free limit, so 3 to 5 keys from different Google accounts/projects make the assistant and AI search last much longer.</p>
       </section>
 
       <section className="card space-y-4 p-4">
@@ -74,7 +75,8 @@ export default function AdminAssistant() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[#0B6B45]" checked={cfg.enabled} onChange={set('enabled')} /> Assistant is ON for customers</label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm"><span className="label">Assistant name</span><input className="input" value={cfg.name} onChange={set('name')} maxLength={24} /></label>
-          <label className="text-sm"><span className="label">Gemini model</span><input className="input" value={cfg.model} onChange={set('model')} /></label>
+          <label className="text-sm"><span className="label">Chat model (assistant talking)</span><input className="input" value={cfg.model} onChange={set('model')} /></label>
+          <label className="text-sm"><span className="label">Search model (AI search, small + cheap)</span><input className="input" value={cfg.searchModel || ''} onChange={set('searchModel')} placeholder="gemini-flash-lite-latest" /></label>
           <label className="text-sm"><span className="label">Voice</span>
             <select className="input" value={cfg.voiceMode} onChange={set('voiceMode')}>
               <option value="browser">Phone/browser voice (free, no extra limit)</option>

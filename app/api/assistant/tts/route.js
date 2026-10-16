@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 // Optional natural female voice from Gemini (admin chooses "Gemini voice" in /admin/assistant).
 // Returns a WAV file. If anything fails the browser falls back to its own built-in voice.
 const hits = new Map();
+const audio = new Map(); // same sentence = same audio: repeated greetings and replies cost no Gemini request
 
 function wav(pcm, rate = 24000) {
   const h = Buffer.alloc(44);
@@ -29,6 +30,9 @@ export async function POST(req) {
   try { text = String((await req.json()).text || '').replace(/\s+/g, ' ').trim().slice(0, 420); } catch { /* ignore */ }
   if (!text) return NextResponse.json({ ok: false }, { status: 400 });
 
+  const ck = `${cfg.voiceName}|${text}`;
+  const hit = audio.get(ck);
+  if (hit) return new Response(hit, { headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=86400' } });
   const r = await geminiCall('gemini-2.5-flash-preview-tts', {
     contents: [{ parts: [{ text: `Say in a warm, friendly young Pakistani woman's voice, natural pace: ${text}` }] }],
     generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: cfg.voiceName } } } },
@@ -36,5 +40,8 @@ export async function POST(req) {
   const part = r.ok && r.json.candidates && r.json.candidates[0] && r.json.candidates[0].content && r.json.candidates[0].content.parts && r.json.candidates[0].content.parts.find((p) => p.inlineData);
   if (!part) return NextResponse.json({ ok: false }, { status: 502 });
   const rate = Number((/rate=(\d+)/.exec(part.inlineData.mimeType || '') || [])[1]) || 24000;
-  return new Response(wav(Buffer.from(part.inlineData.data, 'base64'), rate), { headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'no-store' } });
+  const out = wav(Buffer.from(part.inlineData.data, 'base64'), rate);
+  if (audio.size >= 40) audio.delete(audio.keys().next().value);
+  audio.set(ck, out);
+  return new Response(out, { headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=86400' } });
 }

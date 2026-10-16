@@ -100,7 +100,7 @@ function ProductRow({ p, w, t, onSaved }) {
           <button type="button" className="btn-ghost !px-3 !py-2" onClick={() => copy(url, setMsg)}><Copy size={15} /> Link</button>
           <button type="button" className="btn-ghost !px-3 !py-2" onClick={() => copy(caption, setMsg)}><Send size={15} /> Caption</button>
           <a className="btn-ghost !px-3 !py-2" target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(caption)}`}><MessageCircle size={15} /> WhatsApp</a>
-          {p.images.length > 0 && <button type="button" className="btn-ghost !px-3 !py-2" onClick={async () => { for (let i = 0; i < p.images.length; i++) await saveImage(p.images[i], `${p.id}-${i + 1}`); }}><Download size={15} /> Photos ({p.images.length})</button>}
+          {p.images.length > 0 && <button type="button" className="btn-ghost !px-3 !py-2" onClick={async () => { let imgs = p.images; try { const d = await (await fetch(`/api/worker/catalog?id=${encodeURIComponent(p.id)}`)).json(); if (d.ok && d.product.images.length) imgs = d.product.images; } catch (_) { /* use the first photo */ } for (let i = 0; i < imgs.length; i++) await saveImage(imgs[i], `${p.id}-${i + 1}`); }}><Download size={15} /> Photos</button>}
           {p.videos.map((v, i) => <a key={v} className="btn-ghost !px-3 !py-2" target="_blank" rel="noopener noreferrer" href={v}><Download size={15} /> Video {i + 1}</a>)}
         </div>
       )}
@@ -118,11 +118,29 @@ function ProductRow({ p, w, t, onSaved }) {
 
 function Products({ w, setW }) {
   const [list, setList] = useState(null);
+  const [next, setNext] = useState('');
+  const [busy, setBusy] = useState(false);
   const [q, setQ] = useState('');
   const [only, setOnly] = useState(true);
   const t = effectiveTier(w);
-  useEffect(() => { fetch('/api/worker/catalog').then((r) => r.json()).then((d) => setList(d.products || [])).catch(() => setList([])); }, []);
-  const shown = useMemo(() => (list || []).filter((p) => p.name.toLowerCase().includes(q.toLowerCase()) && (!only || eligible(t, p.price))).sort((a, b) => Number(eligible(t, b.price)) - Number(eligible(t, a.price))), [list, q, t, only]);
+  const max = only && t.maxPrice ? t.maxPrice : 0;
+  // The server searches and pages the catalogue (a shop can have 50,000+ products), so this list never gets heavy.
+  useEffect(() => {
+    let live = true;
+    setBusy(true);
+    const h = setTimeout(() => {
+      fetch(`/api/worker/catalog?q=${encodeURIComponent(q.trim())}&max=${max || ''}`).then((r) => r.json())
+        .then((d) => { if (live) { setList(d.products || []); setNext(d.next || ''); } }).catch(() => { if (live) setList([]); }).finally(() => { if (live) setBusy(false); });
+    }, q.trim() ? 350 : 0);
+    return () => { live = false; clearTimeout(h); };
+  }, [q, max]);
+  const more = async () => {
+    if (!next || busy) return;
+    setBusy(true);
+    try { const d = await (await fetch(`/api/worker/catalog?max=${max || ''}&cursor=${encodeURIComponent(next)}`)).json(); setList((cur) => { const have = new Set(cur.map((p) => p.id)); return [...cur, ...(d.products || []).filter((p) => !have.has(p.id))]; }); setNext(d.next || ''); } catch (_) { /* try again */ }
+    setBusy(false);
+  };
+  const shown = useMemo(() => (list || []).filter((p) => !only || eligible(t, p.price)).sort((a, b) => Number(eligible(t, b.price)) - Number(eligible(t, a.price))), [list, t, only]);
   if (!list) return <p className="text-dim">Loading products...</p>;
   return (
     <div className="space-y-3">
@@ -130,7 +148,8 @@ function Products({ w, setW }) {
       <div className="flex gap-2 text-sm font-semibold">{[[true, 'My eligible products'], [false, 'All products']].map(([v, l]) => <button key={l} type="button" onClick={() => setOnly(v)} className={`rounded-full px-4 py-1.5 ${only === v ? 'bg-gold text-white' : 'bg-raised text-dim'}`}>{l}</button>)}</div>
       <p className="text-xs text-dim">Download photos and videos, copy a ready caption, and share your own link. Only share real photos and honest descriptions.</p>
       {shown.map((p) => <ProductRow key={p.id} p={p} w={w} t={t} onSaved={(id, v) => setW((x) => ({ ...x, markups: { ...(x.markups || {}), [id]: v } }))} />)}
-      {!shown.length && <p className="card text-center text-dim">No products found.</p>}
+      {!shown.length && <p className="card text-center text-dim">{busy ? 'Searching...' : 'No products found.'}</p>}
+      {next && !q.trim() && <button type="button" className="btn-ghost w-full" disabled={busy} onClick={more}>{busy ? 'Loading...' : 'Show more products'}</button>}
     </div>
   );
 }

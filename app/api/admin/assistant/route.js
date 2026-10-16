@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
-import { DEFAULT_CFG, clearAssistantCache, geminiCall, keyState, loadAssistant } from '@/lib/gemini';
+import { DEFAULT_CFG, clearAssistantCache, explainError, geminiCall, keyState, ladderFor, loadAssistant, splitKeys } from '@/lib/gemini';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,11 +38,14 @@ export async function POST(req) {
     if (b.action === 'saveConfig') {
       await db.collection('assistantConfig').doc('main').set({ ...b.cfg, updatedAtMs: Date.now() }, { merge: true });
     } else if (b.action === 'addKey') {
-      const key = String(b.key || '').trim();
-      if (!/^[A-Za-z0-9_\-]{20,80}$/.test(key)) return NextResponse.json({ ok: false, error: 'That does not look like a Gemini API key (it starts with AIza... and has no spaces).' }, { status: 400 });
-      const exists = await db.collection('assistantKeys').where('key', '==', key).limit(1).get();
-      if (!exists.empty) return NextResponse.json({ ok: false, error: 'This key is already added.' }, { status: 400 });
-      await db.collection('assistantKeys').add({ key, label: String(b.label || '').slice(0, 40), active: true, createdAtMs: Date.now() });
+      // One key or many at once (new lines / commas). Old AIza... keys and new AQ.... keys (they contain a dot) both work.
+      const list = splitKeys(b.key);
+      if (!list.length) return NextResponse.json({ ok: false, error: 'That does not look like a Gemini API key. Copy the whole key from aistudio.google.com/apikey (it starts with AQ. or AIza and has no spaces).' }, { status: 400 });
+      const have = new Set((await db.collection('assistantKeys').get()).docs.map((d) => String(d.data().key || '')));
+      const fresh = list.filter((k) => !have.has(k));
+      if (!fresh.length) return NextResponse.json({ ok: false, error: 'This key is already added.' }, { status: 400 });
+      let n = 0;
+      for (const key of fresh.slice(0, 20)) { n += 1; await db.collection('assistantKeys').add({ key, label: String(b.label || '').slice(0, 40) || (fresh.length > 1 ? `Key ${n}` : ''), active: true, createdAtMs: Date.now() }); }
     } else if (b.action === 'deleteKey') {
       if (String(b.id).startsWith('env')) return NextResponse.json({ ok: false, error: 'This key comes from a Vercel variable. Remove it in Vercel.' }, { status: 400 });
       await db.collection('assistantKeys').doc(String(b.id)).delete();
@@ -50,8 +53,8 @@ export async function POST(req) {
       const { keys, cfg } = await loadAssistant(true);
       const k = keys.find((x) => x.id === b.id);
       if (!k) return NextResponse.json({ ok: false, error: 'Key not found.' }, { status: 404 });
-      const r = await geminiCall(cfg.model, { contents: [{ role: 'user', parts: [{ text: 'Say OK' }] }], generationConfig: { maxOutputTokens: 20 } }, { keys: [k], timeoutMs: 12000 });
-      return NextResponse.json({ ok: true, works: r.ok, detail: r.ok ? 'Key works.' : `Failed (HTTP ${r.status}). ${String(r.error || '').slice(0, 120)}` });
+      const r = await geminiCall(ladderFor(cfg, 'fast'), { contents: [{ role: 'user', parts: [{ text: 'Say OK' }] }], generationConfig: { maxOutputTokens: 20 } }, { keys: [k], timeoutMs: 12000, deadlineMs: 20000 });
+      return NextResponse.json({ ok: true, works: r.ok, detail: r.ok ? `Key works (model: ${r.model}).` : `Failed (HTTP ${r.status}). ${explainError(r.status, r.error)}` });
     } else return NextResponse.json({ ok: false, error: 'Unknown action' }, { status: 400 });
   } catch (e) { return NextResponse.json({ ok: false, error: `Could not save: ${e.message}` }, { status: 500 }); }
   clearAssistantCache();

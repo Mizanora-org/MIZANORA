@@ -17,6 +17,8 @@ service cloud.firestore {
     match /products/{id} { allow read: if true; allow write: if isAdmin(); }
     // Supplier cost, profit and source link of each product: admin only (never public).
     match /productCosts/{id} { allow read, write: if isAdmin(); }
+    // Products hidden because their photos do not load (the server writes them; only the admin reads / clears them).
+    match /imageErrors/{id} { allow read, write: if isAdmin(); }
     match /banners/{id}  { allow read: if true; allow write: if isAdmin(); }
     match /reels/{id}    { allow read: if true; allow write: if isAdmin(); }
 

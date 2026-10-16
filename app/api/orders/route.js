@@ -13,6 +13,7 @@ import { adminApp } from '@/lib/firebase-admin';
 import { findWorkerByCode } from '@/lib/workerAuth';
 import { getWorkerSettings } from '@/lib/workerSettings';
 import { PAY_METHODS, payMethod, prepaidOff, cleanPayRef } from '@/lib/payments';
+import { archiveDocs } from '@/lib/archive';
 import { cleanWorkerCode, effectiveTier, lineEarning, MAX_MARKUP_PCT } from '@/lib/workers';
 
 export const runtime = 'nodejs';
@@ -51,6 +52,9 @@ export async function POST(req) {
     if (!ids.length) return fail('Your cart is empty.');
     const snaps = await db.getAll(...ids.map((id) => db.collection('products').doc(id)));
     const byId = Object.fromEntries(snaps.filter((s) => s.exists).map((s) => [s.id, s.data()]));
+    // Old products live in the archive files (not in Firebase): their price and options come from there. A live copy always wins.
+    const missing = ids.filter((id) => !byId[id]);
+    if (missing.length) { try { Object.assign(byId, await archiveDocs(missing)); } catch (e) { console.error('archive lookup failed', e.message); } }
 
     // Worker link (?ref=CODE): the worker is looked up here, never trusted from the browser.
     let worker = null;

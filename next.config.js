@@ -5,6 +5,8 @@ const nextConfig = {
   compress: true,
   compiler: { removeConsole: { exclude: ['error', 'warn'] } },
   experimental: { optimizePackageImports: ['lucide-react'] },
+  // The product archive (data/catalog/*.json) is read from disk by the server, so it must travel with the serverless functions.
+  outputFileTracingIncludes: { '/**': ['./data/catalog/**/*'] },
   images: {
     // WebP only: AVIF is smaller but very slow to create the first time (that was a source of lag on new product photos).
     formats: ['image/webp'],

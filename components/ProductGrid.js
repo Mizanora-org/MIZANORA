@@ -12,17 +12,20 @@ const Cards = memo(function Cards({ items }) {
 import VoiceButton from './VoiceButton';
 import { search as trackSearch } from '@/lib/metaPixel';
 import { describeIntent, didYouMean, smartSearch } from '@/lib/search';
-import { aiIntent } from '@/lib/aiSearch';
+import { aiAvailable, aiIntent } from '@/lib/aiSearch';
 import { discountPct, slugify } from '@/lib/format';
 
 // Search, category chips, filters and sorting all run in the browser, so /products stays a fast, fully static (SEO-friendly) page
 // and no filter click ever costs a database read.
-export default function ProductGrid({ products }) {
+// REMOTE MODE (remote=true) is for shops with lakhs of products: the browser holds only the first page, and search, categories,
+// sorting and the budget filters ask the server (/api/search, /api/browse), which reads Firestore page by page and caches the answers.
+const PAGE_REMOTE = 48;
+export default function ProductGrid({ products, remote = false, total = 0, initialNext = '', baseCat = '', chips = null }) {
   const sp = useSearchParams();
   const [q, setQ] = useState(sp.get('q') || '');
   useEffect(() => { setQ(sp.get('q') || ''); }, [sp]);
   const [sortPick, setSort] = useState(''); // '' = automatic: cheapest first while browsing, best match first while searching
-  const [cat, setCat] = useState(sp.get('cat') || '');
+  const [cat, setCat] = useState(sp.get('cat') || baseCat || '');
   const [inStock, setInStock] = useState(false);
   const [onSale, setOnSale] = useState(false);
   const [minP, setMinP] = useState('');
@@ -32,19 +35,21 @@ export default function ProductGrid({ products }) {
   const [ai, setAi] = useState(null);
   // The box always stays instant; matching runs right after typing (useDeferredValue) and never blocks the keyboard.
   const dq = useDeferredValue(q);
-  const found = useMemo(() => (dq.trim() ? smartSearch(products, dq, { limit: 500 }) : { results: products, intent: {} }), [products, dq]);
+  const found = useMemo(() => (dq.trim() ? smartSearch(products, dq, { limit: 500 }) : { results: products, intent: {}, exact: true }), [products, dq]);
+  // AI help only when the free search is weak (nothing found, or a long sentence where no product matches every word).
+  const weak = dq.trim().length >= 5 && (found.results.length === 0 || (!found.exact && ((found.intent && found.intent.words) || []).length >= 2));
   useEffect(() => {
     setAi(null);
-    if (dq.trim().length < 5 || found.results.length) return undefined;
+    if (remote || !weak || !aiAvailable()) return undefined;
     let live = true;
-    const t = setTimeout(async () => { const i = await aiIntent(dq); if (live && i) setAi(smartSearch(products, dq, { limit: 500, intent: i })); }, 900);
+    const t = setTimeout(async () => { const i = await aiIntent(dq); if (live && i) setAi(smartSearch(products, dq, { limit: 500, intent: i })); }, 700);
     return () => { live = false; clearTimeout(t); };
-  }, [products, dq, found.results.length]);
+  }, [products, dq, weak, remote]);
   const view = ai && ai.results.length ? ai : found;
-  const chips = describeIntent(view.intent || {});
 
   // Category chips are built from the products themselves (a product can appear under several categories).
   const cats = useMemo(() => {
+    if (chips) return chips;
     const m = new Map();
     for (const p of products) for (const name of (p.categories && p.categories.length ? p.categories : [p.category]).filter(Boolean)) {
       const slug = slugify(name);
@@ -52,7 +57,7 @@ export default function ProductGrid({ products }) {
       c.count += 1; m.set(slug, c);
     }
     return [...m.values()].sort((a, b) => b.count - a.count);
-  }, [products]);
+  }, [products, chips]);
 
   const min = Number(minP) || 0;
   const max = Number(maxP) || 0;
@@ -61,9 +66,62 @@ export default function ProductGrid({ products }) {
   const sort = sortPick || (q.trim() ? 'new' : 'low');
   const fv = useMemo(() => ({ cat, inStock, onSale, min, max, sort }), [cat, inStock, onSale, min, max, sort]);
   const df = useDeferredValue(fv);
-  const suggest = useMemo(() => (dq.trim().length >= 4 && found.results.length === 0 ? didYouMean(products, dq) : ''), [products, dq, found.results.length]);
+  const suggest = useMemo(() => (!remote && dq.trim().length >= 4 && found.results.length === 0 ? didYouMean(products, dq) : ''), [remote, products, dq, found.results.length]);
+
+  // ---- remote mode: the server returns the products ----
+  const [rItems, setRItems] = useState(products);
+  const [rNext, setRNext] = useState(initialNext);
+  const [rBusy, setRBusy] = useState(false);
+  const [rAi, setRAi] = useState([]);
+  const apiSort = df.sort === 'high' ? 'high' : df.sort === 'new' ? (dq.trim() ? '' : 'new') : 'low';
+  const qs = (o) => Object.entries(o).filter(([, v]) => v !== '' && v !== 0 && v != null).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const sig = `${dq.trim()}|${df.cat}|${df.min}|${df.max}|${apiSort}`;
+  const firstSig = useRef(true);
+  useEffect(() => {
+    if (!remote) return undefined;
+    if (firstSig.current) { firstSig.current = false; if (!dq.trim() && df.cat === (baseCat || '') && !df.min && !df.max && apiSort === 'low') return undefined; } // the server already sent this first page
+    const ctl = new AbortController();
+    const run = async () => {
+      setRBusy(true); setRAi([]);
+      try {
+        const text = dq.trim();
+        if (text.length >= 2) {
+          const r = await fetch(`/api/search?${qs({ q: text, cat: df.cat, sort: apiSort === 'new' ? '' : apiSort, min: df.min, max: df.max })}`, { signal: ctl.signal });
+          let d = r.ok ? await r.json() : { items: [] };
+          if (!(d.items || []).length && text.length >= 5 && aiAvailable()) {
+            const i = await aiIntent(text);
+            if (i && !ctl.signal.aborted) {
+              const r2 = await fetch(`/api/search?${qs({ q: text, w: (i.words || []).join(','), c: (i.colors || []).join(','), cat: df.cat, sort: i.sort === 'new' ? '' : (apiSort === 'new' ? i.sort : apiSort), min: df.min || i.min, max: df.max || i.max })}`, { signal: ctl.signal });
+              if (r2.ok) { d = await r2.json(); setRAi(describeIntent(i)); }
+            }
+          }
+          if (!ctl.signal.aborted) { setRItems(d.items || []); setRNext(''); }
+        } else {
+          const r = await fetch(`/api/browse?${qs({ cat: df.cat, sort: apiSort || 'low', min: df.min, max: df.max })}`, { signal: ctl.signal });
+          const d = r.ok ? await r.json() : { items: [], next: '' };
+          if (!ctl.signal.aborted) { setRItems(d.items || []); setRNext(d.next || ''); }
+        }
+      } catch (_) { /* aborted or offline: keep what is shown */ }
+      if (!ctl.signal.aborted) setRBusy(false);
+    };
+    const t = setTimeout(run, dq.trim() ? 350 : 0);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [remote, sig]); // eslint-disable-line react-hooks/exhaustive-deps
+  const loadMore = async () => {
+    if (!remote || !rNext || rBusy) return;
+    setRBusy(true);
+    try {
+      const r = await fetch(`/api/browse?${qs({ cat: df.cat, sort: apiSort || 'low', min: df.min, max: df.max, cursor: rNext })}`);
+      const d = r.ok ? await r.json() : { items: [], next: '' };
+      setRItems((cur) => { const have = new Set(cur.map((p) => p.id)); return [...cur, ...(d.items || []).filter((p) => !have.has(p.id))]; });
+      setRNext(d.next || '');
+    } catch (_) { /* try again on the next scroll */ }
+    setRBusy(false);
+  };
+
+  const understood = remote ? rAi : describeIntent(view.intent || {});
   const list = useMemo(() => {
-    let r = view.results.filter((p) => {
+    let r = (remote ? rItems : view.results).filter((p) => {
       if (df.cat && !(p.categories || [p.category]).some((c) => slugify(c) === df.cat)) return false;
       if (df.inStock && !p.inStock) return false;
       if (df.onSale && !(discountPct(p.price, p.comparePrice) > 0)) return false;
@@ -76,21 +134,24 @@ export default function ProductGrid({ products }) {
     if (df.sort === 'discount') r = [...r].sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice));
     if (df.sort === 'az') r = [...r].sort((a, b) => a.name.localeCompare(b.name));
     return r;
-  }, [view, df]);
+  }, [view, df, remote, rItems]);
   // Draw 24 cards first and more as the shopper scrolls: a big catalogue no longer freezes weak phones.
   const PAGE = 24;
   const [shown, setShown] = useState(PAGE);
   const sentinel = useRef(null);
   useEffect(() => { setShown(PAGE); }, [list]);
+  const moreHere = remote ? Boolean(rNext) : shown < list.length;
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
   useEffect(() => {
     const el = sentinel.current;
-    if (!el || shown >= list.length || typeof IntersectionObserver === 'undefined') return undefined;
-    const io = new IntersectionObserver((e) => { if (e[0].isIntersecting) setShown((n) => n + PAGE); }, { rootMargin: '700px' });
+    if (!el || !moreHere || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver((e) => { if (e[0].isIntersecting) { if (remote) loadMoreRef.current(); else setShown((n) => n + PAGE); } }, { rootMargin: '700px' });
     io.observe(el);
     return () => io.disconnect();
-  }, [shown, list.length]);
-  const visible = useMemo(() => list.slice(0, shown), [list, shown]);
-  const clear = () => { setCat(''); setInStock(false); setOnSale(false); setMinP(''); setMaxP(''); };
+  }, [shown, list.length, moreHere, remote, rNext]);
+  const visible = useMemo(() => (remote ? list : list.slice(0, shown)), [list, shown, remote]);
+  const clear = () => { setCat(baseCat || ''); setInStock(false); setOnSale(false); setMinP(''); setMaxP(''); };
 
   const pill = (on) => `shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${on ? 'border-gold bg-gold text-white' : 'border-line bg-surface text-dim hover:border-gold hover:text-gold'}`;
 
@@ -132,11 +193,13 @@ export default function ProductGrid({ products }) {
         <input type="number" inputMode="numeric" min="0" value={maxP} onChange={(e) => setMaxP(e.target.value)} placeholder="Max Rs." aria-label="Maximum price" className="input !w-24 !rounded-full !py-1.5 text-sm" />
         {[500, 1000, 2000, 5000].map((n) => <button key={n} type="button" className={pill(maxP === String(n))} onClick={() => setMaxP(maxP === String(n) ? '' : String(n))} aria-pressed={maxP === String(n)}>Under {n}</button>)}
         {filtersOn && <button type="button" onClick={clear} className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 font-semibold text-red-700"><X size={14} /> Clear</button>}
-        <span className="ml-auto text-xs text-faint" aria-live="polite">{list.length} product{list.length === 1 ? '' : 's'}</span>
+        <span className="ml-auto text-xs text-faint" aria-live="polite">{remote ? (rBusy && !list.length ? 'Loading...' : !dq.trim() && !filtersOn && total ? `${total.toLocaleString('en-PK')} products` : `${list.length}${rNext ? '+' : ''} product${list.length === 1 ? '' : 's'}`) : `${list.length} product${list.length === 1 ? '' : 's'}`}</span>
       </div>
 
-      {chips.length > 0 && <p className="mb-3 flex flex-wrap items-center gap-1.5 text-xs"><span className="font-bold text-gold">Understood:</span>{chips.map((c) => <span key={c} className="rounded-full bg-gold/10 px-2.5 py-1 font-semibold text-gold">{c}</span>)}</p>}
-      {list.length === 0 ? (
+      {understood.length > 0 && <p className="mb-3 flex flex-wrap items-center gap-1.5 text-xs"><span className="font-bold text-gold">Understood:</span>{understood.map((c) => <span key={c} className="rounded-full bg-gold/10 px-2.5 py-1 font-semibold text-gold">{c}</span>)}</p>}
+      {list.length === 0 && remote && rBusy ? (
+        <div className="rounded-2xl border border-line bg-surface p-8 text-center text-dim"><p>Searching...</p></div>
+      ) : list.length === 0 ? (
         <div className="rounded-2xl border border-line bg-surface p-8 text-center text-dim">
           <p>No products found.</p>
           {dq.trim() && (suggest ? <p className="mt-2 text-sm">Did you mean <button type="button" className="font-bold text-gold underline" onClick={() => setQ(suggest)}>{suggest}</button>?</p> : null)}
@@ -148,9 +211,9 @@ export default function ProductGrid({ products }) {
           <Cards items={visible} />
         </div>
       )}
-      {list.length > shown && (
+      {moreHere && (
         <div ref={sentinel} className="mt-6 text-center">
-          <button type="button" onClick={() => setShown((n) => n + PAGE)} className="btn-ghost !py-2.5 text-sm">Show more ({list.length - shown} left)</button>
+          <button type="button" onClick={() => (remote ? loadMore() : setShown((n) => n + PAGE))} className="btn-ghost !py-2.5 text-sm">{remote ? (rBusy ? 'Loading...' : 'Show more products') : `Show more (${list.length - shown} left)`}</button>
         </div>
       )}
     </div>

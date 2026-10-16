@@ -1,4 +1,5 @@
 import { getProducts } from '@/lib/products';
+import { allCards } from '@/lib/catalogQuery';
 import { SITE, absUrl, shippingFor } from '@/lib/config';
 
 export const revalidate = 600;
@@ -31,7 +32,9 @@ const gender = (p) => (/\b(women|woman|ladies|girls?)\b|women's|womens/i.test(p.
 // Product feed for Google Merchant Center (free listings in Google Search, Shopping tab and Images).
 // Merchant Center > Products > Feeds > add a "scheduled fetch" feed and use  https://YOUR-DOMAIN/api/feed/google
 export async function GET(req) {
-  const products = await getProducts();
+  let products = await getProducts();
+  // Archived products: the feed uses their slim card (name, price, main photo, category, options). Add ?live=1 for live products only.
+  if (!new URL(req.url).searchParams.get('live')) { try { products = [...products, ...(await allCards()).archived.map((c) => ({ ...c, videos: [], description: c.description || c.name }))]; } catch { /* no archive */ } }
   if (new URL(req.url).searchParams.get('skipped')) {
     const out = products.filter((p) => !p.images[0] || !(p.price > 0)).map((p) => ({ slug: p.slug, name: p.name, why: !p.images[0] ? 'no photo' : 'no price' }));
     return Response.json({ total: products.length, inFeed: products.length - out.length, skipped: out });

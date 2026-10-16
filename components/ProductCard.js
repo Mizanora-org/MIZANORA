@@ -11,7 +11,7 @@ export default function ProductCard({ p, priority = false }) {
   const img = (p.images && p.images[0]) || p.image || '';
   const needsOptions = p.hasOptions !== undefined ? p.hasOptions : Boolean(p.sizes && p.sizes.length);
   return (
-    <article className="mz-card group flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(18,32,26,.06)]">
+    <article data-pslug={p.slug} className="mz-card group flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(18,32,26,.06)]">
       <div className="relative flex-1">
         <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5">
           <button type="button" data-act="wish" data-id={p.id} data-name={p.name} data-price={p.price} aria-label="Save to wishlist" className="mz-iconbtn mz-heart h-8 w-8">

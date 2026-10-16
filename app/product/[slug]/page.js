@@ -102,7 +102,7 @@ export default async function ProductPage({ params }) {
           <Link href="/" className="hover:text-gold">Home</Link> / <Link href="/products" className="hover:text-gold">Products</Link> / {p.category && <><Link href={`/category/${slugify(p.category)}`} className="hover:text-gold">{p.category}</Link> / </>}{p.name}
         </nav>
         <div className="grid min-w-0 gap-8 lg:grid-cols-2">
-          <Gallery images={p.images} name={p.name} />
+          <Gallery images={p.images} name={p.name} slug={p.slug} />
           <div className="min-w-0">
             <div className="flex items-start justify-between gap-3"><h1 className="text-2xl font-extrabold leading-tight sm:text-4xl">{p.name}</h1><WishButton product={p} className="shrink-0" /></div>
             {p.categories.length > 0 && <p className="mt-2 flex flex-wrap gap-1.5">{p.categories.map((c) => <Link key={c} href={`/category/${slugify(c)}`} className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold hover:bg-gold/20">{c}</Link>)}</p>}

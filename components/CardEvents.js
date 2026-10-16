@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCartActions } from './CartProvider';
 import { addToCart, addToWishlist } from '@/lib/metaPixel';
 import { getWish, toggleWish } from '@/lib/wish';
+import { hideCard, reportBrokenImage } from '@/lib/imageReport';
 
 // ONE listener for every product card on the page: heart, share, "Add to cart" and tap-to-prefetch.
 // Cards themselves are plain HTML, so even a page with 200 products stays light.
@@ -67,11 +68,27 @@ export default function CardEvents() {
       try { router.prefetch(href); } catch (_) { /* ignore */ }
     };
 
+    // A product photo that does not load: show the neat placeholder, tell the server (it checks the photo itself and, if it is really
+    // broken, hides the product and lists it in Admin > Photo errors). Image errors do not bubble, so this listens in the capture phase.
+    const broken = (img) => {
+      const card = img.closest && img.closest('[data-pslug]');
+      if (!card || card.dataset.noimg) return;
+      img.style.visibility = 'hidden';
+      card.dataset.noimg = '1';
+      reportBrokenImage(card.dataset.pslug).then((r) => { if (r && r.removed) hideCard(card); });
+    };
+    const onImgError = (e) => { const t = e.target; if (t && t.tagName === 'IMG') broken(t); };
+    // Photos that already failed before this script started (server-built page).
+    const sweep = () => document.querySelectorAll('[data-pslug] img').forEach((img) => { if (img.complete && img.naturalWidth === 0 && img.currentSrc) broken(img); });
+    const sweepA = setTimeout(sweep, 1200);
+    const sweepB = setTimeout(sweep, 4500);
+    document.addEventListener('error', onImgError, true);
+
     document.addEventListener('click', onClick);
     document.addEventListener('touchstart', warm, { passive: true });
     document.addEventListener('mouseover', warm, { passive: true });
     return () => {
-      clearTimeout(first); mo.disconnect(); if (raf) cancelAnimationFrame(raf);
+      clearTimeout(first); clearTimeout(sweepA); clearTimeout(sweepB); document.removeEventListener('error', onImgError, true); mo.disconnect(); if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('mz-wish', onWish); window.removeEventListener('storage', onWish);
       document.removeEventListener('click', onClick);
       document.removeEventListener('touchstart', warm);

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { priceCoupon } from '@/lib/coupons';
-import { getProducts } from '@/lib/products';
+import { getProductsByIds } from '@/lib/products';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ export async function POST(req) {
   const rawItems = Array.isArray(b.items) ? b.items.slice(0, 15) : [];
   if (!rawItems.length) return NextResponse.json({ ok: false, error: 'Your cart is empty.' }, { status: 400 });
   try {
-    const catalog = new Map((await getProducts()).map((p) => [p.id, p]));
+    const catalog = await getProductsByIds(rawItems.map((r) => String(r.id)));
     const items = rawItems.map((r) => {
       const p = catalog.get(String(r.id));
       return p ? { id: p.id, name: p.name, price: p.price, qty: Math.max(1, Math.min(10, Math.floor(Number(r.qty)) || 1)) } : null;

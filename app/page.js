@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ShieldCheck, Truck, Headphones, Banknote, Footprints, Shirt, Gem, Baby, Smartphone, Cpu, Home as HomeIcon, Sparkles, Dumbbell, HeartPulse, ShoppingBasket, Car, ArrowRight } from 'lucide-react';
 import { SITE } from '@/lib/config';
-import { getProducts, getBanners, getReels, buildCategories } from '@/lib/products';
+import { getProducts, getBanners, getReels, getCategories, getTotalCount } from '@/lib/products';
 import { getPosts } from '@/lib/blog';
 import { FAQ } from '@/lib/faq';
 import { pageMeta, faqJsonLd } from '@/lib/seo';
@@ -61,8 +61,7 @@ function Shelf({ id, title, href, products, priorityFirst = false, tone = '', an
 }
 
 export default async function Home() {
-  const [all, banners, reels] = await Promise.all([getProducts(), getBanners(), getReels()]);
-  const categories = buildCategories(all);
+  const [all, banners, reels, categories, totalCount] = await Promise.all([getProducts(), getBanners(), getReels(), getCategories(), getTotalCount()]);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
@@ -117,7 +116,7 @@ export default async function Home() {
 
       <section className="mx-auto max-w-7xl px-3 pt-4 sm:px-4" aria-label="Shop numbers">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl bg-gradient-to-r from-[#0B6B45] to-[#0E8556] p-4 text-white">
-          <p className="min-w-[8rem]"><span className="block font-display text-3xl font-extrabold leading-none"><CountUp to={all.length} />+</span><span className="text-xs text-white/85">products in stock to order</span></p>
+          <p className="min-w-[8rem]"><span className="block font-display text-3xl font-extrabold leading-none"><CountUp to={totalCount || all.length} />+</span><span className="text-xs text-white/85">products in stock to order</span></p>
           <p><span className="block font-display text-3xl font-extrabold leading-none"><CountUp to={categories.length} /></span><span className="text-xs text-white/85">categories</span></p>
           {cheapest > 0 && <p><span className="block font-display text-3xl font-extrabold leading-none">Rs <CountUp to={cheapest} /></span><span className="text-xs text-white/85">prices start from</span></p>}
           <div className="ml-auto flex flex-wrap gap-2">
