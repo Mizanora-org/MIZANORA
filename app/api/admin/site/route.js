@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { FieldValue } from 'firebase-admin/firestore';
 import { verifyAdmin } from '@/lib/adminAuth';
-import { adminDb, adminReady } from '@/lib/firebase-admin';
+import { adminDb, adminReady, adminRtdb } from '@/lib/firebase-admin';
+import { rtdbOn } from '@/lib/rtdb';
 import { FEATURES, cleanStatus, getSiteStatus, refreshStatus, rememberStatus } from '@/lib/siteGate';
 
 export const runtime = 'nodejs';
@@ -45,7 +46,10 @@ export async function POST(req) {
       const old = await getSiteStatus();
       const s = cleanStatus({ mode: b.mode, reason: b.reason, backAt: b.backAt, features: b.features, since: Date.now(), by: a.email || a.uid || '' });
       if (s.mode === 'down' && !s.reason) s.reason = 'We are doing important work on the shop. Please come back soon.';
-      await statusRef.set({ ...s }, { merge: true });
+      // Both databases: the Realtime Database copy is what the website reads first (separate quota).
+      let wrote = false;
+      if (rtdbOn()) { try { await adminRtdb().ref('siteStatus').set(s); wrote = true; } catch (e) { console.error('rtdb status write failed:', e.message); } }
+      try { await statusRef.set({ ...s }, { merge: true }); wrote = true; } catch (e) { if (!wrote) throw e; }
       rememberStatus(s);
       refreshStatus();
       if (old.mode !== 'normal' && s.mode === 'normal') { try { revalidateTag('catalog'); } catch { /* ignore */ } } // coming back: refresh the shop data once

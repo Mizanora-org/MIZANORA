@@ -15,6 +15,8 @@ import { findWorkerByCode } from '@/lib/workerAuth';
 import { getWorkerSettings } from '@/lib/workerSettings';
 import { PAY_METHODS, payMethod, prepaidOff, cleanPayRef } from '@/lib/payments';
 import { archiveDocs } from '@/lib/archive';
+import { backupOrder, isQuotaError, recordOrder } from '@/lib/orderFallback';
+import { noteFirestoreError, quotaTripped } from '@/lib/quota';
 import { cleanWorkerCode, effectiveTier, lineEarning, MAX_MARKUP_PCT } from '@/lib/workers';
 
 export const runtime = 'nodejs';
@@ -48,6 +50,9 @@ export async function POST(req) {
 
   const rawItems = Array.isArray(body.items) ? body.items.slice(0, 15) : [];
   if (!rawItems.length) return fail('Your cart is empty.');
+
+  // Firestore said "quota used up" a moment ago: do not wait for it to fail again, take the order in the backup database at once.
+  if (quotaTripped()) { const saved = await backupOrder({ body, clean, rawItems }); if (saved) return saved; }
 
   try {
     const db = adminDb();
@@ -185,6 +190,8 @@ export async function POST(req) {
       } catch (e) { console.error('promo counters failed', e.message); }
     }
 
+    after(() => recordOrder({ orderId, total, city: clean.city, qty: items.reduce((n, i) => n + i.qty, 0) }));
+
     // Server-side Purchase (Conversions API). Same eventID as the browser Purchase so Meta counts it once.
     const phone = normalizePhone(clean.phone);
     after(() => sendCapi({
@@ -204,6 +211,9 @@ export async function POST(req) {
     });
   } catch (e) {
     console.error('order failed', e && e.message);
+    // Firestore's free quota is used up: still take the order (saved in the Realtime Database, moved over later from Admin > Dashboard).
+    noteFirestoreError(e);
+    if (isQuotaError(e)) { const saved = await backupOrder({ body, clean, rawItems }); if (saved) return saved; }
     return fail('Our order system is having a problem right now. Your order was not placed. Please try again in a minute, or send it to support on WhatsApp.', 500);
   }
 }

@@ -4,6 +4,8 @@ import { doc, setDoc } from 'firebase/firestore';
 import { authClient, dbClient } from '@/lib/firebase-client';
 import { formatDate, formatPKR } from '@/lib/format';
 import { revalidateSite } from '@/lib/admin-cache';
+import { makeZip } from '@/lib/zip';
+import { buildPartFiles } from '@/lib/archiveFormat';
 
 // Admin > Archive. Old products leave Firebase and live as JSON files in your repository (data/catalog): no reads, no writes, no quota.
 // New products stay in Firebase. When Firebase gets full, move the oldest ones here, wait for the deployment, then clear them from Firebase.
@@ -21,6 +23,10 @@ export default function ArchiveAdmin() {
   const [last, setLast] = useState(null); // { n, count, commit?, manual? }
   const [q, setQ] = useState('');
   const [found, setFound] = useState(null);
+  const [zipInfo, setZipInfo] = useState(null); // { count, items:[{id,updatedAt}] } of the last ZIP
+  const [zipBusy, setZipBusy] = useState('');
+  const [withOld, setWithOld] = useState(true);
+  const [typed, setTyped] = useState('');
 
   const api = useCallback(async (body) => {
     const r = await fetch('/api/admin/archive', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await authClient().currentUser.getIdToken()}` }, body: JSON.stringify(body) });
@@ -54,6 +60,55 @@ export default function ArchiveAdmin() {
       setMsg(`Cleared: ${j.deleted} products removed from Firebase${j.kept ? `, ${j.kept} kept because they were edited after archiving` : ''}. They are served from the archive now.`);
       setLast(null); await load();
     } catch (e) { setMsg(e.message); }
+  });
+
+  // Download EVERYTHING as one ZIP: every live product in new part files + (optionally) all existing archive parts + a merged manifest.json.
+  // Extract the ZIP into your repository (data/catalog/...), commit, and the shop serves all of it from the files.
+  const downloadAll = () => run('zip', async () => {
+    const PART = 500;
+    const files = [], metas = [], exported = [];
+    let n = st.nextN, buf = [], cursor = '', total = 0;
+    const flush = () => { if (!buf.length) return; const b = buildPartFiles(buf, n); files.push({ name: `data/catalog/${b.meta.file}`, data: b.part }, { name: `data/catalog/${b.meta.cards}`, data: b.cards }); metas.push(b.meta); n += 1; buf = []; };
+    for (let i = 0; i < 2000; i++) {
+      setZipBusy(`Reading live products: ${total.toLocaleString()}...`);
+      const j = await api({ action: 'exportLive', cursor });
+      for (const d of j.docs) { buf.push(d); exported.push({ id: d.id, updatedAt: Number(d.data.updatedAt || 0) }); total += 1; if (buf.length >= PART) flush(); }
+      cursor = j.next; if (!cursor) break;
+    }
+    flush();
+    const kept = [];
+    if (withOld) {
+      for (const p of st.parts) {
+        setZipBusy(`Adding archive part ${p.n} of ${st.parts.length}...`);
+        const a = await api({ action: 'getPart', n: p.n, which: 'part' });
+        const c = await api({ action: 'getPart', n: p.n, which: 'cards' });
+        files.push({ name: `data/catalog/${p.file}`, data: a.text }, { name: `data/catalog/${p.cards}`, data: c.text }); kept.push(p);
+      }
+    }
+    const parts = [...kept, ...metas].sort((x, y) => x.n - y.n);
+    files.push({ name: 'data/catalog/manifest.json', data: JSON.stringify({ version: 1, total: parts.reduce((s2, x) => s2 + x.count, 0), parts }, null, 1) });
+    setZipBusy('Packing the ZIP...');
+    const blob = makeZip(files);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `mizanora-products-${new Date().toISOString().slice(0, 10)}.zip`; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    setZipInfo({ count: total, items: exported, parts: parts.length });
+    setZipBusy('');
+    setMsg(`ZIP downloaded: ${total.toLocaleString()} live products${withOld ? ` + ${kept.length} older archive part(s)` : ''}, ${(blob.size / 1e6).toFixed(1)} MB. Extract it into your repository (it already uses the folder data/catalog), commit, wait for the deployment. Then you may delete the downloaded products from Firebase.`);
+  });
+  const deleteDownloaded = () => run('deldl', async () => {
+    if (typed !== 'DELETE') { setMsg('Type DELETE to confirm.'); return; }
+    let deleted = 0, kept = 0;
+    for (let i = 0; i < zipInfo.items.length; i += 200) {
+      setZipBusy(`Deleting from Firebase: ${deleted.toLocaleString()} of ${zipInfo.items.length.toLocaleString()}...`);
+      const j = await api({ action: 'deleteExported', confirm: 'DELETE', items: zipInfo.items.slice(i, i + 200) });
+      deleted += j.deleted; kept += j.kept;
+    }
+    setZipBusy(''); setTyped(''); setZipInfo(null);
+    await revalidateSite();
+    try { sessionStorage.removeItem('mz_admin_products'); } catch (_) { /* ignore */ }
+    setMsg(`Deleted ${deleted.toLocaleString()} products from Firebase${kept ? `; ${kept} were edited after the download and were kept` : ''}. Their data is in your ZIP.`);
+    await load();
   });
   const search = () => run('search', async () => {
     const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
@@ -107,6 +162,24 @@ export default function ArchiveAdmin() {
               <button type="button" className="btn-gold" disabled={busy === `clear${last.n}`} onClick={() => clear(last.n)}>{busy === `clear${last.n}` ? 'Checking...' : `Clear part ${last.n} from Firebase`}</button>
             </section>
           )}
+
+
+          <section className="card space-y-3">
+            <h2 className="text-lg font-extrabold">Backup / move EVERYTHING (ZIP)</h2>
+            <p className="text-xs text-dim">Downloads <b>all</b> products as one ZIP: the live ones from Firebase (packed into archive files of 500) and, if you tick the box, the older archive parts too. The ZIP is ready to use: extract it into your repository (the folder is already <code>data/catalog</code>), commit, and the shop reads every product from those files. Needs no GitHub token.</p>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[#0B6B45]" checked={withOld} onChange={(e) => setWithOld(e.target.checked)} /> Include the {st.parts.length} older archive part(s)</label>
+            <button type="button" className="btn-gold" disabled={busy === 'zip' || !!zipBusy} onClick={downloadAll}>{zipBusy && busy === 'zip' ? zipBusy : 'Download ALL products as ZIP'}</button>
+            {zipInfo && (
+              <div className="rounded-xl border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                <p className="font-bold">Delete the {zipInfo.count.toLocaleString()} downloaded products from Firebase?</p>
+                <p className="mt-1 text-xs">Do this only after the ZIP is safely saved. The shop will not show these products until you have put the ZIP files into your repository and the site is deployed. Products you edit after the download are kept.</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input className="input !w-40 !py-1.5" placeholder="type DELETE" value={typed} onChange={(e) => setTyped(e.target.value)} />
+                  <button type="button" className="rounded-full bg-red-600 px-5 py-2 text-sm font-bold text-white" disabled={busy === 'deldl'} onClick={deleteDownloaded}>{zipBusy && busy === 'deldl' ? zipBusy : 'Delete them from Firebase now'}</button>
+                </div>
+              </div>
+            )}
+          </section>
 
           <section className="card">
             <h2 className="text-lg font-extrabold">Archive parts</h2>

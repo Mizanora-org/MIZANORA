@@ -11,6 +11,7 @@ const Cards = memo(function Cards({ items }) {
 });
 import VoiceButton from './VoiceButton';
 import { search as trackSearch } from '@/lib/metaPixel';
+import { trackEvent } from '@/lib/track';
 import { describeIntent, didYouMean, smartSearch } from '@/lib/search';
 import { aiAvailable, aiIntent } from '@/lib/aiSearch';
 import { discountPct, slugify } from '@/lib/format';
@@ -30,7 +31,7 @@ export default function ProductGrid({ products, remote = false, total = 0, initi
   const [onSale, setOnSale] = useState(false);
   const [minP, setMinP] = useState('');
   const [maxP, setMaxP] = useState(sp.get('max') || '');
-  useEffect(() => { const t = q.trim(); if (t.length < 3) return undefined; const h = setTimeout(() => trackSearch(t), 1200); return () => clearTimeout(h); }, [q]);
+  useEffect(() => { const t = q.trim(); if (t.length < 3) return undefined; const h = setTimeout(() => { trackSearch(t); }, 1200); return () => clearTimeout(h); }, [q]);
 
   const [ai, setAi] = useState(null);
   // The box always stays instant; matching runs right after typing (useDeferredValue) and never blocks the keyboard.
@@ -135,6 +136,15 @@ export default function ProductGrid({ products, remote = false, total = 0, initi
     if (df.sort === 'az') r = [...r].sort((a, b) => a.name.localeCompare(b.name));
     return r;
   }, [view, df, remote, rItems]);
+
+  // Search statistics for Admin > Dashboard (what people look for, and what they look for without finding anything).
+  const lastSearch = useRef('');
+  useEffect(() => {
+    const t = dq.trim().toLowerCase();
+    if (t.length < 3 || (remote && rBusy)) return undefined;
+    const h = setTimeout(() => { if (lastSearch.current !== t) { lastSearch.current = t; trackEvent(list.length ? 'q' : 'q0', t); } }, 1800);
+    return () => clearTimeout(h);
+  }, [dq, list.length, remote, rBusy]);
   // Draw 24 cards first and more as the shopper scrolls: a big catalogue no longer freezes weak phones.
   const PAGE = 24;
   const [shown, setShown] = useState(PAGE);

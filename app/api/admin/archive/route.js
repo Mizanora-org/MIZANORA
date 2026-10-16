@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
+import { FieldPath } from 'firebase-admin/firestore';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { archiveManifest, archiveProduct } from '@/lib/archive';
@@ -37,6 +38,35 @@ export async function POST(req) {
       let repoParts = m.parts;
       if (ghReady()) { try { repoParts = (await repoManifest()).parts; } catch (e) { return json({ ok: true, live, archived: m.total, parts: m.parts, github: { ready: true, error: e.message, ...ghInfo() }, nextN: Math.max(0, ...m.parts.map((p) => p.n)) + 1 }); } }
       return json({ ok: true, live, archived: m.total, parts: m.parts, github: { ready: ghReady(), ...ghInfo() }, nextN: Math.max(0, ...repoParts.map((p) => p.n)) + 1, partSize: PART_SIZE });
+    }
+
+    if (act === 'exportLive') { // every live product, 300 per call (for "download everything")
+      if (!adminReady()) return json({ ok: false, error: 'Firebase Admin is not set up.' }, 503);
+      let q = adminDb().collection('products').orderBy(FieldPath.documentId()).limit(300);
+      if (b.cursor) q = q.startAfter(String(b.cursor));
+      const snap = await q.get();
+      return json({ ok: true, docs: snap.docs.map((d) => ({ id: d.id, data: JSON.parse(JSON.stringify(d.data())) })), next: snap.size === 300 ? snap.docs[snap.size - 1].id : '' });
+    }
+    if (act === 'getPart') { // the text of one archive file (so the ZIP can contain the old parts too)
+      const n = Math.floor(Number(b.n));
+      const m = await archiveManifest();
+      const meta = m.parts.find((p) => p.n === n);
+      if (!meta) return json({ ok: false, error: `Part ${n} is not on the live website.` }, 404);
+      const file = b.which === 'cards' ? meta.cards : meta.file;
+      return json({ ok: true, text: await fs.readFile(path.join(process.cwd(), 'data', 'catalog', file), 'utf8') });
+    }
+    if (act === 'deleteExported') { // delete exactly the products that were put in a downloaded ZIP (only if unchanged since)
+      if (!adminReady()) return json({ ok: false, error: 'Firebase Admin is not set up.' }, 503);
+      if (b.confirm !== 'DELETE') return json({ ok: false, error: 'Type DELETE to confirm.' }, 400);
+      const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200).filter((x) => x && x.id);
+      const db = adminDb();
+      const snaps = items.length ? await db.getAll(...items.map((x) => db.collection('products').doc(String(x.id)))) : [];
+      const batch = db.batch();
+      let deleted = 0, kept = 0;
+      snaps.forEach((s, k) => { if (!s.exists) return; if (Number(s.data().updatedAt || 0) === Number(items[k].updatedAt || 0)) { batch.delete(s.ref); batch.delete(db.collection('productCosts').doc(s.id)); deleted++; } else kept++; });
+      if (deleted) await batch.commit();
+      try { revalidateTag('catalog'); } catch { /* refreshes by itself */ }
+      return json({ ok: true, deleted, kept });
     }
 
     if (act === 'get') {

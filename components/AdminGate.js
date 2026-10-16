@@ -57,6 +57,8 @@ export default function AdminGate({ children }) {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [access, setAccess] = useState('checking'); // checking | ok | denied
+  // The owner's own visits are not counted in the visitor statistics.
+  useEffect(() => { try { localStorage.setItem('mz_notrack', '1'); } catch (_) { /* ignore */ } }, []);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -143,7 +145,7 @@ export default function AdminGate({ children }) {
   return (
     <div className="mx-auto w-full max-w-6xl min-w-0 px-3 py-4 sm:px-4 sm:py-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">{tab('/admin/orders', 'Orders')}{tab('/admin/products', 'Products')}{tab('/admin/import', 'Import CSV')}{tab('/admin/control', 'Control room')}{tab('/admin/archive', 'Archive')}{tab('/admin/errors', 'Photo errors')}{tab('/admin/banners', 'Banners')}{tab('/admin/reels', 'Reels')}{tab('/admin/coupons', 'Promo codes')}{tab('/admin/workers', 'Workers')}{tab('/admin/reviews', 'Reviews')}{tab('/admin/assistant', 'AI Assistant')}</div>
+        <div className="flex flex-wrap gap-2">{tab('/admin/dashboard', 'Dashboard')}{tab('/admin/orders', 'Orders')}{tab('/admin/products', 'Products')}{tab('/admin/import', 'Import CSV')}{tab('/admin/convert', 'CSV converter')}{tab('/admin/control', 'Control room')}{tab('/admin/archive', 'Archive')}{tab('/admin/errors', 'Photo errors')}{tab('/admin/banners', 'Banners')}{tab('/admin/reels', 'Reels')}{tab('/admin/coupons', 'Promo codes')}{tab('/admin/workers', 'Workers')}{tab('/admin/reviews', 'Reviews')}{tab('/admin/assistant', 'AI Assistant')}</div>
         <button onClick={() => signOut(authClient())} className="flex items-center gap-2 text-sm text-dim hover:text-gold"><LogOut size={16} /> Sign out</button>
       </div>
       <SetupCheck />
