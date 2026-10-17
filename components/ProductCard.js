@@ -31,7 +31,7 @@ export default function ProductCard({ p, priority = false }) {
               <div className="grid h-full place-items-center font-display text-3xl text-bronze">M</div>
             )}
             {!p.inStock && <span className="absolute bottom-2 left-2 rounded-md bg-cream/80 px-2 py-0.5 text-xs font-bold text-white">Sold out</span>}
-            {off > 0 && <span className="absolute left-2 top-2 rounded-md bg-red-600 px-2 py-0.5 text-xs font-extrabold text-white">-{off}%</span>}
+            {off > 0 && <span className="absolute left-2 top-2 rounded-md bg-gradient-to-r from-red-600 to-[#E0342B] px-2 py-0.5 text-xs font-extrabold text-white shadow-[0_2px_8px_-2px_rgba(220,38,38,.8)]">-{off}%</span>}
           </div>
           <div className="p-3">
             <h3 className="line-clamp-2 min-h-[2.5rem] font-sans text-sm font-medium leading-snug text-cream">{p.name}</h3>
