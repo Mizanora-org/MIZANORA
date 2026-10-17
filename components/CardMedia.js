@@ -5,12 +5,14 @@ import { Play } from 'lucide-react';
 import { parseVideo } from '@/lib/video';
 
 // THE CARD PICTURE, WITH THREE STEPS (so a card is never an empty grey box):
-//   1. the product photo;
+//   1. the product photo (optimised by Next);
+//   1b. v19: if the optimiser cannot fetch it (many supplier / Facebook / Instagram hosts refuse server downloads), the SAME photo
+//       is loaded straight by the visitor's browser with no referrer. This alone fixes most "image not loading" cases;
 //   2. if that photo cannot load in THIS visitor's browser -> the product's video (a real <video> first frame, or a
 //      branded play cover for Facebook / Instagram / TikTok / YouTube embeds);
 //   3. only if there is no photo AND no video, the card removes itself with CSS ([data-card][data-dead]).
 export default function CardMedia({ img, alt, priority = false, sizes, video = '' }) {
-  const [state, setState] = useState(img ? 'img' : video ? 'video' : 'dead');
+  const [state, setState] = useState(img ? 'img' : video ? 'video' : 'dead'); // 'img' | 'raw' | 'video' | 'dead'
   const v = parseVideo(video) || null;
 
   if (state === 'dead' || (!img && !video)) {
@@ -36,6 +38,11 @@ export default function CardMedia({ img, alt, priority = false, sizes, video = '
     );
   }
 
+  if (state === 'raw') {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={img} alt={alt} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" onError={() => setState(video ? 'video' : 'dead')} />;
+  }
+
   return (
     <Image
       src={img}
@@ -44,7 +51,7 @@ export default function CardMedia({ img, alt, priority = false, sizes, video = '
       priority={priority}
       sizes={sizes}
       className="object-cover"
-      onError={() => setState(video ? 'video' : 'dead')}
+      onError={() => setState('raw')}
     />
   );
 }

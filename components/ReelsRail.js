@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Flame, Heart, Music, Pause, Play, Share2, ShoppingBag, Shuffle, Volume2, VolumeX, X } from 'lucide-react';
@@ -39,9 +40,14 @@ function probeVideo(el) {
 // ---------------------------------------------------------------------------------------------
 function Poster({ reel, v, sizes = '240px', priority = false, className = '' }) {
   const src = v.thumb || reel.image;
-  return src
-    ? <Image src={src} alt="" fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />
-    : <span className={`absolute inset-0 bg-gradient-to-br from-gold via-[#0A5A3A] to-[#06301F] ${className}`} />;
+  const [bad, setBad] = useState(0); // 0 = optimised photo, 1 = the plain photo (some hosts refuse the optimiser), 2 = brand colours
+  const fallback = <span className={`absolute inset-0 bg-gradient-to-br from-gold via-[#0A5A3A] to-[#06301F] ${className}`} />;
+  if (!src || bad >= 2) return fallback;
+  if (bad === 1) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={() => setBad(2)} className={`absolute inset-0 h-full w-full object-cover ${className}`} />;
+  }
+  return <Image src={src} alt="" fill sizes={sizes} priority={priority} onError={() => setBad(1)} className={`object-cover ${className}`} />;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -192,8 +198,14 @@ function Viewer({ reels, start, onClose, music }) {
   const chip = sound === 'silent' && hasMusic && brandOn ? `${music.title} chal raha hai`
     : sound === 'audio' ? 'Reel ki apni awaaz' : '';
 
-  return (
-    <div className="fixed inset-0 z-[80] bg-black text-white" role="dialog" aria-modal="true" aria-label="Reels">
+  // v19: the viewer is drawn on document.body (a portal), not inside the page. Inside the page it could end up UNDER the sticky
+  // header; on the body it is always the top layer, so the header can never show above a reel.
+  // (The viewer only ever opens after a tap or after mounting, so document exists. No extra render pass is needed,
+  // which keeps the first scroll to the tapped reel working.)
+  const host = typeof document !== 'undefined' ? document.body : null;
+  if (!host) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-black text-white" role="dialog" aria-modal="true" aria-label="Reels">
       <div ref={scroller} className="no-sb h-dvh snap-y snap-mandatory overflow-y-scroll overscroll-contain">
         {deck.map((reel, i) => {
           const rv = parseVideo(reel.url);
@@ -281,7 +293,8 @@ function Viewer({ reels, start, onClose, music }) {
         <button type="button" onClick={() => goTo(active + 1)} disabled={active === deck.length - 1} aria-label="Next reel" className={`${btn} disabled:opacity-30`}><ChevronDown size={24} /></button>
       </div>
       {toast && <p role="status" className="absolute left-1/2 top-24 z-40 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#12201A] shadow-xl">{toast}</p>}
-    </div>
+    </div>,
+    host,
   );
 }
 

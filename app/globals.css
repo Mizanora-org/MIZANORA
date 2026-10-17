@@ -150,7 +150,9 @@ body { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org
 a:active, button:not(:disabled):active { opacity: .92; }
 
 /* Soft fade between pages (opacity only: cheap) */
-.mz-page { animation: mz-fadein .22s ease-out both; }
+.mz-page { animation: mz-fadein .22s ease-out backwards; }
+/* v19: was "both". Fill-mode forwards kept an opacity animation alive on .mz-page for ever, which made it a stacking layer:
+   every fixed full-screen panel inside it (the reels, for example) was trapped under the sticky header. "backwards" lets go when it ends. */
 
 /* Little bars that dance while the assistant is listening (voice-only feel). */
 .mz-wave { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }

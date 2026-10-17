@@ -3,12 +3,12 @@ import { BadgePercent, Banknote, Link2, ShieldCheck, TrendingUp, UserCheck } fro
 import { pageMeta, breadcrumbJsonLd, faqJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
-import { HOLD_DAYS, MIN_PAYOUT, REF_DAYS, TIERS } from '@/lib/workers';
+import { HOLD_DAYS, MIN_PAYOUT, PRICE_BANDS, REF_DAYS, TIERS, TOP_BAND_PCT } from '@/lib/workers';
 import { formatPKR } from '@/lib/format';
 
 export const metadata = pageMeta({
-  title: 'Mizanora Worker Program: Earn 10% to 50% Commission on Delivered Orders',
-  description: 'Join the Mizanora Worker Program in Pakistan. Share product links on WhatsApp and Facebook, earn 10% to 50% commission on delivered orders, and withdraw to JazzCash, Easypaisa or bank.',
+  title: 'Mizanora Worker Program: Earn 10% to 20% Profit on Delivered Orders',
+  description: 'Join the Mizanora Worker Program in Pakistan. Share product links on WhatsApp and Facebook, earn 10% to 20% profit on delivered orders (10% up to Rs 1,000, 15% up to Rs 2,000, 20% up to Rs 3,000), and withdraw to JazzCash, Easypaisa or bank.',
   path: '/workers',
 });
 
@@ -18,8 +18,8 @@ const FAQ = [
   ['Do my repeat customers count?', 'When this is switched on, a new customer who first orders through your link stays linked to you, and their later orders earn you commission too. Existing Mizanora customers are not taken over.'],
   ['What if the order is cancelled or returned?', 'Cancelled and returned orders earn no commission. That is why a good delivery rate raises your level.'],
   ['Why do you need my CNIC?', 'To confirm every worker is a real adult and to stop fake accounts. The photos are stored privately and only the Mizanora admin can see them.'],
-  ['How does the level system work?', 'Everyone starts at 10%. As more of your orders are delivered and your delivery rate stays high, you move up to 20%, 30%, 40% and 50%. Higher levels also unlock more expensive products.'],
-  ['Can I set my own profit?', 'Yes, at the Elite level (50%) you can add your own profit on a product, up to 50% of its price. Customers who order through your link pay the shop price plus your profit.'],
+  ['How does the level system work?', 'Everyone starts at 10%. As more of your orders are delivered and your delivery rate stays high, you move up through Silver, Gold, Platinum and Elite. Higher levels unlock more expensive products. Your profit on each product is limited by its price: 10% on products up to Rs 1,000, 15% up to Rs 2,000 and 20% up to Rs 3,000 and above.'],
+  ['Can I set my own profit?', 'Yes, at the Elite level you can add your own profit on a product, up to the same limit as its price band (10% up to Rs 1,000, 15% up to Rs 2,000, 20% above). Customers who order through your link pay the shop price plus your profit.'],
 ];
 
 export default function WorkersPage() {
@@ -47,6 +47,18 @@ export default function WorkersPage() {
               <tbody>{TIERS.map((t) => (
                 <tr key={t.key} className="border-t border-line"><td className="p-3 font-bold">{t.name}</td><td className="p-3 font-extrabold text-gold">{t.rate}%</td><td className="p-3">{t.maxPrice ? formatPKR(t.maxPrice) : 'Any price + own profit'}</td><td className="p-3 text-dim">{t.needs.delivered ? `${t.needs.delivered} delivered, ${t.needs.rate}% delivery rate` : 'Just join'}</td></tr>
               ))}</tbody>
+            </table>
+          </div>
+          <h3 className="mb-2 mt-6 text-lg font-extrabold">Most you can earn, by product price</h3>
+          <div className="overflow-x-auto rounded-2xl border border-line">
+            <table className="w-full min-w-[20rem] text-left text-sm">
+              <thead className="bg-raised text-dim"><tr><th className="p-3">Product price</th><th className="p-3">Highest profit</th></tr></thead>
+              <tbody>
+                {PRICE_BANDS.map((b, i) => (
+                  <tr key={b.upTo} className="border-t border-line"><td className="p-3 font-bold">{i === 0 ? `Up to ${formatPKR(b.upTo)}` : `${formatPKR(PRICE_BANDS[i - 1].upTo + 1)} to ${formatPKR(b.upTo)}`}</td><td className="p-3 font-extrabold text-gold">{b.pct}%</td></tr>
+                ))}
+                <tr className="border-t border-line"><td className="p-3 font-bold">{`Above ${formatPKR(PRICE_BANDS[PRICE_BANDS.length - 1].upTo)}`}</td><td className="p-3 font-extrabold text-gold">{TOP_BAND_PCT}%</td></tr>
+              </tbody>
             </table>
           </div>
           <p className="mt-2 text-xs text-faint">Commission is a percentage of the product price. Orders that use a promo code, and orders placed by the worker for themselves, do not earn commission.</p>

@@ -17,7 +17,7 @@ import { PAY_METHODS, payMethod, prepaidOff, cleanPayRef } from '@/lib/payments'
 import { archiveDocs } from '@/lib/archive';
 import { backupOrder, isQuotaError, recordOrder } from '@/lib/orderFallback';
 import { noteFirestoreError, quotaTripped } from '@/lib/quota';
-import { cleanWorkerCode, effectiveTier, lineEarning, MAX_MARKUP_PCT } from '@/lib/workers';
+import { cleanWorkerCode, effectiveTier, lineEarning, maxMarkupFor } from '@/lib/workers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -89,7 +89,7 @@ export async function POST(req) {
       const shopPrice = Math.max(1, (Number(p.price) || 0) - off);
       affMeta[String(r.id)] = { affOn: p.affOn !== false, affRate: Number(p.affRate) || 0 };
       // An Elite worker's own profit per piece (capped), added to the price only for customers who came through that worker's link.
-      const markup = wTier && wTier.custom ? Math.max(0, Math.min(Math.floor(Number(worker.markups && worker.markups[String(r.id)]) || 0), Math.floor((shopPrice * MAX_MARKUP_PCT) / 100))) : 0;
+      const markup = wTier && wTier.custom ? Math.max(0, Math.min(Math.floor(Number(worker.markups && worker.markups[String(r.id)]) || 0), maxMarkupFor(shopPrice))) : 0;
       items.push({ id: String(r.id), slug: String(r.id), name: off ? `${p.name} (special price, Rs ${off} off)` : p.name, dealOff: off, price: shopPrice + markup, shopPrice, markup, qty, size, image: (p.images && p.images[0]) || '' });
     }
     const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);

@@ -123,7 +123,9 @@ export default function AppMusic({ music = null }) {
       const p = el.play();
       if (p && p.then) p.then(() => { setFailed(false); failedRef.current = false; }).catch(() => { /* still blocked: wait for the next tap */ });
     };
-    const events = ['pointerdown', 'keydown', 'touchstart'];
+    // v19: touchstart / pointerdown do NOT unlock audio on phones (Chrome Android and iPhone need the finger to lift), so the first tap
+    // never started the music. touchend, pointerup and click do.
+    const events = ['pointerup', 'touchend', 'click', 'keydown'];
     events.forEach((e) => document.addEventListener(e, unlock, { passive: true }));
     return () => events.forEach((e) => document.removeEventListener(e, unlock));
   }, [url]);

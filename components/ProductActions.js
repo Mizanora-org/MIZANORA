@@ -96,7 +96,7 @@ export default function ProductActions({ product }) {
       )}
 
       {/* Phone only: sticky buy bar, like big marketplaces */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-ink/95 px-3 py-2.5 backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(3.6rem+env(safe-area-inset-bottom))] z-30 flex items-center gap-3 border-t border-line bg-ink/95 px-3 py-2.5 shadow-[0_-6px_18px_rgba(18,32,26,.12)] backdrop-blur md:hidden">
         <div className="min-w-0">
           <p className="text-lg font-bold leading-tight text-gold">{formatPKR((product.price + mk) * qty)}</p>
           <p className="text-[0.7rem] text-dim">Cash on delivery</p>

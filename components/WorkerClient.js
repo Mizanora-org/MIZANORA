@@ -5,7 +5,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/
 import { BadgePercent, Clock, Copy, Download, Lock, MessageCircle, Package, Search, Send, Wallet, XCircle } from 'lucide-react';
 import { authClient, dbClient, firebaseConfigured } from '@/lib/firebase-client';
 import { formatDate, formatPKR } from '@/lib/format';
-import { DEFAULT_SETTINGS, MAX_MARKUP_PCT, MIN_PAYOUT, TIERS, deliveryRate, effectiveTier, eligible, isAvailable, isHolding, lineEarning } from '@/lib/workers';
+import { DEFAULT_SETTINGS, MIN_PAYOUT, TIERS, bandPct, deliveryRate, effectiveTier, eligible, isAvailable, isHolding, lineEarning, maxMarkupFor } from '@/lib/workers';
 import { SITE, waLink } from '@/lib/config';
 import { useAuth } from './AuthProvider';
 import WorkerApply from './WorkerApply';
@@ -91,7 +91,7 @@ function ProductRow({ p, w, t, onSaved }) {
         {p.image ? <img src={p.image} alt={p.name} loading="lazy" className="h-20 w-20 shrink-0 rounded-xl object-cover" /> : <div className="h-20 w-20 shrink-0 rounded-xl bg-raised" />}
         <div className="min-w-0 flex-1 text-sm">
           <p className="line-clamp-2 font-bold">{p.name}</p>
-          <p className="text-dim">{formatPKR(p.price)}</p>
+          <p className="text-dim">{formatPKR(p.price)} <span className="text-xs text-faint">· max profit {bandPct(p.price)}%</span></p>
           {ok ? <p className="font-bold text-gold">You earn {formatPKR(e.total)} per piece ({e.rate}%){e.markupProfit ? ` (incl. ${formatPKR(e.markupProfit)} your profit)` : ''}</p>
             : <p className="flex items-center gap-1 font-semibold text-faint"><Lock size={14} /> Unlocks at {need ? need.name : 'a higher level'}</p>}
         </div>
@@ -108,7 +108,7 @@ function ProductRow({ p, w, t, onSaved }) {
       {ok && t.custom && (
         <div className="mt-3 flex items-center gap-2 text-sm">
           <label htmlFor={`m${p.id}`} className="font-semibold">Your profit per piece (Rs)</label>
-          <input id={`m${p.id}`} className="input !w-28 !py-2" inputMode="numeric" value={mk} onChange={(x) => setMk(x.target.value.replace(/\D/g, ''))} placeholder={`0-${Math.floor((p.price * MAX_MARKUP_PCT) / 100)}`} />
+          <input id={`m${p.id}`} className="input !w-28 !py-2" inputMode="numeric" value={mk} onChange={(x) => setMk(x.target.value.replace(/\D/g, ''))} placeholder={`0-${maxMarkupFor(p.price)}`} />
           <button type="button" className="btn-gold !px-4 !py-2" onClick={saveMarkup}>Save</button>
         </div>
       )}
