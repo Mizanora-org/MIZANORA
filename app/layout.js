@@ -18,6 +18,7 @@ import JsonLd from '@/components/JsonLd';
 import SeasonFX from '@/components/SeasonFX';
 import BackToTop from '@/components/BackToTop';
 import RefCapture from '@/components/RefCapture';
+import WorkerPrices from '@/components/WorkerPrices';
 import SplashScreen from '@/components/SplashScreen';
 import RouteProgress from '@/components/RouteProgress';
 import CardEvents from '@/components/CardEvents';
@@ -57,8 +58,10 @@ export const metadata = {
   verification: {
     ...(process.env.NEXT_PUBLIC_GSC_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION } : {}),
     // Meta Business Suite > Brand safety > Domains: paste the verification code here to verify your domain.
+    ...(process.env.NEXT_PUBLIC_BING_VERIFICATION ? { other: { 'msvalidate.01': process.env.NEXT_PUBLIC_BING_VERIFICATION } } : {}),
     ...(process.env.NEXT_PUBLIC_FB_DOMAIN_VERIFICATION ? { other: { 'facebook-domain-verification': process.env.NEXT_PUBLIC_FB_DOMAIN_VERIFICATION } } : {}),
   },
+  alternates: { types: { 'application/rss+xml': [{ url: '/blog/feed.xml', title: 'Mizanora shopping blog' }] } },
   appleWebApp: { capable: true, title: 'Mizanora', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
 };
@@ -103,6 +106,7 @@ export default async function RootLayout({ children }) {
         </SiteGate>
         <Tracker off={down} />
         <RefCapture />
+        <WorkerPrices />
         <MetaPixel />
         <PwaRegister />
         <JsonLd data={[orgJsonLd(), websiteJsonLd()]} />

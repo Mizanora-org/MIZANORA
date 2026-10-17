@@ -19,7 +19,7 @@ const FAQ = [
   ['What if the order is cancelled or returned?', 'Cancelled and returned orders earn no commission. That is why a good delivery rate raises your level.'],
   ['Why do you need my CNIC?', 'To confirm every worker is a real adult and to stop fake accounts. The photos are stored privately and only the Mizanora admin can see them.'],
   ['How does the level system work?', 'Everyone starts at 10%. As more of your orders are delivered and your delivery rate stays high, you move up through Silver, Gold, Platinum and Elite. Higher levels unlock more expensive products. Your profit on each product is limited by its price: 10% on products up to Rs 1,000, 15% up to Rs 2,000 and 20% up to Rs 3,000 and above.'],
-  ['Can I set my own profit?', 'Yes, at the Elite level you can add your own profit on a product, up to the same limit as its price band (10% up to Rs 1,000, 15% up to Rs 2,000, 20% above). Customers who order through your link pay the shop price plus your profit.'],
+  ['Can I set my own profit?', 'Yes, at every level. For each product you set your own selling price and, if you like, the market rate (what other markets charge). If the market rate is higher, your customers see it struck through with the discount. Your own profit is limited by the price band of the product (10% up to Rs 1,000, 15% up to Rs 2,000, 20% above). Customers who order through your link pay the shop price plus your profit.'],
 ];
 
 export default function WorkersPage() {
@@ -45,7 +45,7 @@ export default function WorkersPage() {
             <table className="w-full min-w-[34rem] text-left text-sm">
               <thead className="bg-raised text-dim"><tr><th className="p-3">Level</th><th className="p-3">Commission</th><th className="p-3">Products up to</th><th className="p-3">Needs</th></tr></thead>
               <tbody>{TIERS.map((t) => (
-                <tr key={t.key} className="border-t border-line"><td className="p-3 font-bold">{t.name}</td><td className="p-3 font-extrabold text-gold">{t.rate}%</td><td className="p-3">{t.maxPrice ? formatPKR(t.maxPrice) : 'Any price + own profit'}</td><td className="p-3 text-dim">{t.needs.delivered ? `${t.needs.delivered} delivered, ${t.needs.rate}% delivery rate` : 'Just join'}</td></tr>
+                <tr key={t.key} className="border-t border-line"><td className="p-3 font-bold">{t.name}</td><td className="p-3 font-extrabold text-gold">{t.rate}%</td><td className="p-3">{t.maxPrice ? formatPKR(t.maxPrice) : 'Any price'}</td><td className="p-3 text-dim">{t.needs.delivered ? `${t.needs.delivered} delivered, ${t.needs.rate}% delivery rate` : 'Just join'}</td></tr>
               ))}</tbody>
             </table>
           </div>

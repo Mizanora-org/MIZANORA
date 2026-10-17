@@ -61,7 +61,7 @@ export default function AppMusic({ music = null }) {
     if (!url) { setPlaying(false); setFailed(false); playingRef.current = false; failedRef.current = false; return undefined; }
     const el = new Audio();
     el.loop = true;
-    el.preload = 'auto';
+    el.preload = 'none'; // v19: the file is fetched only when it really starts playing (saves data and speeds up the first page)
     el.volume = volume;
     audio.current = el;
     const onPlay = () => { playingRef.current = true; setPlaying(true); setFailed(false); failedRef.current = false; broadcast({ on: onRef.current, playing: true }); };

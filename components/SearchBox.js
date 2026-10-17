@@ -8,6 +8,7 @@ import { describeIntent, didYouMean, smartSearch } from '@/lib/search';
 import { aiIntent } from '@/lib/aiSearch';
 import { getSearchIndex, peekSearchIndex } from '@/lib/searchIndex';
 import { formatPKR } from '@/lib/format';
+import { getPricing } from '@/lib/refClient';
 import VoiceButton from './VoiceButton';
 
 // ---------------------------------------------------------------------------------------------
@@ -191,7 +192,7 @@ export default function SearchBox({ id, className = '', categories = [] }) {
                     <Link href={`/product/${row.p.slug}`} onClick={() => setOpen(false)} onMouseEnter={() => setActive(i)} className={`flex items-center gap-3 px-3 py-2 ${active === i ? 'bg-raised' : 'hover:bg-raised'}`}>
                       <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-raised">{row.p.image && <Image src={row.p.image} alt="" fill sizes="44px" className="object-cover" />}</span>
                       <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold"><Highlight text={row.p.name} words={queryWords(dq)} /></span><span className="text-xs text-faint">{row.p.category}</span></span>
-                      <span className="text-sm font-bold text-gold">{formatPKR(row.p.price)}</span>
+                      <span className="text-sm font-bold text-gold">{formatPKR(getPricing(row.p.id, row.p.price, row.p.comparePrice || 0).price)}</span>
                     </Link>
                   )}
                 </li>

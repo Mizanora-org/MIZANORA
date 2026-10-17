@@ -7,6 +7,7 @@ import { formatPKR, discountPct, slugify } from '@/lib/format';
 import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import Gallery from '@/components/Gallery';
 import ProductActions from '@/components/ProductActions';
+import PriceBlock from '@/components/PriceBlock';
 import ProductCard from '@/components/ProductCard';
 import TrackView from '@/components/TrackView';
 import VideoEmbed from '@/components/VideoEmbed';
@@ -106,11 +107,7 @@ export default async function ProductPage({ params }) {
           <div className="min-w-0">
             <div className="flex items-start justify-between gap-3"><h1 className="text-2xl font-extrabold leading-tight sm:text-4xl">{p.name}</h1><WishButton product={p} className="shrink-0" /></div>
             {p.categories.length > 0 && <p className="mt-2 flex flex-wrap gap-1.5">{p.categories.map((c) => <Link key={c} href={`/category/${slugify(c)}`} className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold hover:bg-gold/20">{c}</Link>)}</p>}
-            <p className="mt-4 flex flex-wrap items-baseline gap-3">
-              <span className="text-3xl font-bold text-gold">{formatPKR(p.price)}</span>
-              {p.comparePrice > p.price && <span className="text-lg text-faint line-through">{formatPKR(p.comparePrice)}</span>}
-              {off > 0 && <span className="rounded-full bg-gold px-2.5 py-1 text-xs font-bold text-ink">Save {off}%</span>}
-            </p>
+            <PriceBlock id={p.id} price={p.price} comparePrice={p.comparePrice} />
             <p className="mt-1 text-sm text-dim">{SITE.shippingFee > 0 ? `Delivery ${formatPKR(SITE.shippingFee)}` : 'Free delivery'} · Cash on delivery</p>
             <ProductActions product={p} />
             <ShareButtons url={url} title={p.name} />

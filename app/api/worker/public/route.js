@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 import { denyIf } from '@/lib/siteGate';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { findWorkerByCode } from '@/lib/workerAuth';
-import { cleanWorkerCode, effectiveTier } from '@/lib/workers';
+import { cleanWorkerCode } from '@/lib/workers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Tells the shop whether a ref code is valid and (for Elite workers) which own prices to show. Nothing private is returned.
+// Tells the shop whether a ref code is valid and which own prices and market rates to show. Nothing private is returned.
 export async function GET(req) {
   const closed = await denyIf('workers');
   if (closed) return closed;
@@ -16,6 +16,6 @@ export async function GET(req) {
   try {
     const w = await findWorkerByCode(adminDb(), code);
     if (!w) return NextResponse.json({ ok: false, invalid: true });
-    return NextResponse.json({ ok: true, markups: effectiveTier(w).custom ? w.markups || {} : {} }, { headers: { 'Cache-Control': 'private, max-age=60' } });
+    return NextResponse.json({ ok: true, markups: w.markups || {}, market: w.market || {} }, { headers: { 'Cache-Control': 'private, max-age=60' } });
   } catch { return NextResponse.json({ ok: false }); }
 }

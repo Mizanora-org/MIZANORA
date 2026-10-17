@@ -13,7 +13,7 @@ export default function ProductCard({ p, priority = false }) {
   const video = firstVideo(p); // a product whose media is a video still gets a beautiful card
   const needsOptions = p.hasOptions !== undefined ? p.hasOptions : Boolean(p.sizes && p.sizes.length);
   return (
-    <article data-card="1" data-pslug={p.slug} className="mz-card group flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(18,32,26,.06)]">
+    <article data-card="1" data-pslug={p.slug} data-pid={p.id} data-base={p.price} data-cmp={p.comparePrice > p.price ? p.comparePrice : 0} className="mz-card group flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(18,32,26,.06)]">
       <div className="relative flex-1">
         <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5">
           <button type="button" data-act="wish" data-id={p.id} data-name={p.name} data-price={p.price} aria-label="Save to wishlist" className="mz-iconbtn mz-heart h-8 w-8">
@@ -31,11 +31,11 @@ export default function ProductCard({ p, priority = false }) {
               <div className="grid h-full place-items-center font-display text-3xl text-bronze">M</div>
             )}
             {!p.inStock && <span className="absolute bottom-2 left-2 rounded-md bg-cream/80 px-2 py-0.5 text-xs font-bold text-white">Sold out</span>}
-            {off > 0 && <span className="absolute left-2 top-2 rounded-md bg-gradient-to-r from-red-600 to-[#E0342B] px-2 py-0.5 text-xs font-extrabold text-white shadow-[0_2px_8px_-2px_rgba(220,38,38,.8)]">-{off}%</span>}
+            {off > 0 && <span data-pb="1" className="absolute left-2 top-2 rounded-md bg-gradient-to-r from-red-600 to-[#E0342B] px-2 py-0.5 text-xs font-extrabold text-white shadow-[0_2px_8px_-2px_rgba(220,38,38,.8)]">-{off}%</span>}
           </div>
           <div className="p-3">
             <h3 className="line-clamp-2 min-h-[2.5rem] font-sans text-sm font-medium leading-snug text-cream">{p.name}</h3>
-            <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
+            <p data-pr="1" className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
               <span className="text-base font-bold text-gold sm:text-lg">{formatPKR(p.price)}</span>
               {p.comparePrice > p.price && <span className="text-xs text-faint line-through">{formatPKR(p.comparePrice)}</span>}
             </p>

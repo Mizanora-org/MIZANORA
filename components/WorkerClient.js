@@ -5,7 +5,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/
 import { BadgePercent, Clock, Copy, Download, Lock, MessageCircle, Package, Search, Send, Wallet, XCircle } from 'lucide-react';
 import { authClient, dbClient, firebaseConfigured } from '@/lib/firebase-client';
 import { formatDate, formatPKR } from '@/lib/format';
-import { DEFAULT_SETTINGS, MIN_PAYOUT, TIERS, bandPct, deliveryRate, effectiveTier, eligible, isAvailable, isHolding, lineEarning, maxMarkupFor } from '@/lib/workers';
+import { DEFAULT_SETTINGS, MIN_PAYOUT, TIERS, bandPct, deliveryRate, effectiveTier, eligible, isAvailable, isHolding, lineEarning, maxMarkupFor, sellView } from '@/lib/workers';
 import { SITE, waLink } from '@/lib/config';
 import { useAuth } from './AuthProvider';
 import WorkerApply from './WorkerApply';
@@ -44,7 +44,7 @@ function Overview({ w, comm, settings }) {
       <div className="card bg-gradient-to-br from-[#0B6B45] to-[#073D28] !border-0 text-white">
         <p className="text-sm text-white/80">Your level</p>
         <p className="font-display text-3xl font-extrabold">{t.name} · {t.rate}%</p>
-        <p className="mt-1 text-sm text-white/85">{t.maxPrice ? `Earn on products up to ${formatPKR(t.maxPrice)} each` : 'Earn on every product'}{t.custom ? ' · set your own profit on products' : ''}</p>
+        <p className="mt-1 text-sm text-white/85">{t.maxPrice ? `Earn on products up to ${formatPKR(t.maxPrice)} each` : 'Earn on every product'}{t.custom ? '' : ''}</p>
         {next && <p className="mt-3 rounded-xl bg-white/10 p-3 text-sm">Next: <b>{next.name} ({next.rate}%)</b>. Needs {next.needs.delivered} delivered orders and {next.needs.rate}% delivery rate. You have {s.delivered || 0} delivered and {dr}% delivery rate.</p>}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -73,27 +73,39 @@ function Overview({ w, comm, settings }) {
 
 function ProductRow({ p, w, t, onSaved }) {
   const [msg, setMsg] = useState('');
-  const [mk, setMk] = useState(String((w.markups || {})[p.id] || ''));
+  const mx = maxMarkupFor(p.price);
+  const pct = bandPct(p.price);
+  const saved = Number((w.markups || {})[p.id]) || 0;
+  const [sell, setSell] = useState(String(p.price + saved));          // the price the worker's customers pay
+  const [mkt, setMkt] = useState(String((w.market || {})[p.id] || '')); // the market rate (struck through when higher)
   const ok = eligible(t, p.price);
   const need = TIERS.find((x) => !x.maxPrice || x.maxPrice >= p.price);
-  const e = lineEarning(t, p.price, 1, Number(mk) || 0, { affOn: true, affRate: p.affRate });
+  const sellN = Math.round(Number(sell) || 0);
+  const markup = Math.min(Math.max(0, sellN - p.price), mx);
+  const e = lineEarning(t, p.price, 1, markup, { affOn: true, affRate: p.affRate });
+  const view = sellView(p.price, markup, Number(mkt) || 0);
+  const bad = sellN && (sellN < p.price || sellN > p.price + mx);
   const url = link(w.code, p.id);
-  const caption = `${p.name}\nPrice: ${formatPKR(p.price + (t.custom ? Number(mk) || 0 : 0))} | Cash on delivery across Pakistan\nOrder here: ${url}`;
-  async function saveMarkup() {
+  const caption = `${p.name}\nPrice: ${formatPKR(view.sell)}${view.off ? ` (market rate ${formatPKR(view.market)}, ${view.off}% off)` : ''} | Cash on delivery across Pakistan\nOrder here: ${url}`;
+  async function save() {
     setMsg('');
-    const r = await fetch('/api/worker/markups', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` }, body: JSON.stringify({ productId: p.id, markup: Number(mk) || 0 }) });
+    const r = await fetch('/api/worker/markups', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` }, body: JSON.stringify({ productId: p.id, sell: sellN || p.price, market: Number(mkt) || 0 }) });
     const d = await r.json().catch(() => ({}));
-    setMsg(d.ok ? 'Saved.' : d.error || 'Could not save.'); if (d.ok) onSaved(p.id, d.markup);
+    setMsg(d.ok ? 'Saved. Customers on your link now see these prices.' : d.error || 'Could not save.'); if (d.ok) onSaved(p.id, d.markup, d.market);
   }
   return (
     <div className="card !p-3">
       <div className="flex gap-3">
-        {p.image ? <img src={p.image} alt={p.name} loading="lazy" className="h-20 w-20 shrink-0 rounded-xl object-cover" /> : <div className="h-20 w-20 shrink-0 rounded-xl bg-raised" />}
+        {p.image ? <img src={p.image} alt={p.name} loading="lazy" referrerPolicy="no-referrer" className="h-20 w-20 shrink-0 rounded-xl object-cover" /> : <div className="h-20 w-20 shrink-0 rounded-xl bg-raised" />}
         <div className="min-w-0 flex-1 text-sm">
           <p className="line-clamp-2 font-bold">{p.name}</p>
-          <p className="text-dim">{formatPKR(p.price)} <span className="text-xs text-faint">· max profit {bandPct(p.price)}%</span></p>
-          {ok ? <p className="font-bold text-gold">You earn {formatPKR(e.total)} per piece ({e.rate}%){e.markupProfit ? ` (incl. ${formatPKR(e.markupProfit)} your profit)` : ''}</p>
-            : <p className="flex items-center gap-1 font-semibold text-faint"><Lock size={14} /> Unlocks at {need ? need.name : 'a higher level'}</p>}
+          <p className="text-dim">Shop price {formatPKR(p.price)}</p>
+          {ok ? (
+            <>
+              <p className="font-bold text-gold">Max profit: {formatPKR(mx)} per piece ({pct}%)</p>
+              <p className="text-xs text-dim">Commission {formatPKR(e.commission)} ({e.rate}%){markup ? ` + your price profit ${formatPKR(markup)}` : ''} = <b className="text-cream">{formatPKR(e.total)}</b> per piece</p>
+            </>
+          ) : <p className="flex items-center gap-1 font-semibold text-faint"><Lock size={14} /> Unlocks at {need ? need.name : 'a higher level'}</p>}
         </div>
       </div>
       {ok && (
@@ -105,11 +117,23 @@ function ProductRow({ p, w, t, onSaved }) {
           {p.videos.map((v, i) => <a key={v} className="btn-ghost !px-3 !py-2" target="_blank" rel="noopener noreferrer" href={v}><Download size={15} /> Video {i + 1}</a>)}
         </div>
       )}
-      {ok && t.custom && (
-        <div className="mt-3 flex items-center gap-2 text-sm">
-          <label htmlFor={`m${p.id}`} className="font-semibold">Your profit per piece (Rs)</label>
-          <input id={`m${p.id}`} className="input !w-28 !py-2" inputMode="numeric" value={mk} onChange={(x) => setMk(x.target.value.replace(/\D/g, ''))} placeholder={`0-${maxMarkupFor(p.price)}`} />
-          <button type="button" className="btn-gold !px-4 !py-2" onClick={saveMarkup}>Save</button>
+      {ok && (
+        <div className="mt-3 rounded-xl bg-raised/60 p-3 text-sm">
+          <p className="mb-2 font-bold">Your prices for customers on your link</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block"><span className="mb-1 block text-xs font-semibold text-dim">Your selling price (Rs)</span>
+              <input className={`input !py-2 ${bad ? 'input-err' : ''}`} inputMode="numeric" value={sell} onChange={(x) => setSell(x.target.value.replace(/\D/g, ''))} placeholder={`${p.price} - ${p.price + mx}`} /></label>
+            <label className="block"><span className="mb-1 block text-xs font-semibold text-dim">Market rate (Rs)</span>
+              <input className="input !py-2" inputMode="numeric" value={mkt} onChange={(x) => setMkt(x.target.value.replace(/\D/g, ''))} placeholder="Price in other markets" /></label>
+          </div>
+          <p className="mt-1.5 text-xs text-dim">Selling price can be {formatPKR(p.price)} to {formatPKR(p.price + mx)}. If the market rate is higher than your price, customers see it struck through with the discount. If it is the same or lower, they see only your price.</p>
+          <p className="mt-2 flex flex-wrap items-baseline gap-2">
+            <span className="text-xs font-semibold text-faint">Customer sees:</span>
+            <span className="text-lg font-extrabold text-gold">{formatPKR(view.sell)}</span>
+            {view.off > 0 && <><span className="text-sm text-faint line-through">{formatPKR(view.market)}</span><span className="rounded-md bg-red-600 px-1.5 py-0.5 text-xs font-extrabold text-white">-{view.off}%</span></>}
+          </p>
+          {e.rate < pct && <p className="mt-2 text-xs text-faint">Why is commission only {e.rate}%? The shop&apos;s own profit on this product is small, so commission is kept safe. Your real extra profit comes from your selling price, up to {formatPKR(mx)}.</p>}
+          <button type="button" className="btn-gold mt-3 !px-5 !py-2" disabled={Boolean(bad)} onClick={save}>Save my prices</button>
         </div>
       )}
       {msg && <p role="status" className="mt-2 text-xs font-semibold text-gold">{msg}</p>}
@@ -148,7 +172,7 @@ function Products({ w, setW }) {
       <div className="relative"><Search size={16} className="absolute left-3 top-3.5 text-faint" /><input className="input !pl-9" placeholder="Search products" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="flex gap-2 text-sm font-semibold">{[[true, 'My eligible products'], [false, 'All products']].map(([v, l]) => <button key={l} type="button" onClick={() => setOnly(v)} className={`rounded-full px-4 py-1.5 ${only === v ? 'bg-gold text-white' : 'bg-raised text-dim'}`}>{l}</button>)}</div>
       <p className="text-xs text-dim">Download photos and videos, copy a ready caption, and share your own link. Only share real photos and honest descriptions.</p>
-      {shown.map((p) => <ProductRow key={p.id} p={p} w={w} t={t} onSaved={(id, v) => setW((x) => ({ ...x, markups: { ...(x.markups || {}), [id]: v } }))} />)}
+      {shown.map((p) => <ProductRow key={p.id} p={p} w={w} t={t} onSaved={(id, v, m) => setW((x) => ({ ...x, markups: { ...(x.markups || {}), [id]: v }, market: { ...(x.market || {}), [id]: m } }))} />)}
       {!shown.length && <p className="card text-center text-dim">{busy ? 'Searching...' : 'No products found.'}</p>}
       {next && !q.trim() && <button type="button" className="btn-ghost w-full" disabled={busy} onClick={more}>{busy ? 'Loading...' : 'Show more products'}</button>}
     </div>
