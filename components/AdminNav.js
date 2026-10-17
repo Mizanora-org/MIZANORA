@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import {
-  Bot, Boxes, Clock, ImageOff, Images, LayoutDashboard, LogOut, Menu, Package, Plug, Power,
+  Bot, Boxes, Clock, ImageOff, Images, LayoutDashboard, LogOut, Menu, Music4, Package, Plug, Power,
   Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X,
 } from 'lucide-react';
 import { authClient } from '@/lib/firebase-client';
@@ -46,6 +46,7 @@ export const ADMIN_MENU = [
     title: 'Content',
     items: [
       { href: '/admin/banners', label: 'Banners', icon: Images },
+      { href: '/admin/music', label: 'Music', icon: Music4, hint: 'Background music for the app and the reels', tag: 'NEW' },
       { href: '/admin/reels', label: 'Reels', icon: Video },
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
       { href: '/admin/assistant', label: 'AI Assistant', icon: Bot },

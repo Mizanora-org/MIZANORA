@@ -1,85 +1,12 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { collection, deleteDoc, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import Link from 'next/link';
+import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
 import { dbClient } from '@/lib/firebase-client';
 import { readCache, writeCache, revalidateSite } from '@/lib/admin-cache';
 import { parseVideo } from '@/lib/video';
-import { REEL_MUSIC_DEFAULT, cleanReelMusic } from '@/lib/reelMusic';
 
 const EMPTY = { id: '', url: '', title: '', productSlug: '', link: '', order: '', active: true };
-
-// Mizanora background music: one link the admin sets. It plays behind reels that have NO sound
-// (silent videos). A reel with its own sound keeps its sound and the music stays quiet.
-function MusicCard() {
-  const [cfg, setCfg] = useState(null);
-  const [msg, setMsg] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState(null);
-
-  useEffect(() => {
-    getDoc(doc(dbClient(), 'siteMeta', 'reelMusic'))
-      .then((d) => setCfg({ ...REEL_MUSIC_DEFAULT, ...(d.exists() ? d.data() : {}) }))
-      .catch((e) => { setCfg({ ...REEL_MUSIC_DEFAULT }); setMsg(e.message); });
-  }, []);
-  useEffect(() => () => { if (preview) preview.pause(); }, [preview]);
-
-  if (!cfg) return <p className="card mb-6 text-sm text-dim">Loading music settings...</p>;
-  const set = (k) => (e) => setCfg((c) => ({ ...c, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
-
-  async function save(e) {
-    e.preventDefault();
-    const r = cleanReelMusic(cfg);
-    if (!r.ok) { setMsg(r.error); return; }
-    setBusy(true);
-    try {
-      await setDoc(doc(dbClient(), 'siteMeta', 'reelMusic'), { ...r.value, updatedAtMs: Date.now() });
-      setCfg({ ...REEL_MUSIC_DEFAULT, ...r.value });
-      await revalidateSite();
-      setMsg('Saved. The reels use this music now (it can take a minute to refresh on the phones).');
-    } catch (err) { setMsg(err.message); }
-    setBusy(false);
-  }
-
-  function play() {
-    const r = cleanReelMusic(cfg);
-    if (!r.ok || !r.value.url) { setMsg(r.ok ? 'Paste a music link first.' : r.error); return; }
-    if (preview) preview.pause();
-    const a = new Audio(r.value.url);
-    a.volume = r.value.volume / 100;
-    a.play().catch(() => setMsg('The browser could not play this link. Check that it is a direct audio file link.'));
-    setPreview(a);
-  }
-  function stop() { if (preview) preview.pause(); }
-
-  const r = cleanReelMusic(cfg);
-  return (
-    <form onSubmit={save} className="card mb-6 space-y-3">
-      <div>
-        <h2 className="text-xl font-bold">Mizanora background music</h2>
-        <p className="text-sm text-dim">Paste a direct audio link (ends with .mp3, .m4a, .ogg or .wav). It plays behind silent reels only. Reels with their own sound keep their sound.</p>
-        <p className="mt-1 text-xs text-dim">Where to host it: Cloudinary (free, audio uploads), your own server, or any site that gives a direct file link. Google Drive and Dropbox links are converted automatically when possible.</p>
-      </div>
-      <div><label className="label" htmlFor="mu">Music link</label>
-        <input id="mu" className="input" value={cfg.url} onChange={set('url')} placeholder="https://res.cloudinary.com/.../mizanora-theme.mp3" />
-        {cfg.url && <p className={`mt-1 text-xs ${r.ok ? 'text-gold' : 'text-red-600'}`}>{r.ok ? `OK${r.value.url !== cfg.url ? ` (converted to: ${r.value.url})` : ''}` : r.error}</p>}
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div><label className="label" htmlFor="mt">Name shown on the reel</label>
-          <input id="mt" className="input" maxLength={60} value={cfg.title} onChange={set('title')} /></div>
-        <div><label className="label" htmlFor="mv">Volume: {cfg.volume}%</label>
-          <input id="mv" type="range" min="0" max="100" value={cfg.volume} onChange={set('volume')} className="w-full accent-[#0B6B45]" /></div>
-      </div>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cfg.enabled !== false} onChange={set('enabled')} className="h-4 w-4 accent-[#0B6B45]" /> Music on in the reels</label>
-      <div className="flex flex-wrap gap-3">
-        <button className="btn-gold" disabled={busy}>{busy ? 'Saving...' : 'Save music'}</button>
-        <button type="button" className="btn-ghost" onClick={play}>Test play</button>
-        <button type="button" className="btn-ghost" onClick={stop}>Stop test</button>
-        <button type="button" className="px-2 text-sm text-red-700" onClick={() => { setCfg({ ...cfg, url: '' }); }}>Remove link</button>
-      </div>
-      {msg && <p role="status" className="rounded-xl bg-raised p-3 text-sm">{msg}</p>}
-    </form>
-  );
-}
 
 export default function AdminReels() {
   const [list, setList] = useState(null);
@@ -120,7 +47,11 @@ export default function AdminReels() {
         <h1 className="text-3xl font-extrabold">Reels</h1>
         <button type="button" className="btn-gold !px-5 !py-2.5" onClick={() => { setForm(EMPTY); setShow(true); }}>+ Add reel</button>
       </div>
-      <MusicCard />
+      {/* The music of the shop is managed in one place now: Admin > Music (app music + reels music). */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-raised p-4">
+        <p className="text-sm text-dim">The background music (for the app and for the reels) is set in <b className="text-cream">Admin &rsaquo; Music</b>.</p>
+        <Link href="/admin/music" className="btn-ghost !px-4 !py-2 text-sm">Open music settings</Link>
+      </div>
       <p className="mb-4 text-sm text-dim">Paste a YouTube Short, Facebook reel, Instagram reel, TikTok or .mp4 link. Pick the product so the viewer gets a Shop now button. Product videos also appear here automatically.</p>
       {msg && <p role="status" className="mb-3 rounded-xl bg-raised p-3 text-sm">{msg}</p>}
 

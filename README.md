@@ -2,6 +2,20 @@
 Next.js 15 (App Router) + Tailwind + Firebase + Meta Pixel/CAPI + installable PWA. See SETUP.md.
 Checks without installing: `node scripts/check.js` (syntax and imports).
 
+## Background music (Admin > Music)
+- **Admin > Music** has two cards: **App background music** (plays across the whole shop) and **Reels background music** (plays behind the reels that have no sound of their own).
+- The admin only pastes a **direct audio link** (`.mp3`, `.m4a`, `.ogg`, `.wav`). Google Drive and Dropbox share links are converted automatically. Cloudinary (free) is the easiest host.
+- The shopper gets a **music button in the header** to switch it off; the choice is remembered on their device (`mz_app_music`).
+- Browsers never play sound before the first tap, so the music starts after the first touch. While a full-screen reel is open the background music steps aside (the reel has its own music).
+- Stored in Firestore: `siteMeta/appMusic` and `siteMeta/reelMusic` (read by everyone, written only by the admin). Optional fallback: `NEXT_PUBLIC_APP_MUSIC_URL` / `NEXT_PUBLIC_REEL_MUSIC_URL`.
+
+## Search
+- The header search understands English, Roman Urdu and Urdu words, colours, price limits ("under 2k"), "sasta / premium", and forgives spelling mistakes (`lib/search.js`).
+- **Keyboard:** `↑`/`↓` move through the suggestions, `Enter` opens the highlighted one, `Esc` closes the panel.
+- The typed words are **highlighted** in the product names, a matching **category** is offered as its own row, and the panel scrolls on small screens.
+- A colour that you type really filters: "black joota" no longer brings the blue shoes along.
+- The results page shows `12 products for "laal suit"`, and when nothing is found it suggests the other shelves and the AI assistant.
+
 ## Firestore reads (quota saver)
 Products/banners/reels are read from Firestore ONCE and shared by all pages through Next's data cache (tag `catalog`, see `lib/products.js`).
 Visitors and bots never trigger Firestore reads. The cache refreshes when the admin saves something (`/api/revalidate`) or after 12 hours
@@ -41,3 +55,7 @@ fewer on weak phones, none when Data Saver is on, and they pause when the tab is
 
 ## Checks before deploying
 `node scripts/check.js` (syntax and imports) and `node scripts/typecheck.js` (undefined names, missing exports/files) both need only the global `typescript` package.
+
+- `npm run check` — both checks in one go.
+- `npm test` — import, voice, music, app music and search tests.
+- `npm run build:offline` — a build that does not need the internet (the fonts are mocked). Use the normal `npm run build` for the real deploy, so the real fonts are downloaded.

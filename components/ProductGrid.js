@@ -9,6 +9,22 @@ const Card = memo(ProductCard);
 const Cards = memo(function Cards({ items }) {
   return items.map((p, i) => <Card key={p.id} p={p} priority={i < 4} />);
 });
+
+// A placeholder card, shown while the next page of a big catalogue is loading (v18: a real skeleton
+// instead of a line of text, so the page does not jump when the products arrive).
+function SkeletonCard() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-line bg-surface">
+      <div className="mz-skel aspect-square w-full !rounded-none" />
+      <div className="space-y-2 p-3">
+        <div className="mz-skel h-3.5 w-4/5 rounded" />
+        <div className="mz-skel h-3.5 w-1/2 rounded" />
+        <div className="mz-skel h-4 w-1/3 rounded" />
+        <div className="mz-skel h-8 w-full rounded-full" />
+      </div>
+    </div>
+  );
+}
 import VoiceButton from './VoiceButton';
 import { search as trackSearch } from '@/lib/metaPixel';
 import { trackEvent } from '@/lib/track';
@@ -162,6 +178,10 @@ export default function ProductGrid({ products, remote = false, total = 0, initi
   }, [shown, list.length, moreHere, remote, rNext]);
   const visible = useMemo(() => (remote ? list : list.slice(0, shown)), [list, shown, remote]);
   const clear = () => { setCat(baseCat || ''); setInStock(false); setOnSale(false); setMinP(''); setMaxP(''); };
+  // One line that tells the shopper exactly what they are looking at (v18: the search word is in it).
+  const countText = remote
+    ? (rBusy && !list.length ? 'Loading...' : !dq.trim() && !filtersOn && total ? `${total.toLocaleString('en-PK')} products` : `${list.length}${rNext ? '+' : ''} product${list.length === 1 ? '' : 's'}`)
+    : `${list.length} product${list.length === 1 ? '' : 's'}`;
 
   const pill = (on) => `shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${on ? 'border-gold bg-gold text-white' : 'border-line bg-surface text-dim hover:border-gold hover:text-gold'}`;
 
@@ -203,18 +223,41 @@ export default function ProductGrid({ products, remote = false, total = 0, initi
         <input type="number" inputMode="numeric" min="0" value={maxP} onChange={(e) => setMaxP(e.target.value)} placeholder="Max Rs." aria-label="Maximum price" className="input !w-24 !rounded-full !py-1.5 text-sm" />
         {[500, 1000, 2000, 5000].map((n) => <button key={n} type="button" className={pill(maxP === String(n))} onClick={() => setMaxP(maxP === String(n) ? '' : String(n))} aria-pressed={maxP === String(n)}>Under {n}</button>)}
         {filtersOn && <button type="button" onClick={clear} className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 font-semibold text-red-700"><X size={14} /> Clear</button>}
-        <span className="ml-auto text-xs text-faint" aria-live="polite">{remote ? (rBusy && !list.length ? 'Loading...' : !dq.trim() && !filtersOn && total ? `${total.toLocaleString('en-PK')} products` : `${list.length}${rNext ? '+' : ''} product${list.length === 1 ? '' : 's'}`) : `${list.length} product${list.length === 1 ? '' : 's'}`}</span>
+        <span className="ml-auto flex items-center gap-2 text-xs text-faint" aria-live="polite">
+          {/* v18: the search word is shown with the number, so the shopper never wonders what is on screen */}
+          {dq.trim() && <span className="max-w-[14rem] truncate rounded-full bg-gold/10 px-2.5 py-1 font-semibold text-gold">for &quot;{dq.trim()}&quot;</span>}
+          {countText}
+          {dq.trim() && <button type="button" onClick={() => setQ('')} className="rounded-full p-1 text-faint hover:text-gold" aria-label="Clear the search"><X size={13} /></button>}
+        </span>
       </div>
 
       {understood.length > 0 && <p className="mb-3 flex flex-wrap items-center gap-1.5 text-xs"><span className="font-bold text-gold">Understood:</span>{understood.map((c) => <span key={c} className="rounded-full bg-gold/10 px-2.5 py-1 font-semibold text-gold">{c}</span>)}</p>}
       {list.length === 0 && remote && rBusy ? (
-        <div className="rounded-2xl border border-line bg-surface p-8 text-center text-dim"><p>Searching...</p></div>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-4 lg:grid-cols-5" aria-label="Loading products" aria-busy="true">
+          {Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
       ) : list.length === 0 ? (
         <div className="rounded-2xl border border-line bg-surface p-8 text-center text-dim">
-          <p>No products found.</p>
+          <p className="font-display text-lg font-bold text-cream">
+            {dq.trim() ? <>No product matches &quot;{dq.trim()}&quot;</> : 'No products found.'}
+          </p>
           {dq.trim() && (suggest ? <p className="mt-2 text-sm">Did you mean <button type="button" className="font-bold text-gold underline" onClick={() => setQ(suggest)}>{suggest}</button>?</p> : null)}
+          {dq.trim() && <p className="mt-2 text-sm">Try a shorter word, or a colour and a price (for example &quot;black shoes under 3000&quot;).</p>}
           {dq.trim() && <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('mz-assistant', { detail: { q: dq } }))} className="btn-ghost mt-3 !py-2 text-sm">Ask our assistant to find it</button>}
           {filtersOn && <button type="button" onClick={clear} className="btn-ghost mt-3 !py-2 text-sm">Clear filters</button>}
+          {/* v18: offer the shelves instead of a dead end */}
+          {cats.length > 1 && (
+            <div className="mt-6 border-t border-line pt-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-faint">Browse a shelf instead</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {cats.slice(0, 10).map((c) => (
+                  <button key={c.slug} type="button" onClick={() => setCat(c.slug)} className="rounded-full border border-line bg-raised px-3 py-1.5 text-sm font-semibold text-dim hover:border-gold hover:text-gold">
+                    {c.name} <span className="opacity-70">({c.count})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">

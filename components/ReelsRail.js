@@ -85,6 +85,12 @@ function Viewer({ reels, start, onClose, music }) {
     if (first) first.scrollIntoView({ block: 'start' });
     return () => { document.body.style.overflow = prev; };
   }, [start]);
+  // The reels have their own music: tell the app background music to step aside while a reel is open
+  // (and to come back when the reel is closed).
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('mz-reels-viewer', { detail: { open: true } }));
+    return () => window.dispatchEvent(new CustomEvent('mz-reels-viewer', { detail: { open: false } }));
+  }, []);
   useEffect(() => {
     const key = (e) => {
       if (e.key === 'Escape') onClose();

@@ -24,11 +24,13 @@ import CardEvents from '@/components/CardEvents';
 import AppFeel from '@/components/AppFeel';
 import AssistantFab from '@/components/AssistantFab';
 import { getPublicAssistant } from '@/lib/assistantPublic';
+import { getAppMusic } from '@/lib/appMusicServer';
 import { getSiteStatus } from '@/lib/siteGate';
 import SiteGate from '@/components/SiteGate';
 import Tracker from '@/components/Tracker';
 import Maintenance from '@/components/Maintenance';
 import HideOnAdmin from '@/components/HideOnAdmin';
+import AppMusic from '@/components/AppMusic';
 
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
 const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
@@ -65,6 +67,8 @@ export default async function RootLayout({ children }) {
   const status = await getSiteStatus();
   const down = status.mode === 'down';
   const categories = await getCategories();
+  // The background music of the whole app (Admin > Music). Read from the shared cache, so it costs no extra reads.
+  const music = await getAppMusic();
   // The assistant button disappears while the site is shut, on high alert, or when its switch is off in Admin > Control.
   const assistant = down || status.mode === 'saver' || status.features.assistant === false ? { enabled: false, name: 'Noor', voiceMode: 'browser', greeting: '' } : await getPublicAssistant();
   return (
@@ -73,11 +77,12 @@ export default async function RootLayout({ children }) {
         <SiteGate down={down} maintenance={<Maintenance reason={status.reason} backAt={status.backAt} />}>
         <SplashScreen />
         <RouteProgress />
+        <AppMusic music={music} />
         <AuthProvider>
         <CartProvider>
           <InstallProvider>
             <AnnouncementBar />
-            <Header categories={categories} />
+            <Header categories={categories} music={music} />
             {/* The footer and the floating buttons sit INSIDE main: on /admin the whole main area belongs to the admin panel, so
                 nothing of the shop shows up under it (HideOnAdmin). Printing is unchanged (both carry .no-print like before). */}
             <main id="main">
