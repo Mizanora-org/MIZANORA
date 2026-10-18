@@ -1,0 +1,160 @@
+{
+ "version": 1,
+ "total": 10987,
+ "parts": [
+  {
+   "n": 1,
+   "file": "part-0001.json",
+   "cards": "cards-0001.json",
+   "count": 500,
+   "at": 1792322389711
+  },
+  {
+   "n": 2,
+   "file": "part-0002.json",
+   "cards": "cards-0002.json",
+   "count": 500,
+   "at": 1792322392648
+  },
+  {
+   "n": 3,
+   "file": "part-0003.json",
+   "cards": "cards-0003.json",
+   "count": 500,
+   "at": 1792322396054
+  },
+  {
+   "n": 4,
+   "file": "part-0004.json",
+   "cards": "cards-0004.json",
+   "count": 500,
+   "at": 1792322401370
+  },
+  {
+   "n": 5,
+   "file": "part-0005.json",
+   "cards": "cards-0005.json",
+   "count": 500,
+   "at": 1792322405041
+  },
+  {
+   "n": 6,
+   "file": "part-0006.json",
+   "cards": "cards-0006.json",
+   "count": 500,
+   "at": 1792322408537
+  },
+  {
+   "n": 7,
+   "file": "part-0007.json",
+   "cards": "cards-0007.json",
+   "count": 500,
+   "at": 1792322411938
+  },
+  {
+   "n": 8,
+   "file": "part-0008.json",
+   "cards": "cards-0008.json",
+   "count": 500,
+   "at": 1792322415257
+  },
+  {
+   "n": 9,
+   "file": "part-0009.json",
+   "cards": "cards-0009.json",
+   "count": 500,
+   "at": 1792322419005
+  },
+  {
+   "n": 10,
+   "file": "part-0010.json",
+   "cards": "cards-0010.json",
+   "count": 500,
+   "at": 1792322422758
+  },
+  {
+   "n": 11,
+   "file": "part-0011.json",
+   "cards": "cards-0011.json",
+   "count": 500,
+   "at": 1792322425837
+  },
+  {
+   "n": 12,
+   "file": "part-0012.json",
+   "cards": "cards-0012.json",
+   "count": 500,
+   "at": 1792322429225
+  },
+  {
+   "n": 13,
+   "file": "part-0013.json",
+   "cards": "cards-0013.json",
+   "count": 500,
+   "at": 1792322432513
+  },
+  {
+   "n": 14,
+   "file": "part-0014.json",
+   "cards": "cards-0014.json",
+   "count": 500,
+   "at": 1792322436014
+  },
+  {
+   "n": 15,
+   "file": "part-0015.json",
+   "cards": "cards-0015.json",
+   "count": 500,
+   "at": 1792322439024
+  },
+  {
+   "n": 16,
+   "file": "part-0016.json",
+   "cards": "cards-0016.json",
+   "count": 500,
+   "at": 1792322442108
+  },
+  {
+   "n": 17,
+   "file": "part-0017.json",
+   "cards": "cards-0017.json",
+   "count": 500,
+   "at": 1792322445330
+  },
+  {
+   "n": 18,
+   "file": "part-0018.json",
+   "cards": "cards-0018.json",
+   "count": 500,
+   "at": 1792322448478
+  },
+  {
+   "n": 19,
+   "file": "part-0019.json",
+   "cards": "cards-0019.json",
+   "count": 500,
+   "at": 1792322451354
+  },
+  {
+   "n": 20,
+   "file": "part-0020.json",
+   "cards": "cards-0020.json",
+   "count": 500,
+   "at": 1792322454576
+  },
+  {
+   "n": 21,
+   "file": "part-0021.json",
+   "cards": "cards-0021.json",
+   "count": 500,
+   "at": 1792322457446
+  },
+  {
+   "n": 22,
+   "file": "part-0022.json",
+   "cards": "cards-0022.json",
+   "count": 487,
+   "at": 1792322460181
+  }
+ ]
+}
