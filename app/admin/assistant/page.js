@@ -76,6 +76,11 @@ export default function AdminAssistant() {
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm"><span className="label">Assistant name</span><input className="input" value={cfg.name} onChange={set('name')} maxLength={24} /></label>
           <label className="text-sm"><span className="label">Chat model (assistant talking)</span><input className="input" value={cfg.model} onChange={set('model')} /></label>
+          <label className="text-sm"><span className="label">Answer speed</span>
+            <select className="input" value={cfg.speed || 'fast'} onChange={set('speed')}>
+              <option value="fast">Fast (default): the quick lite model answers first</option>
+              <option value="smart">Smart: the model above answers first (slower, a little deeper)</option>
+            </select></label>
           <label className="text-sm"><span className="label">Search model (AI search, small + cheap)</span><input className="input" value={cfg.searchModel || ''} onChange={set('searchModel')} placeholder="gemini-flash-lite-latest" /></label>
           <label className="text-sm"><span className="label">Voice</span>
             <select className="input" value={cfg.voiceMode} onChange={set('voiceMode')}>

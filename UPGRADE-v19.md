@@ -8,3 +8,12 @@
 6. **Worker apni qeemat aur market rate** — har level ka worker ab har product par apni *selling price* (shop price se shop price + band limit tak) aur *market rate* likh sakta hai. Market rate selling price se zyada ho to customer ko market rate kata hua + discount % dikhta hai; barabar ya kam ho to sirf price (koi discount nahi). Ye worker ke link se aane wale customer ko product page, cards (home/category/search), search suggestions, cart aur order mein lagta hai. Server order par qeemat dobara check karta hai.
 7. **Dashboard mein "Max profit"** har product par likha hota hai (Rs aur %), aur batata hai ke commission 1% kyun hai: import ke waqt `affRate` shop ke profit ka ~35% par cap hota hai (`safeAffRate` in `lib/importProducts.js`), isliye kam profit wale product par commission chhota rehta hai; worker ka asli profit uski selling price se aata hai.
 8. **9 naye blog posts**, `/blog/feed.xml` RSS, Bing verification env, music file ab pehle download nahi hoti (speed).
+
+# v20 (Winter + Islamic feed + AI manager)
+
+9. **Winter theme** is now the default (admin can change it without redeploy). Richer snow: flakes and soft dots, snowy hero, icy page tint; shown on more pages.
+10. **Islami Feed** on the home page: ayat, hadees, dua, qaul (Arabic + Roman Urdu + reference), Hijri date, next Islamic occasion, namaz times for Kasur. Content: `lib/islamic.js`. Have a scholar check any text you add.
+11. **Video links**: YouTube, Facebook, Instagram, TikTok, Vimeo, Dailymotion, Streamable, Google Drive, Dropbox, Cloudinary and any direct .mp4/.webm/.mov/.m3u8 link (Admin > Reels).
+12. **AI speed**: lite model answers first (Admin > AI Assistant > Answer speed), shorter answers, voice starts with the first sentence and plays a little faster.
+13. **Admin > AI Manager** (`/admin/ai`): tools for season, video feed, Islamic posts, products, tasks, web research, blog publishing. Risky actions need your Confirm. Every action is logged in Firestore `aiManagerLog`. Needs FIREBASE_SERVICE_ACCOUNT (and GITHUB_TOKEN for blog publishing).
+14. **15 new blogs** (Muaaz Iqbal profile, Mizanora vs Daraz / Markaz / marketplaces, winter, halal trade, Noor AI, Kasur, reselling, students, Islamic feed). Team page shows Muaaz Iqbal's photos and WhatsApp number.

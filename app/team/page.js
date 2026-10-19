@@ -6,6 +6,7 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import Reveal from '@/components/Reveal';
 import { CREDIT, FOUNDER, TEAM, initialsOf } from '@/lib/team';
+import FounderPhoto from '@/components/FounderPhoto';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { effectiveTier } from '@/lib/workers';
 
@@ -49,6 +50,11 @@ export default async function TeamPage() {
     '@type': 'Person',
     name: FOUNDER.name,
     jobTitle: FOUNDER.role,
+    image: FOUNDER.photos[0],
+    telephone: `+${FOUNDER.whatsapp}`,
+    description: FOUNDER.bio,
+    knowsAbout: ['web development', 'artificial intelligence', 'digital marketing', 'e-commerce'],
+    alumniOf: { '@type': 'EducationalOrganization', name: 'Islamia Graduate College' },
     worksFor: { '@id': absUrl('/#org') },
     address: { '@type': 'PostalAddress', addressLocality: 'Kasur', addressRegion: 'Punjab', addressCountry: 'PK' },
   };
@@ -65,14 +71,16 @@ export default async function TeamPage() {
               <span className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-saffron/25 blur-2xl" aria-hidden="true" />
               <span className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
               <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
-                <div className="grid h-24 w-24 shrink-0 place-items-center rounded-3xl bg-white/15 font-display text-3xl font-extrabold tracking-wide ring-2 ring-white/25">
-                  {initialsOf(FOUNDER.name)}
-                </div>
+                <FounderPhoto photos={FOUNDER.photos} initials={initialsOf(FOUNDER.name)} name={FOUNDER.name} />
                 <div className="min-w-0">
                   <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider"><Sparkles size={13} /> {FOUNDER.role}</p>
                   <h1 id="founder" className="mt-2 font-display text-3xl font-extrabold leading-tight sm:text-4xl">{FOUNDER.name}</h1>
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-white/85"><MapPin size={14} /> {FOUNDER.city}</p>
                   <p className="mt-3 max-w-2xl text-white/90">{FOUNDER.bio}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {FOUNDER.tags.map((t) => <span key={t} className="rounded-full bg-saffron px-3 py-1 text-xs font-extrabold text-[#2B1B00]">{t}</span>)}
+                  </div>
+                  <p className="mt-3"><a href={`https://wa.me/${FOUNDER.whatsapp}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold text-[#073D28]"><MessageCircle size={16} /> WhatsApp {FOUNDER.phone}</a></p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {FOUNDER.built.map((b) => (
                       <span key={b} className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold">{b}</span>

@@ -12,8 +12,14 @@ const LEAVES = [
   'M3 21C3 10 10 3 21 3c0 11-7 18-18 18z',
 ];
 
+// Winter: a mix of tiny six-arm snowflakes and soft round flakes (the round ones are blurred a little, so they look far away).
+const FLAKE = 'M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7M12 5l-2-2M12 5l2-2M12 19l-2 2M12 19l2 2';
 function Shape({ kind, size, color, variant }) {
-  if (kind === 'snow') return <span className="block rounded-full" style={{ width: size / 2, height: size / 2, background: color, opacity: 0.9 }} />;
+  if (kind === 'snow') {
+    if (variant % 3 === 0) return <svg width={size * 0.8} height={size * 0.8} viewBox="0 0 24 24" aria-hidden="true" style={{ opacity: 0.95 }}><path d={FLAKE} stroke={color} strokeWidth="1.6" strokeLinecap="round" fill="none" /></svg>;
+    const far = variant % 3 === 1;
+    return <span className="block rounded-full" style={{ width: far ? size / 3 : size / 2, height: far ? size / 3 : size / 2, background: color, opacity: far ? 0.7 : 0.95, filter: far ? 'blur(.6px)' : 'none', boxShadow: far ? 'none' : '0 0 6px rgba(186,230,253,.9)' }} />;
+  }
   if (kind === 'petal') return <span className="block" style={{ width: size * 0.6, height: size * 0.85, background: color, borderRadius: '70% 0 70% 0', opacity: 0.85 }} />;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ opacity: 0.9 }}>
@@ -37,7 +43,7 @@ function budget() {
   } catch (_) { return 6; }
 }
 
-export default function SeasonFX() {
+export default function SeasonFX({ mode }) {
   const path = usePathname() || '/';
   const [fx, setFx] = useState(null);
   const [off, setOff] = useState(false);
@@ -53,20 +59,20 @@ export default function SeasonFX() {
   }, []);
 
   useEffect(() => {
-    const s = seasonFor();
+    const s = seasonFor(new Date(), mode);
     if (!s || !s.particles) return;
     const count = budget();
     if (!count) return;
     setFx({
       kind: s.particles,
       items: Array.from({ length: count }, (_, i) => {
-        const dur = 14 + Math.random() * 10;
+        const dur = (s.particles === 'snow' ? 11 : 14) + Math.random() * 10;
         return { id: i, left: 2 + Math.random() * 96, size: 16 + Math.random() * 14, dur, delay: -Math.random() * dur, sway: 4 + Math.random() * 3, color: s.colors[i % s.colors.length], variant: i };
       }),
     });
-  }, []);
+  }, [mode]);
 
-  if (!fx || off || hidden || !/^\/(?:$|about|blog|contact|how-to-order)/.test(path)) return null;
+  if (!fx || off || hidden || !/^\/(?:$|about|blog|contact|how-to-order|products|category|reels|workers|wishlist)/.test(path)) return null;
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[35] overflow-hidden" style={{ contain: 'strict' }}>
       {fx.items.map((p) => (

@@ -222,8 +222,8 @@ export async function POST(req) {
       const r = await geminiCall(ladderFor(cfg, 'chat'), {
         systemInstruction: { parts: [{ text: systemPrompt(cfg, total, catList, cur, liked) }] },
         contents, tools: TOOLS,
-        generationConfig: { temperature: 0.6, maxOutputTokens: 350 },
-      }, { timeoutMs: 12000, deadlineMs: 24000, maxTries: 4 });
+        generationConfig: { temperature: 0.5, maxOutputTokens: 280 },
+      }, { timeoutMs: 8000, deadlineMs: 20000, maxTries: 4 });
       if (!r.ok) { console.error('assistant Gemini failed', r.status, String(r.error || '').slice(0, 160)); return await fallback(r.status); }
       const content = r.json.candidates && r.json.candidates[0] && r.json.candidates[0].content;
       const parts = (content && content.parts) || [];

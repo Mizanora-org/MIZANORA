@@ -227,3 +227,11 @@ a:active, button:not(:disabled):active { opacity: .92; }
 @media (prefers-reduced-motion: reduce) {
   .mz-drop { animation: none !important; }
 }
+
+
+/* ===== v20: winter ===== */
+@keyframes mz-snow-hero { from { transform: translate3d(0, -12px, 0); opacity: 0; } 12% { opacity: .9; } to { transform: translate3d(var(--dx, 10px), 340px, 0); opacity: .1; } }
+.mz-hero-snow { animation: mz-snow-hero 6s linear infinite; will-change: transform; }
+body[data-season="winter"] .mz-page { background-image: linear-gradient(180deg, rgba(186, 230, 253, .22), rgba(186, 230, 253, 0) 360px); }
+body[data-season="winter"] { --mz-frost: 1; }
+@media (prefers-reduced-motion: reduce) { .mz-hero-snow { animation-duration: 14s; } }

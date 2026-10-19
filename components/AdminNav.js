@@ -49,6 +49,7 @@ export const ADMIN_MENU = [
       { href: '/admin/music', label: 'Music', icon: Music4, hint: 'Background music for the app and the reels', tag: 'NEW' },
       { href: '/admin/reels', label: 'Reels', icon: Video },
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
+      { href: '/admin/ai', label: 'AI Manager', icon: Bot, hint: 'An AI that runs shop tasks for you', tag: 'NEW' },
       { href: '/admin/assistant', label: 'AI Assistant', icon: Bot },
       { href: '/admin/searches', label: 'Searches', icon: Search, hint: 'What customers type in the shop' },
     ],

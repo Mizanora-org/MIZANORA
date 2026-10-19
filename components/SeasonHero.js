@@ -3,6 +3,8 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { seasonFor } from '@/lib/season';
 import HijriChip from './HijriChip';
 
+// winter: [left %, delay s, fall seconds, drift px]
+const SNOW = [[6, 0, 6, 14], [14, 1.2, 7, -10], [22, 2.4, 5.5, 12], [31, .6, 6.5, -14], [40, 3, 7.5, 10], [48, 1.8, 5.8, -8], [57, .3, 6.8, 14], [65, 2.2, 6.2, -12], [73, 1, 7.2, 8], [81, 3.4, 5.6, -10], [89, 1.5, 6.6, 12], [95, 2.8, 7, -6]];
 const STARS = [[10, 20, 9], [24, 70, 7], [38, 25, 10], [55, 75, 8], [66, 18, 8], [80, 68, 10], [91, 40, 7]];
 
 // A small hanging lantern (fanoos)
@@ -22,8 +24,8 @@ function Lantern({ className = '', delay = '0s' }) {
 }
 
 // Compact seasonal + Islamic welcome strip at the top of the home page.
-export default function SeasonHero({ hasPicks = false }) {
-  const s = seasonFor();
+export default function SeasonHero({ hasPicks = false, mode }) {
+  const s = seasonFor(new Date(), mode);
   if (!s) return null;
   return (
     <section className="mx-auto max-w-7xl px-3 pt-3 sm:px-4 sm:pt-4" aria-label={`${s.urdu} collection`}>
@@ -37,6 +39,12 @@ export default function SeasonHero({ hasPicks = false }) {
           <path d="M42 8a24 24 0 1 0 14 38A20 20 0 0 1 42 8z" fill="#FFE9A8" />
           <path d="M50 14l1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6z" fill="#FFE9A8" />
         </svg>
+        {s.id === 'winter' && (
+          <>
+            {SNOW.map(([x, d, t, dx], i) => <span key={i} aria-hidden="true" className="mz-hero-snow absolute -z-10 rounded-full bg-white" style={{ left: `${x}%`, top: 0, width: 3 + (i % 3) * 2, height: 3 + (i % 3) * 2, animationDuration: `${t}s`, animationDelay: `${d}s`, '--dx': `${dx}px`, opacity: 0.85 }} />)}
+            <svg aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-10 w-full sm:h-14" viewBox="0 0 400 60" preserveAspectRatio="none"><path d="M0 60V38l40-18 36 20 52-30 48 28 44-22 56 26 40-20 48 22 36-14v50z" fill="#fff" fillOpacity=".16" /><path d="M0 60V46l54-14 42 14 62-18 52 18 70-16 60 16 60-12v26z" fill="#fff" fillOpacity=".24" /></svg>
+          </>
+        )}
         <Lantern className="left-[5%]" />
         <Lantern className="left-[14%] hidden sm:block" delay="-2s" />
         <Lantern className="right-[26%] hidden md:block" delay="-3.4s" />

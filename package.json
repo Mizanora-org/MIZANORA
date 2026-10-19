@@ -8,7 +8,7 @@
     "build:offline": "NEXT_FONT_GOOGLE_MOCKED_RESPONSES=$PWD/scripts/google-fonts-mock.js next build",
     "start": "next start",
     "check": "node scripts/check.js && node scripts/typecheck.js",
-    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs"
+    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs && node scripts/test-v20.mjs"
   },
   "dependencies": {
     "firebase": "^11.0.0",

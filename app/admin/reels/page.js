@@ -33,7 +33,7 @@ export default function AdminReels() {
 
   async function save(e) {
     e.preventDefault();
-    if (!v) { setMsg('This link is not supported. Use a YouTube, Facebook, Instagram, TikTok or .mp4 link.'); return; }
+    if (!v) { setMsg('This link is not supported. Use a YouTube, Facebook, Instagram, TikTok, Vimeo, Dailymotion, Streamable, Google Drive, Dropbox or direct .mp4 / .webm link.'); return; }
     const id = form.id || Date.now().toString(36);
     try {
       await setDoc(doc(dbClient(), 'reels', id), { url: form.url.trim(), title: form.title.trim(), productSlug: form.productSlug, link: form.link.trim(), order: Number(form.order) || 0, active: Boolean(form.active), updatedAtMs: Date.now() });
@@ -52,7 +52,7 @@ export default function AdminReels() {
         <p className="text-sm text-dim">The background music (for the app and for the reels) is set in <b className="text-cream">Admin &rsaquo; Music</b>.</p>
         <Link href="/admin/music" className="btn-ghost !px-4 !py-2 text-sm">Open music settings</Link>
       </div>
-      <p className="mb-4 text-sm text-dim">Paste a YouTube Short, Facebook reel, Instagram reel, TikTok or .mp4 link. Pick the product so the viewer gets a Shop now button. Product videos also appear here automatically.</p>
+      <p className="mb-4 text-sm text-dim">Paste a YouTube video or Short, Facebook reel, Instagram reel, TikTok, Vimeo, Dailymotion, Streamable, Google Drive (share link) or any direct .mp4 / .webm / .mov link. Pick the product so the viewer gets a Shop now button. Product videos also appear here automatically.</p>
       {msg && <p role="status" className="mb-3 rounded-xl bg-raised p-3 text-sm">{msg}</p>}
 
       {show && (

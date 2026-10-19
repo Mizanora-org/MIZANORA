@@ -16,6 +16,8 @@ import PwaRegister from '@/components/PwaRegister';
 import MetaPixel from '@/components/MetaPixel';
 import JsonLd from '@/components/JsonLd';
 import SeasonFX from '@/components/SeasonFX';
+import { getThemeMode } from '@/lib/themeServer';
+import { seasonFor } from '@/lib/season';
 import BackToTop from '@/components/BackToTop';
 import RefCapture from '@/components/RefCapture';
 import WorkerPrices from '@/components/WorkerPrices';
@@ -67,6 +69,7 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
+  const themeMode = await getThemeMode(); // the season look (admin can change it without a redeploy)
   const status = await getSiteStatus();
   const down = status.mode === 'down';
   const categories = await getCategories();
@@ -76,7 +79,7 @@ export default async function RootLayout({ children }) {
   const assistant = down || status.mode === 'saver' || status.features.assistant === false ? { enabled: false, name: 'Noor', voiceMode: 'browser', greeting: '' } : await getPublicAssistant();
   return (
     <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${body.variable} ${arabic.variable}`}>
-      <body>
+      <body data-season={(seasonFor(new Date(), themeMode) || {}).id || 'none'}>
         <SiteGate down={down} maintenance={<Maintenance reason={status.reason} backAt={status.backAt} />}>
         <SplashScreen />
         <RouteProgress />
@@ -84,7 +87,7 @@ export default async function RootLayout({ children }) {
         <AuthProvider>
         <CartProvider>
           <InstallProvider>
-            <AnnouncementBar />
+            <AnnouncementBar mode={themeMode} />
             <Header categories={categories} music={music} />
             {/* The footer and the floating buttons sit INSIDE main: on /admin the whole main area belongs to the admin panel, so
                 nothing of the shop shows up under it (HideOnAdmin). Printing is unchanged (both carry .no-print like before). */}
@@ -96,7 +99,7 @@ export default async function RootLayout({ children }) {
             <AssistantFab cfg={assistant} />
             <BottomNav />
             <InstallBanner />
-            <SeasonFX />
+            <SeasonFX mode={themeMode} />
             <BackToTop />
             <CardEvents />
             <AppFeel />

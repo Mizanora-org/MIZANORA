@@ -21,7 +21,10 @@ import { getPublicAssistant } from '@/lib/assistantPublic';
 import Reveal from '@/components/Reveal';
 import SeasonHero from '@/components/SeasonHero';
 import DailyReminder from '@/components/DailyReminder';
+import IslamicFeed from '@/components/IslamicFeed';
+import { getFeedPosts } from '@/lib/feedPosts';
 import { seasonFor, matchesSeason } from '@/lib/season';
+import { getThemeMode } from '@/lib/themeServer';
 import { inCategory } from '@/lib/cats';
 import { DEPARTMENTS } from '@/lib/departments';
 import JsonLd from '@/components/JsonLd';
@@ -66,7 +69,7 @@ export default async function Home() {
   // THE WHOLE CATALOGUE: live products + the archived products that live as JSON files in the repository.
   // A shop can keep EVERY product in those files (CSV import -> data/catalog) and still fill this home page,
   // with no Firestore writes and no Firestore reads for visitors.
-  const [all, banners, reels, categories, totalCount, reelMusic] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount(), getReelMusic()]);
+  const [all, banners, reels, categories, totalCount, reelMusic, feedPosts] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount(), getReelMusic(), getFeedPosts()]);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
@@ -80,7 +83,8 @@ export default async function Home() {
     .filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i).sort(byPrice).slice(0, 16);
   const cheapest = inStockAll.length ? Math.min(...inStockAll.map((p) => p.price)) : 0;
   const assistant = await getPublicAssistant();
-  const season = seasonFor();
+  const themeMode = await getThemeMode();
+  const season = seasonFor(new Date(), themeMode);
   const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 10) : [];
   const posts = getPosts().slice(0, 4);
   const socials = SITE.social.filter((s) => s.url);
@@ -99,7 +103,7 @@ export default async function Home() {
 
   return (
     <>
-      <SeasonHero hasPicks={seasonPicks.length > 0} />
+      <SeasonHero hasPicks={seasonPicks.length > 0} mode={themeMode} />
       <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-4 sm:pt-4">
         <BannerCarousel banners={banners.length > 0 ? banners : DEFAULT_SLIDES} />
         <h1 className="sr-only">Mizanora: online shopping market in Pakistan with cash on delivery</h1>
@@ -174,6 +178,8 @@ export default async function Home() {
           <ReelsRail reels={reels.slice(0, 12)} music={reelMusic} />
         </section></Reveal>
       )}
+
+      <Reveal><IslamicFeed extra={feedPosts} winter={season ? season.id === 'winter' : false} /></Reveal>
 
       <Shelf id="picks" title="Top picks for you" href="/products" products={picks} />
       <Shelf id="new" title="New arrivals" href="/products" products={fresh} priorityFirst={deals.length === 0 && picks.length === 0} />
