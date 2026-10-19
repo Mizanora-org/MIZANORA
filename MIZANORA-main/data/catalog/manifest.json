@@ -1,0 +1,244 @@
+{
+ "version": 1,
+ "total": 11893,
+ "parts": [
+  {
+   "n": 1,
+   "file": "part-0001.json",
+   "cards": "cards-0001.json",
+   "count": 500,
+   "at": 1792151882898
+  },
+  {
+   "n": 2,
+   "file": "part-0002.json",
+   "cards": "cards-0002.json",
+   "count": 500,
+   "at": 1792151885597
+  },
+  {
+   "n": 3,
+   "file": "part-0003.json",
+   "cards": "cards-0003.json",
+   "count": 99,
+   "at": 1792151889247
+  },
+  {
+   "n": 4,
+   "file": "part-0004.json",
+   "cards": "cards-0004.json",
+   "count": 500,
+   "at": 1792152013996
+  },
+  {
+   "n": 5,
+   "file": "part-0005.json",
+   "cards": "cards-0005.json",
+   "count": 500,
+   "at": 1792152016919
+  },
+  {
+   "n": 6,
+   "file": "part-0006.json",
+   "cards": "cards-0006.json",
+   "count": 96,
+   "at": 1792152019585
+  },
+  {
+   "n": 7,
+   "file": "part-0007.json",
+   "cards": "cards-0007.json",
+   "count": 500,
+   "at": 1792152773026
+  },
+  {
+   "n": 8,
+   "file": "part-0008.json",
+   "cards": "cards-0008.json",
+   "count": 500,
+   "at": 1792152776276
+  },
+  {
+   "n": 9,
+   "file": "part-0009.json",
+   "cards": "cards-0009.json",
+   "count": 99,
+   "at": 1792152778956
+  },
+  {
+   "n": 10,
+   "file": "part-0010.json",
+   "cards": "cards-0010.json",
+   "count": 500,
+   "at": 1792152860077
+  },
+  {
+   "n": 11,
+   "file": "part-0011.json",
+   "cards": "cards-0011.json",
+   "count": 500,
+   "at": 1792152864218
+  },
+  {
+   "n": 12,
+   "file": "part-0012.json",
+   "cards": "cards-0012.json",
+   "count": 98,
+   "at": 1792152867303
+  },
+  {
+   "n": 13,
+   "file": "part-0013.json",
+   "cards": "cards-0013.json",
+   "count": 500,
+   "at": 1792152963115
+  },
+  {
+   "n": 14,
+   "file": "part-0014.json",
+   "cards": "cards-0014.json",
+   "count": 500,
+   "at": 1792152968982
+  },
+  {
+   "n": 15,
+   "file": "part-0015.json",
+   "cards": "cards-0015.json",
+   "count": 99,
+   "at": 1792152975901
+  },
+  {
+   "n": 16,
+   "file": "part-0016.json",
+   "cards": "cards-0016.json",
+   "count": 500,
+   "at": 1792154428382
+  },
+  {
+   "n": 17,
+   "file": "part-0017.json",
+   "cards": "cards-0017.json",
+   "count": 500,
+   "at": 1792154434516
+  },
+  {
+   "n": 18,
+   "file": "part-0018.json",
+   "cards": "cards-0018.json",
+   "count": 96,
+   "at": 1792154437583
+  },
+  {
+   "n": 19,
+   "file": "part-0019.json",
+   "cards": "cards-0019.json",
+   "count": 500,
+   "at": 1792154502342
+  },
+  {
+   "n": 20,
+   "file": "part-0020.json",
+   "cards": "cards-0020.json",
+   "count": 500,
+   "at": 1792154508482
+  },
+  {
+   "n": 21,
+   "file": "part-0021.json",
+   "cards": "cards-0021.json",
+   "count": 67,
+   "at": 1792154511575
+  },
+  {
+   "n": 22,
+   "file": "part-0022.json",
+   "cards": "cards-0022.json",
+   "count": 500,
+   "at": 1792154564006
+  },
+  {
+   "n": 23,
+   "file": "part-0023.json",
+   "cards": "cards-0023.json",
+   "count": 500,
+   "at": 1792154570343
+  },
+  {
+   "n": 24,
+   "file": "part-0024.json",
+   "cards": "cards-0024.json",
+   "count": 87,
+   "at": 1792154573259
+  },
+  {
+   "n": 25,
+   "file": "part-0025.json",
+   "cards": "cards-0025.json",
+   "count": 500,
+   "at": 1792154640710
+  },
+  {
+   "n": 26,
+   "file": "part-0026.json",
+   "cards": "cards-0026.json",
+   "count": 500,
+   "at": 1792154647820
+  },
+  {
+   "n": 27,
+   "file": "part-0027.json",
+   "cards": "cards-0027.json",
+   "count": 64,
+   "at": 1792154652094
+  },
+  {
+   "n": 28,
+   "file": "part-0028.json",
+   "cards": "cards-0028.json",
+   "count": 500,
+   "at": 1792154849988
+  },
+  {
+   "n": 29,
+   "file": "part-0029.json",
+   "cards": "cards-0029.json",
+   "count": 500,
+   "at": 1792154854934
+  },
+  {
+   "n": 30,
+   "file": "part-0030.json",
+   "cards": "cards-0030.json",
+   "count": 64,
+   "at": 1792154857794
+  },
+  {
+   "n": 31,
+   "file": "part-0031.json",
+   "cards": "cards-0031.json",
+   "count": 500,
+   "at": 1792154927401
+  },
+  {
+   "n": 32,
+   "file": "part-0032.json",
+   "cards": "cards-0032.json",
+   "count": 429,
+   "at": 1792154933467
+  },
+  {
+   "n": 33,
+   "file": "part-0033.json",
+   "cards": "cards-0033.json",
+   "count": 49,
+   "at": 1792157405819
+  },
+  {
+   "n": 34,
+   "file": "part-0034.json",
+   "cards": "cards-0034.json",
+   "count": 46,
+   "at": 1792158183055
+  }
+ ]
+}

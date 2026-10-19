@@ -1,0 +1,29 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "siteStatus": { ".read": true, ".write": false },
+
+    "presence": {
+      "$vid": {
+        ".validate": "$vid.matches(/^[a-z0-9]{8,24}$/)",
+        ".write": "newData.val() === null || (newData.hasChildren(['t', 'p']) && newData.child('t').isNumber() && newData.child('t').val() <= now + 60000 && newData.child('t').val() >= now - 600000 && newData.child('p').isString() && newData.child('p').val().length <= 120)"
+      }
+    },
+
+    "stats": {
+      "$metric": {
+        "$bucket": {
+          "$key": {
+            ".write": "(($metric === 'd' && ($key === 'views' || $key === 'uv')) || $metric === 'h' || $metric === 'pv' || $metric === 'cart' || $metric === 'src' || $metric === 'dev' || $metric === 'q' || $metric === 'q0' || ($metric === 'ev' && $key !== 'order')) && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && $key.length <= 100 && $bucket.length <= 16",
+            ".validate": "newData.isNumber()"
+          }
+        }
+      }
+    },
+
+    "liveOrders": { ".indexOn": ["t"] },
+    "ordersBackup": { ".indexOn": ["createdAtMs"] }
+  }
+}
