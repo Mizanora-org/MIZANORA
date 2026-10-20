@@ -34,7 +34,7 @@ export default function CartClient() {
         {items.map((i) => (
           <li key={i.key} className="card flex gap-4 !p-3.5">
             <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-raised">
-              {i.image && <Image src={i.image} alt={i.name} fill sizes="96px" className="object-cover" />}
+              {i.image && <Image referrerPolicy="no-referrer" src={i.image} alt={i.name} fill sizes="96px" className="object-cover" />}
             </div>
             <div className="min-w-0 flex-1">
               <Link href={`/product/${i.slug}`} className="line-clamp-2 font-medium">{i.name}</Link>

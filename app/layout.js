@@ -21,6 +21,8 @@ import { seasonFor } from '@/lib/season';
 import BackToTop from '@/components/BackToTop';
 import RefCapture from '@/components/RefCapture';
 import WorkerPrices from '@/components/WorkerPrices';
+import WishSync from '@/components/WishSync';
+import AdminEditLayer from '@/components/AdminEditLayer';
 import SplashScreen from '@/components/SplashScreen';
 import RouteProgress from '@/components/RouteProgress';
 import CardEvents from '@/components/CardEvents';
@@ -79,6 +81,11 @@ export default async function RootLayout({ children }) {
   const assistant = down || status.mode === 'saver' || status.features.assistant === false ? { enabled: false, name: 'Noor', voiceMode: 'browser', greeting: '' } : await getPublicAssistant();
   return (
     <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${body.variable} ${arabic.variable}`}>
+      <head>
+        {/* Google AdSense auto ads (site-wide). A plain script tag, as AdSense asks: the Next <Script> component adds a data-nscript attribute AdSense warns about. */}
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4008582341764263" crossOrigin="anonymous" />
+        <meta name="google-adsense-account" content="ca-pub-4008582341764263" />
+      </head>
       <body data-season={(seasonFor(new Date(), themeMode) || {}).id || 'none'}>
         <SiteGate down={down} maintenance={<Maintenance reason={status.reason} backAt={status.backAt} />}>
         <SplashScreen />
@@ -110,6 +117,8 @@ export default async function RootLayout({ children }) {
         <Tracker off={down} />
         <RefCapture />
         <WorkerPrices />
+        <WishSync />
+        <AdminEditLayer />
         <MetaPixel />
         <PwaRegister />
         <JsonLd data={[orgJsonLd(), websiteJsonLd()]} />

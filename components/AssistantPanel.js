@@ -30,7 +30,7 @@ function Dots() {
 }
 
 function Thumb({ src, size = 64, video = '' }) {
-  if (src) return <Image src={src} alt="" width={size} height={size} sizes={`${size}px`} className="h-full w-full object-cover" />;
+  if (src) return <Image referrerPolicy="no-referrer" src={src} alt="" width={size} height={size} sizes={`${size}px`} className="h-full w-full object-cover" />;
   if (video) return <span className="grid h-full w-full place-items-center bg-gradient-to-br from-[#0E8556] to-[#073D28] text-white" title="Video product"><Play size={22} /></span>;
   return <span className="grid h-full w-full place-items-center bg-raised font-display text-bronze">M</span>;
 }

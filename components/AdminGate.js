@@ -41,7 +41,7 @@ const OK_KEY = 'mz_admin_ok';
 const okFresh = () => {
   try { const j = JSON.parse(sessionStorage.getItem(OK_KEY) || 'null'); return Boolean(j && j.uid && Date.now() - j.t < 15 * 60e3 ? j : false); } catch (_) { return false; }
 };
-const rememberOk = (uid) => { try { sessionStorage.setItem(OK_KEY, JSON.stringify({ uid, t: Date.now() })); } catch (_) { /* ignore */ } };
+const rememberOk = (uid) => { try { sessionStorage.setItem(OK_KEY, JSON.stringify({ uid, t: Date.now() })); localStorage.setItem('mz_admin_uid', uid); } catch (_) { /* ignore */ } };
 const forgetOk = () => { try { sessionStorage.removeItem(OK_KEY); } catch (_) { /* ignore */ } };
 
 // Compact setup banner. The FULL test of every connection (Firestore, Realtime Database, GitHub) lives in Admin > Connections.

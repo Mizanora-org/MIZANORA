@@ -47,7 +47,7 @@ function Poster({ reel, v, sizes = '240px', priority = false, className = '' }) 
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={() => setBad(2)} className={`absolute inset-0 h-full w-full object-cover ${className}`} />;
   }
-  return <Image src={src} alt="" fill sizes={sizes} priority={priority} onError={() => setBad(1)} className={`object-cover ${className}`} />;
+  return <Image referrerPolicy="no-referrer" src={src} alt="" fill sizes={sizes} priority={priority} onError={() => setBad(1)} className={`object-cover ${className}`} />;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -231,7 +231,7 @@ function Viewer({ reels, start, onClose, music }) {
                             ? `${rv.src}&mute=1&loop=1&playlist=${rv.id}&controls=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`
                             : rv.src}
                           onLoad={() => { if (rv.type === 'youtube' && !muted) setTimeout(() => yt('unMute'), 400); }}
-                          allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen className="h-full w-full border-0" />
+                          allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" className="h-full w-full border-0" />
                       </div>
                     )}
                     {rv.type === 'youtube' && <button type="button" aria-label={paused ? 'Play' : 'Pause'} onClick={togglePlay} className="absolute inset-x-0 top-14 bottom-44 z-[5]">{paused && <span className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-black/50 text-white"><Play size={36} fill="currentColor" /></span>}</button>}
@@ -272,7 +272,7 @@ function Viewer({ reels, start, onClose, music }) {
                 <div className="absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pr-16">
                   <p className="line-clamp-2 text-base font-bold leading-snug drop-shadow">{reel.title}</p>
                   <div className="mt-2.5 flex items-center gap-3 rounded-2xl bg-black/45 p-2">
-                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/20">{reel.image && <Image src={reel.image} alt="" fill sizes="48px" className="object-cover" />}</span>
+                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/20">{reel.image && <Image referrerPolicy="no-referrer" src={reel.image} alt="" fill sizes="48px" className="object-cover" />}</span>
                     <span className="min-w-0 flex-1">
                       {reel.price > 0 && <span className="block text-lg font-extrabold leading-none text-saffron">{formatPKR(reel.price)}</span>}
                       <span className="block text-[0.7rem] text-white/80">Cash on delivery</span>

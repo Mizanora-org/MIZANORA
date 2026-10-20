@@ -8,6 +8,9 @@ const nextConfig = {
   // The product archive (data/catalog/*.json) is read from disk by the server, so it must travel with the serverless functions.
   outputFileTracingIncludes: { '/**': ['./data/catalog/**/*'] },
   images: {
+    // v21: photos load straight from their own host by default. The Vercel optimizer has a monthly limit on source images; when it is
+    // used up, or a host refuses it, EVERY photo broke. Set NEXT_IMAGE_OPTIMIZE=1 in Vercel to use the optimizer again.
+    unoptimized: process.env.NEXT_IMAGE_OPTIMIZE !== '1',
     // WebP only: AVIF is smaller but very slow to create the first time (that was a source of lag on new product photos).
     formats: ['image/webp'],
     // Fewer size variants = more cache hits, faster photos, fewer image transformations on Vercel.

@@ -18,7 +18,7 @@ export default function CardPhoto({ src, alt, priority = false, sizes }) {
     return <img src={src} alt={alt} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" onError={dead} />;
   }
   return (
-    <Image
+    <Image referrerPolicy="no-referrer"
       src={src}
       alt={alt}
       fill

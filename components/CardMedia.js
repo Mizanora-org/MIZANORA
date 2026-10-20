@@ -44,7 +44,7 @@ export default function CardMedia({ img, alt, priority = false, sizes, video = '
   }
 
   return (
-    <Image
+    <Image referrerPolicy="no-referrer"
       src={img}
       alt={alt}
       fill

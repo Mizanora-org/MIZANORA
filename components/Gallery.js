@@ -18,7 +18,7 @@ export default function Gallery({ images, name, slug }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={images[i]} alt={`${name} - photo ${i + 1}`} referrerPolicy="no-referrer" decoding="async" className="absolute inset-0 h-full w-full object-cover" onError={() => { setBad((b) => ({ ...b, [i]: 2 })); reportBrokenImage(slug); }} />
         ) : (
-          <Image src={images[i]} alt={`${name} - photo ${i + 1}`} fill priority={i === 0} sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" onError={() => setBad((b) => ({ ...b, [i]: 1 }))} />
+          <Image referrerPolicy="no-referrer" src={images[i]} alt={`${name} - photo ${i + 1}`} fill priority={i === 0} sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" onError={() => setBad((b) => ({ ...b, [i]: 1 }))} />
         )}
         {images.length > 1 && <span className="absolute bottom-2 right-2 rounded-full bg-black/55 px-2.5 py-0.5 text-xs font-semibold text-white">{i + 1} / {images.length}</span>}
       </div>
@@ -30,7 +30,7 @@ export default function Gallery({ images, name, slug }) {
               {bad[n] === 2 ? <span className="grid h-full w-full place-items-center bg-raised text-bronze">M</span> : bad[n] === 1 ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={src} alt="" referrerPolicy="no-referrer" loading="lazy" className="absolute inset-0 h-full w-full object-cover" onError={() => setBad((b) => ({ ...b, [n]: 2 }))} />
-              ) : <Image src={src} alt="" fill sizes="64px" className="object-cover" onError={() => setBad((b) => ({ ...b, [n]: 1 }))} />}
+              ) : <Image referrerPolicy="no-referrer" src={src} alt="" fill sizes="64px" className="object-cover" onError={() => setBad((b) => ({ ...b, [n]: 1 }))} />}
             </button>
           ))}
         </div>

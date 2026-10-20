@@ -149,7 +149,7 @@ export default async function Home() {
             <li key={c.slug} className="shrink-0">
               <Link href={`/category/${c.slug}`} className="block w-[5.2rem] text-center sm:w-28">
                 <span className={`relative mx-auto grid h-[4.4rem] w-[4.4rem] place-items-center overflow-hidden rounded-full border-2 sm:h-24 sm:w-24 ${c.real ? 'border-gold bg-raised' : 'border-line bg-surface text-gold'}`}>
-                  {c.image ? <Image src={c.image} alt="" fill sizes="96px" className="object-cover" /> : c.Icon ? <c.Icon size={30} /> : <span className="font-display text-3xl text-gold">{c.name[0]}</span>}
+                  {c.image ? <Image referrerPolicy="no-referrer" src={c.image} alt="" fill sizes="96px" className="object-cover" /> : c.Icon ? <c.Icon size={30} /> : <span className="font-display text-3xl text-gold">{c.name[0]}</span>}
                 </span>
                 <span className="mt-1.5 block text-xs font-semibold leading-tight text-cream sm:text-sm">{c.name}</span>
                 {c.real && <span className="block text-[0.7rem] text-faint">{c.count} item{c.count > 1 ? 's' : ''}</span>}

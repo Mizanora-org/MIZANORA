@@ -248,7 +248,7 @@ export default function AccountClient() {
       </div>
     );
   }
-  const tabs = [['orders', 'My orders', Package], ['addresses', 'Saved addresses', MapPin], ['worker', 'Earn with us', BadgePercent], ['profile', 'Profile', UserRound]];
+  const tabs = [['orders', 'My orders', Package], ['addresses', 'Saved addresses', MapPin], ['worker', 'Earn with us', BadgePercent], ['security', 'Security and devices', ShieldCheck], ['profile', 'Profile', UserRound]];
   return (
     <div>
       <AccountHeader user={user} />
@@ -264,6 +264,7 @@ export default function AccountClient() {
           <div className="flex flex-wrap gap-3"><Link href="/worker" className="btn-gold !py-2.5">Open worker dashboard / apply</Link><Link href="/workers" className="btn-ghost !py-2.5">How it works</Link></div>
         </div>
       )}
+      {tab === 'security' && <SecurityPanel user={user} />}
       {tab === 'profile' && <Profile user={user} />}
     </div>
   );
@@ -299,6 +300,7 @@ function AccountHeader({ user }) {
           <p className="truncate text-sm text-white/85">{user.email}</p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/75">
             <span className="inline-flex items-center gap-1"><ShieldCheck size={12} /> Signed in with {via}</span>
+            <span className="font-mono font-bold tracking-wide">ID MZ-{String(user.uid || '').slice(0, 8).toUpperCase()}</span>
             {created && <span>Member since {fmtDay(created)}</span>}
             {last && <span>Last sign-in {fmtDay(last)}</span>}
           </p>
@@ -396,6 +398,67 @@ function AccountSkeleton() {
     <div className="space-y-4" aria-hidden="true">
       <div className="card flex items-center gap-4"><div className="mz-skel h-16 w-16 !rounded-2xl" /><div className="flex-1 space-y-2"><div className="mz-skel h-4 w-40" /><div className="mz-skel h-3.5 w-56" /></div></div>
       <ListSkeleton rows={2} />
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// SECURITY AND DEVICES: where you are signed in, how, and a button to end every session.
+// ---------------------------------------------------------------------------------------------
+function deviceName() {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const os = /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iPhone / iPad' : /Windows/i.test(ua) ? 'Windows' : /Mac OS X/i.test(ua) ? 'Mac' : /Linux/i.test(ua) ? 'Linux' : 'this device';
+  const br = /FBAN|FBAV/i.test(ua) ? 'Facebook app' : /Instagram/i.test(ua) ? 'Instagram app' : /Edg\//i.test(ua) ? 'Edge' : /OPR\//i.test(ua) ? 'Opera' : /Chrome\//i.test(ua) ? 'Chrome' : /Safari\//i.test(ua) ? 'Safari' : /Firefox\//i.test(ua) ? 'Firefox' : 'a browser';
+  return `${br} on ${os}`;
+}
+
+function SecurityPanel({ user }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [wish, setWishN] = useState(0);
+  useEffect(() => { const r = () => setWishN(getWish().length); r(); window.addEventListener('mz-wish', r); return () => window.removeEventListener('mz-wish', r); }, []);
+  const provider = (user.providerData || [])[0]?.providerId || 'password';
+  const via = provider.includes('google') ? 'Google' : provider.includes('apple') ? 'Apple' : provider.includes('facebook') ? 'Facebook' : 'Email and password';
+
+  async function here() { setBusy(true); try { await signOut(authClient()); router.refresh(); } catch (_) { /* ignore */ } setBusy(false); }
+  async function everywhere() {
+    if (!confirm('Sign out from ALL phones and browsers? You will need to sign in again.')) return;
+    setBusy(true); setMsg('');
+    try {
+      const token = await authClient().currentUser.getIdToken(true);
+      const r = await fetch('/api/account/sessions', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.error || 'Could not do that.');
+      await signOut(authClient());
+      router.refresh();
+    } catch (e) { setMsg(e.message || 'Could not do that.'); }
+    setBusy(false);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card space-y-2">
+        <p className="flex items-center gap-2 text-lg font-bold"><ShieldCheck size={20} className="text-gold" /> This device</p>
+        <p className="text-sm text-dim">{deviceName()}, signed in with <b>{via}</b>. You stay signed in on this device until you sign out, so ordering next time takes a few taps.</p>
+        {user.metadata?.lastSignInTime && <p className="text-xs text-faint">Last sign-in: {fmtDay(user.metadata.lastSignInTime)}</p>}
+        <p className="text-xs text-faint">Your account ID: MZ-{String(user.uid || '').slice(0, 8).toUpperCase()}</p>
+      </div>
+      <div className="card space-y-2">
+        <p className="flex items-center gap-2 text-lg font-bold"><Heart size={20} className="text-gold" /> Wishlist sync</p>
+        <p className="text-sm text-dim">{wish} saved product{wish === 1 ? '' : 's'}. While you are signed in, your wishlist is saved on your account, so it appears on every phone you sign in on.</p>
+      </div>
+      <div className="card space-y-3">
+        <p className="flex items-center gap-2 text-lg font-bold"><LogOut size={20} className="text-gold" /> Sign out</p>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" className="btn-ghost !py-2.5" disabled={busy} onClick={here}>Sign out on this device</button>
+          <button type="button" className="btn-ghost !border-red-300 !py-2.5 !text-red-700" disabled={busy} onClick={everywhere}>Sign out everywhere</button>
+        </div>
+        <p className="text-xs text-faint">Lost your phone or used a shared phone? &quot;Sign out everywhere&quot; ends your login on all other devices (they are signed out within about an hour). Your orders and addresses are never deleted.</p>
+        {msg && <p role="alert" className="field-err">{msg}</p>}
+      </div>
+      <InstallApp />
     </div>
   );
 }

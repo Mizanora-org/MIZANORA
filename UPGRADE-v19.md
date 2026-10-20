@@ -17,3 +17,13 @@
 12. **AI speed**: lite model answers first (Admin > AI Assistant > Answer speed), shorter answers, voice starts with the first sentence and plays a little faster.
 13. **Admin > AI Manager** (`/admin/ai`): tools for season, video feed, Islamic posts, products, tasks, web research, blog publishing. Risky actions need your Confirm. Every action is logged in Firestore `aiManagerLog`. Needs FIREBASE_SERVICE_ACCOUNT (and GITHUB_TOKEN for blog publishing).
 14. **15 new blogs** (Muaaz Iqbal profile, Mizanora vs Daraz / Markaz / marketplaces, winter, halal trade, Noor AI, Kasur, reselling, students, Islamic feed). Team page shows Muaaz Iqbal's photos and WhatsApp number.
+
+# v21
+
+15. **Images and videos**: the Vercel image optimizer is now OFF by default (its monthly limit broke every photo once used up). Photos load straight from their host; every `<Image>` sends no referrer so hotlink-protected hosts work; broken video files show an "open video" button. To use the optimizer again set `NEXT_IMAGE_OPTIMIZE=1` in Vercel.
+16. **Wishlist**: it only looked at Firebase products, so saved catalogue products never showed. Now `/api/wishlist-cards` finds a product anywhere; storage-blocked browsers still work; signed-in shoppers get their wishlist synced to their account (`users/{uid}.wishlist`).
+17. **Account**: new "Security and devices" tab (this device, wishlist sync, sign out here, sign out everywhere via `/api/account/sessions`) and a member ID.
+18. **AdSense**: the exact auto-ads script is in `<head>` of every page, plus the `google-adsense-account` meta and `public/ads.txt`. In AdSense > Sites > your site, make sure Auto ads is ON and add `/admin/*` to the excluded pages.
+19. **Admin > Products**: one search box finds live AND catalogue-file products (the archive is searched automatically while you type). Archived products can be edited, hidden or marked sold out right there (written to the catalogue files, no Firebase).
+20. **Owner pencils**: when you are signed in as the owner, a pencil shows on every product card and on product pages; it opens a pop-up editor (name, price, old price, categories, description, photos, videos, stock) and saves at once. A small pencil button (bottom-left) opens owner shortcuts.
+21. **New pages**: /shipping, /size-guide, /islamic, /winter. **9 more blogs.**

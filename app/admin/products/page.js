@@ -36,6 +36,16 @@ export default function AdminProducts() {
   const [arch, setArch] = useState(null);   // result of "search the archive too" (old products in the repository)
   const [archBusy, setArchBusy] = useState(false);
   const [archMsg, setArchMsg] = useState('');
+  const [editArch, setEditArch] = useState(false); // true while the form holds an ARCHIVED (catalogue file) product: saving writes to the catalogue files, not Firebase
+
+  // One call to an admin API with the signed-in admin's token.
+  const authFetch = useCallback(async (url, body) => {
+    const token = await authClient().currentUser.getIdToken();
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) throw new Error(j.error || `Error ${r.status}`);
+    return j;
+  }, []);
 
   const byNew = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
   // Reads Firestore only when there is no fresh copy in this browser session (or when you press Refresh).
@@ -76,6 +86,12 @@ export default function AdminProducts() {
         affOn: data.affOn !== false, affRate: Math.min(50, Math.max(0, Number(data.affRate) || 0)),
         createdAt: existing ? existing.createdAt || now : now, updatedAt: now,
       };
+      if (editArch) {
+        await authFetch('/api/admin/archive-edit', { action: 'save', id: slug, data: payload });
+        setMsg(`Saved "${data.name}" in the catalogue files. The shop shows the change after the redeploy (1 to 3 minutes).`);
+        setForm(EMPTY); setEditing(false); setEditArch(false); setShowForm(false); setBusy(false);
+        return;
+      }
       await setDoc(doc(dbClient(), 'products', slug), payload);
       patchList((cur) => [...cur.filter((x) => x.id !== slug), { id: slug, ...payload }]);
       await revalidate(slug);
@@ -98,14 +114,14 @@ export default function AdminProducts() {
   }
   // Start a new product from an existing one (same photos, options, details). Change the name and save.
   const duplicate = (p) => {
-    setEditing(false);
+    setEditing(false); setEditArch(false);
     setForm({ ...EMPTY, ...p, name: `${p.name} (copy)`, slug: slugify(`${p.name} copy`), category: catsOf(p).join(', '), price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n') });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const edit = (p) => {
-    setEditing(true);
+    setEditing(true); setEditArch(false);
     setForm({ ...EMPTY, ...p, category: catsOf(p).join(', '), slug: p.id, price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n') });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -126,9 +142,9 @@ export default function AdminProducts() {
 
   // SEARCH THE ARCHIVE: old products live as JSON files in the repository (data/catalog), not in Firebase, so they are
   // searched through the server (which reads only the slim cards files, newest part first).
-  async function searchArchive() {
+  async function searchArchive(silent = false) {
     const query = q.trim();
-    if (!query) { setArchMsg('Type the search text in the box first, then press "Search the archive too".'); return; }
+    if (!query) { if (!silent) setArchMsg('Type the search text in the box first, then press "Search the archive too".'); return; }
     setArchBusy(true); setArchMsg('');
     try {
       const token = await authClient().currentUser.getIdToken();
@@ -138,6 +154,38 @@ export default function AdminProducts() {
       setArch(j);
       if (j.empty) setArchMsg('There is no archive yet (no parts in data/catalog).');
     } catch (e) { setArch(null); setArchMsg((e && e.message) || 'Archive search failed.'); } finally { setArchBusy(false); }
+  }
+
+  // The archive is searched automatically a moment after you stop typing, so ONE search box finds every product, live or archived.
+  useEffect(() => {
+    if (q.trim().length < 2) { setArch(null); return undefined; }
+    const t = setTimeout(() => { searchArchive(true); }, 650);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+
+  // Open an ARCHIVED product in the form (its full data is read from the catalogue files).
+  async function editArchived(item) {
+    setBusy(true); setMsg('');
+    try {
+      const j = await authFetch('/api/admin/archive', { action: 'get', slug: item.id });
+      const p = { id: item.id, ...j.data };
+      setEditing(true); setEditArch(true);
+      setForm({ ...EMPTY, ...p, category: catsOf(p).join(', '), slug: item.id, price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: Array.isArray(p.specs) ? p.specs.join('\n') : (p.specs || ''), affRate: p.affRate || '' });
+      setShowForm(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) { setMsg((e && e.message) || 'Could not open this product.'); }
+    setBusy(false);
+  }
+  // One-tap change of an archived product (hide / sold out), written to the catalogue files.
+  async function patchArchived(item, patch, label) {
+    setBusy(true); setMsg('');
+    try {
+      await authFetch('/api/admin/archive-edit', { action: 'patch', id: item.id, patch });
+      setArch((cur) => (cur ? { ...cur, hits: cur.hits.map((h) => (h.id === item.id ? { ...h, inStock: patch.inStock !== undefined ? patch.inStock : h.inStock, hidden: patch.active === false ? true : patch.active === true ? false : h.hidden } : h)) } : cur));
+      setMsg(`${item.name}: ${label}. It shows on the shop after the redeploy (1 to 3 minutes).`);
+    } catch (e) { setMsg((e && e.message) || 'Could not change it.'); }
+    setBusy(false);
   }
 
   // Bring an archived product back into Firebase so it can be edited; after this it is live on the shop again.
@@ -164,7 +212,7 @@ export default function AdminProducts() {
           <h1 className="text-3xl font-extrabold sm:text-4xl">Products</h1>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => load(true).catch((e) => setMsg(e.message))}>Refresh list</button>
-            <button type="button" className="btn-gold !px-5 !py-2.5 lg:hidden" onClick={() => { setForm(EMPTY); setEditing(false); setShowForm(true); window.scrollTo({ top: 0 }); }}>+ Add product</button>
+            <button type="button" className="btn-gold !px-5 !py-2.5 lg:hidden" onClick={() => { setForm(EMPTY); setEditing(false); setEditArch(false); setShowForm(true); window.scrollTo({ top: 0 }); }}>+ Add product</button>
           </div>
         </div>
 
@@ -185,11 +233,11 @@ export default function AdminProducts() {
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <span className="text-dim">
-              {q.trim() ? <><b>{found.length}</b> of {(list || []).length} live product(s) match</> : <>{(list || []).length} live product(s) loaded</>}
+              {q.trim() ? <><b>{found.length}</b> of {(list || []).length} live product(s) match</> : <>{(list || []).length} live product(s) loaded. Archived products appear below automatically while you type.</>}
             </span>
             <Link href="/admin/import" className="btn-ghost !px-3.5 !py-1.5 text-xs"><Upload size={14} /> Import a CSV</Link>
             <button type="button" className="btn-ghost !px-3.5 !py-1.5 text-xs" disabled={archBusy} onClick={searchArchive}>
-              {archBusy ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />} Search the archive too
+              {archBusy ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />} Search the archive now
             </button>
             {q.trim() && <button type="button" className="text-faint underline" onClick={() => { setQ(''); setArch(null); }}>clear</button>}
           </div>
@@ -206,7 +254,7 @@ export default function AdminProducts() {
             {found.length === 0 && (
               <div className="card text-center">
                 <p className="text-dim">No live product matches “{q.trim()}”.</p>
-                <p className="mt-1 text-xs text-faint">Old products that were moved out of Firebase are not in this list - press “Search the archive too”.</p>
+                <p className="mt-1 text-xs text-faint">Archived products (catalogue files) are searched automatically: see the results below.</p>
               </div>
             )}
             <ul className={`space-y-2 ${found.length === 0 ? 'hidden' : ''}`}>
@@ -240,7 +288,7 @@ export default function AdminProducts() {
                 <h2 className="section-title text-xl">In the archive ({arch.hits.length}{arch.truncated ? '+' : ''})</h2>
                 <p className="mb-2 text-xs text-dim">
                   Searched {arch.scanned} of {arch.totalParts} part file(s) · {(arch.total || 0).toLocaleString('en-PK')} archived product(s) in total.
-                  These are not in Firebase; <b>Restore</b> copies one back so you can edit it (after that it is live on the shop again).
+                  These are not in Firebase; <b>Edit</b> changes it in the catalogue files (no Firebase write). The small arrow button copies it into Firebase instead.
                 </p>
                 <ul className="space-y-2">
                   {arch.hits.map((h) => (
@@ -251,9 +299,14 @@ export default function AdminProducts() {
                           : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-raised text-faint"><Archive size={16} /></span>}
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold">{h.name} <span className="rounded bg-raised px-1.5 text-[0.6rem] font-bold uppercase text-faint">archived</span></p>
-                          <p className="truncate text-sm text-dim">{formatPKR(h.price)} · {(h.categories || []).join(', ') || 'no category'} · part {h.part} · {h.inStock ? 'in stock' : 'sold out'}</p>
+                          <p className="truncate text-sm text-dim">{formatPKR(h.price)} · {(h.categories || []).join(', ') || 'no category'} · part {h.part} · {h.inStock ? 'in stock' : 'sold out'}{h.hidden ? ' · hidden' : ''}</p>
+                          <div className="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold">
+                            <button type="button" disabled={busy} className="rounded-full bg-raised px-2.5 py-1 text-dim hover:text-gold" onClick={() => patchArchived(h, { inStock: !h.inStock }, h.inStock ? 'marked sold out' : 'marked in stock')}>{h.inStock ? 'Mark sold out' : 'Mark in stock'}</button>
+                            <button type="button" disabled={busy} className="rounded-full bg-raised px-2.5 py-1 text-dim hover:text-gold" onClick={() => patchArchived(h, { active: Boolean(h.hidden) }, h.hidden ? 'shown again' : 'hidden')}>{h.hidden ? 'Show on shop' : 'Hide from shop'}</button>
+                          </div>
                         </div>
-                        <button type="button" className="btn-ghost !px-3.5 !py-2 text-xs" disabled={busy} onClick={() => restore(h)}><RotateCcw size={14} /> Restore</button>
+                        <button type="button" className="btn-gold !px-3.5 !py-2 text-xs" disabled={busy} onClick={() => editArchived(h)}>Edit</button>
+                        <button type="button" className="btn-ghost !px-3 !py-2 text-xs" disabled={busy} onClick={() => restore(h)} title="Copy it into Firebase"><RotateCcw size={14} /></button>
                       </div>
                     </li>
                   ))}
@@ -268,8 +321,9 @@ export default function AdminProducts() {
       </section>
 
       <form className={`card h-fit min-w-0 space-y-3 lg:sticky lg:top-24 ${showForm ? '' : 'hidden lg:block'}`} onSubmit={(e) => { e.preventDefault(); save({ ...form, category: splitCats([form.category, catDraft].join(',')).join(', ') }, !editing); setCatDraft(''); }}>
-        <button type="button" className="text-sm font-bold text-gold lg:hidden" onClick={() => { setForm(EMPTY); setEditing(false); setShowForm(false); }}>&larr; Back to products</button>
+        <button type="button" className="text-sm font-bold text-gold lg:hidden" onClick={() => { setForm(EMPTY); setEditing(false); setEditArch(false); setShowForm(false); }}>&larr; Back to products</button>
         <h2 className="text-2xl font-extrabold">{editing ? 'Edit product' : 'Add product'}</h2>
+        {editArch && <p className="rounded-xl bg-amber-50 p-2.5 text-xs text-amber-900">This product lives in the <b>catalogue files</b> (not in Firebase). Saving changes the file; the shop shows it after the redeploy (1 to 3 minutes). Nothing is written to Firebase.</p>}
         <div><label className="label" htmlFor="pn">Name</label><input id="pn" className="input" value={form.name} onChange={set('name')} required /></div>
         <div><label className="label" htmlFor="ps">URL slug</label><input id="ps" className="input" value={form.slug} onChange={set('slug')} disabled={editing} /></div>
         <div className="grid grid-cols-2 gap-3">
@@ -369,7 +423,7 @@ export default function AdminProducts() {
         </div>
         {editing && form.slug ? <ProductPromo slug={form.slug} name={form.name} /> : <p className="rounded-xl bg-raised p-2.5 text-xs text-dim">Save the product first, then edit it to add promo codes for this product.</p>}
         <button className="btn-gold w-full" disabled={busy}>{busy ? 'Saving...' : 'Save product'}</button>
-        {editing && <button type="button" className="btn-ghost w-full" onClick={() => { setForm(EMPTY); setEditing(false); setShowForm(false); }}>Cancel</button>}
+        {editing && <button type="button" className="btn-ghost w-full" onClick={() => { setForm(EMPTY); setEditing(false); setEditArch(false); setShowForm(false); }}>Cancel</button>}
       </form>
     </div>
   );

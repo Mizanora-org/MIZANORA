@@ -74,7 +74,7 @@ export default function Header({ categories = [], music = null }) {
           {open ? <X size={24} /> : <Menu size={24} />}
         </button>
         <Link href="/" className="flex shrink-0 items-center gap-2 font-display text-lg font-extrabold tracking-wide sm:text-2xl" onClick={() => setOpen(false)}>
-          <Image src="/icons/icon-192.png" alt="" width={34} height={34} className="rounded-lg" priority />
+          <Image referrerPolicy="no-referrer" src="/icons/icon-192.png" alt="" width={34} height={34} className="rounded-lg" priority />
           <span className="hidden min-[380px]:inline">MIZANORA</span>
         </Link>
         {searchForm('s-d', 'hidden flex-1 md:mx-auto md:block md:max-w-2xl')}
