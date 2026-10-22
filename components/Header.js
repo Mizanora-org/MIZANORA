@@ -100,7 +100,9 @@ export default function Header({ categories = [], music = null }) {
           {categories.slice(0, 12).map((c) => (
             <li key={c.slug}><Link href={`/category/${c.slug}`} className={`block whitespace-nowrap px-3 py-2.5 transition hover:bg-raised hover:text-gold ${catOn(c.slug) ? 'bg-raised font-bold text-gold' : 'text-dim'}`}>{c.name}</Link></li>
           ))}
-          <li className="ml-auto"><Link href="/reels" className="block whitespace-nowrap px-3 py-2.5 font-bold text-saffron hover:text-gold">Reels</Link></li>
+          <li className="ml-auto"><Link href="/deals" className="block whitespace-nowrap px-3 py-2.5 font-extrabold text-red-600 hover:text-gold">Deals</Link></li>
+          <li><Link href="/quran" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Quran</Link></li>
+          <li><Link href="/reels" className="block whitespace-nowrap px-3 py-2.5 font-bold text-saffron hover:text-gold">Reels</Link></li>
           <li><Link href="/blog" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-dim hover:text-gold">Shopping blog</Link></li>
           <li><Link href="/track" className="block whitespace-nowrap px-3 py-2.5 text-dim hover:text-gold">Track order</Link></li>
           <li><Link href="/how-to-order" className="block whitespace-nowrap px-3 py-2.5 text-dim hover:text-gold">How to order</Link></li>
@@ -111,7 +113,7 @@ export default function Header({ categories = [], music = null }) {
       {/* The mobile menu. It sits inside the bar, so it can never cover the search field. */}
       {open && (
         <nav ref={menu} className="mz-drop max-h-[70vh] overflow-y-auto overscroll-contain bg-white px-4 pb-4 text-cream shadow-2xl md:hidden" aria-label="Mobile">
-          {[['/products', 'All products'], ...categories.map((c) => [`/category/${c.slug}`, c.name]), ['/account', 'My account and orders'], ['/workers', 'Earn: Worker program'], ['/wishlist', 'Wishlist'], ['/track', 'Track order'], ['/reels', 'Reels: watch and shop'], ['/blog', 'Shopping blog'], ['/how-to-order', 'How to order'], ['/about', 'About'], ['/contact', 'Support']].map(([href, label]) => (
+          {[['/deals', 'Deals: all discounts'], ['/quran', 'Quran: read and listen'], ['/products', 'All products'], ...categories.map((c) => [`/category/${c.slug}`, c.name]), ['/account', 'My account and orders'], ['/workers', 'Earn: Worker program'], ['/wishlist', 'Wishlist'], ['/track', 'Track order'], ['/reels', 'Reels: watch and shop'], ['/blog', 'Shopping blog'], ['/how-to-order', 'How to order'], ['/about', 'About'], ['/contact', 'Support']].map(([href, label]) => (
             <Link key={href} href={href} onClick={() => setOpen(false)} className={`block border-b border-line py-3.5 text-base transition active:scale-[0.99] ${path === href ? 'font-bold text-gold' : ''}`}>{label}</Link>
           ))}
           <div className="pt-4"><InstallButton full /></div>

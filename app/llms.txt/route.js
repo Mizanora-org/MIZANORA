@@ -23,6 +23,13 @@ Orders are confirmed by phone or message before dispatch. Support is on WhatsApp
 - [All products](${absUrl('/products')}): search understands English, Roman Urdu and Urdu, for example "laal suit 2000 se kam"
 ${cats.slice(0, 40).map((c) => `- [${c.name}](${absUrl(`/category/${c.slug}`)}): ${c.count} products`).join('\n')}
 
+## More
+- [Deals: every discounted product in one list](${absUrl('/deals')})
+- [Quran: 114 surahs with Urdu translation and recitation](${absUrl('/quran')})
+- [Islamic reminders](${absUrl('/islamic')})
+- [Muaaz Iqbal, founder and developer of Mizanora (Kasur, Pakistan)](${absUrl('/muaaz-iqbal')})
+- [Blog](${absUrl('/blog')})
+
 ## Policies
 - [Returns](${absUrl('/returns')})
 - [Terms](${absUrl('/terms')})

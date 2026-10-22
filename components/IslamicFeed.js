@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Copy, MessageCircle, MoonStar, Clock3 } from 'lucide-react';
 import HijriChip from './HijriChip';
+import DailyAyah from './DailyAyah';
+import Link from 'next/link';
 import { ISLAMIC_ITEMS, KIND_COLOR, KIND_LABEL } from '@/lib/islamic';
 import { REMINDERS } from '@/lib/reminders';
 import { nextIslamicEvent } from '@/lib/hijri';
@@ -66,6 +68,7 @@ export default function IslamicFeed({ extra = [], winter = false }) {
           <HijriChip className="!text-cream [&>span]:!bg-gold/10 [&>span]:!text-gold" />
         </div>
 
+        <DailyAyah />
         {(ev || times) && (
           <div className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             {ev && <p className="rounded-2xl bg-white/80 px-3 py-2 text-sm text-dim ring-1 ring-line"><b className="text-cream">{ev.ur}</b>: taqreeban <b className="text-gold">{ev.inDays === 0 ? 'aaj' : `${ev.inDays} din baad`}</b> <span className="text-xs text-faint">(chand nazar aane par tareekh ek din aage peeche ho sakti hai)</span></p>}
@@ -98,6 +101,7 @@ export default function IslamicFeed({ extra = [], winter = false }) {
             </article>
           ))}
         </div>
+        <div className="mt-3 flex flex-wrap gap-2"><Link href="/quran" className="btn-gold !px-4 !py-2 text-sm">Quran parhein aur sunein</Link><Link href="/islamic" className="btn-ghost !px-4 !py-2 text-sm">Sab Islami posts</Link></div>
         <p className="mt-2 text-[0.7rem] text-faint">Har text hawale ke saath hai. Tafseel aur masail ke liye apne mustanad aalim se zaroor rujoo karein. Namaz ke auqaat taqreeban hain: apni masjid ke waqt ko tarjeeh dein.</p>
       </div>
     </section>

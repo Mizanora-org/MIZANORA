@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import {
-  Bot, Boxes, Clock, ImageOff, Images, LayoutDashboard, LogOut, Menu, Music4, Package, Plug, Power,
+  Bot, Boxes, Flame, MoonStar, Sparkles, Clock, ImageOff, Images, LayoutDashboard, LogOut, Menu, Music4, Package, Plug, Power,
   Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X,
 } from 'lucide-react';
 import { authClient } from '@/lib/firebase-client';
@@ -20,6 +20,9 @@ export const ADMIN_MENU = [
     title: 'Overview',
     items: [
       { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: 'Visitors, sales, orders, funnel' },
+      { href: '/admin/studio', label: 'Studio', icon: Sparkles, hint: 'Animations and your own CSS/JS/HTML', tag: 'NEW' },
+      { href: '/admin/quran', label: 'Quran session', icon: MoonStar, hint: 'Recitation + ayat at set times', tag: 'NEW' },
+      { href: '/admin/deals', label: 'Deals page', icon: Flame, hint: 'One-link /deals settings', tag: 'NEW' },
       { href: '/admin/connections', label: 'Connections', icon: Plug, hint: 'Firestore, Realtime Database and GitHub test', tag: 'NEW' },
     ],
   },

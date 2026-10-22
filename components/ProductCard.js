@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Check, Heart, Plus, Share2 } from 'lucide-react';
+import { Check, Heart, Play, Plus, Share2 } from 'lucide-react';
 import CardMedia from './CardMedia';
 import { firstVideo } from '@/lib/media';
 import { formatPKR, discountPct } from '@/lib/format';
@@ -30,6 +30,7 @@ export default function ProductCard({ p, priority = false }) {
             ) : (
               <div className="grid h-full place-items-center font-display text-3xl text-bronze">M</div>
             )}
+            {video && img && <span className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[0.65rem] font-bold text-white" aria-label="Has video"><Play size={10} fill="currentColor" /> Video</span>}
             {!p.inStock && <span className="absolute bottom-2 left-2 rounded-md bg-cream/80 px-2 py-0.5 text-xs font-bold text-white">Sold out</span>}
             {off > 0 && <span data-pb="1" className="absolute left-2 top-2 rounded-md bg-gradient-to-r from-red-600 to-[#E0342B] px-2 py-0.5 text-xs font-extrabold text-white shadow-[0_2px_8px_-2px_rgba(220,38,38,.8)]">-{off}%</span>}
           </div>

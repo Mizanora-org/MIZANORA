@@ -42,7 +42,7 @@ export async function POST(req) {
     return json({ ok: true, text: r.ok === false ? `Could not do it: ${r.error}` : r.summary, done: r.ok !== false, actions: [{ tool, ok: r.ok !== false, summary: r.summary || r.error }] });
   }
 
-  const msgs = (Array.isArray(b.messages) ? b.messages : []).slice(-14).map((m) => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: clip(m.text, 1800) || '.' }] }));
+  const msgs = (Array.isArray(b.messages) ? b.messages : []).slice(-14).map((m) => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: clip(m.text, 6000) || '.' }] }));
   if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return json({ ok: false, error: 'Write a message first.' }, 400);
 
   const { cfg } = await loadAssistant();
@@ -52,11 +52,11 @@ export async function POST(req) {
   const pending = [];
   let text = '';
   try {
-    for (let step = 0; step < 6; step++) {
+    for (let step = 0; step < 10; step++) {
       const r = await geminiCall(ladder, {
         systemInstruction: { parts: [{ text: managerPrompt() }] },
-        contents, tools: TOOLS, generationConfig: { temperature: 0.4, maxOutputTokens: 900 },
-      }, { timeoutMs: 15000, deadlineMs: 45000, maxTries: 4 });
+        contents, tools: TOOLS, generationConfig: { temperature: 0.4, maxOutputTokens: 8000 },
+      }, { timeoutMs: 30000, deadlineMs: 55000, maxTries: 4 });
       if (!r.ok) return json({ ok: false, error: r.status === 429 ? 'The AI is resting (free limit). Try again in a minute, or add another key in Admin > AI Assistant.' : `The AI could not answer (${r.status}).` });
       const content = r.json.candidates && r.json.candidates[0] && r.json.candidates[0].content;
       const parts = (content && content.parts) || [];
@@ -78,7 +78,7 @@ export async function POST(req) {
           response = res.ok === false ? { ok: false, error: res.error } : { ok: true, summary: res.summary, data: res.data };
         }
         let safe;
-        try { safe = JSON.parse(JSON.stringify(response).slice(0, 6000)); } catch { safe = { ok: response.ok !== false, summary: clip(response.summary || response.error, 300) }; } // too long to cut as JSON: keep the short part
+        try { safe = JSON.parse(JSON.stringify(response).slice(0, 18000)); } catch { safe = { ok: response.ok !== false, summary: clip(response.summary || response.error, 300) }; } // too long to cut as JSON: keep the short part
         out.push({ functionResponse: { name, response: safe } });
       }
       contents.push({ role: 'user', parts: out });

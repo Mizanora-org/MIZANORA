@@ -161,7 +161,7 @@ export default async function Home() {
 
       {season && <Shelf id="season" anchor="season-picks" title={season.picksTitle} href="/products" products={seasonPicks} tone={season.tone} />}
 
-      <Shelf id="deals" title="Hot deals" href="/products" products={deals} priorityFirst tone="bg-red-50 p-3 sm:p-4" />
+      <Shelf id="deals" title="Hot deals" href="/deals" products={deals} priorityFirst tone="bg-red-50 p-3 sm:p-4" />
 
       {trend.length > 0 && (
         <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="trend">

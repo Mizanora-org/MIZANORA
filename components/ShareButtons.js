@@ -4,7 +4,7 @@ import { Check, Copy, Facebook, Share2 } from 'lucide-react';
 import { WhatsAppIcon } from './Icons';
 
 // Share the product link on WhatsApp / Facebook, copy it, or use the phone's own share sheet. Shared links bring free visitors.
-export default function ShareButtons({ url, title }) {
+export default function ShareButtons({ url, title, label = 'Share this product' }) {
   const [copied, setCopied] = useState(false);
   const text = `${title} on Mizanora`;
   const copy = async () => {
@@ -17,7 +17,7 @@ export default function ShareButtons({ url, title }) {
   const b = 'inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-sm font-semibold text-cream hover:border-gold';
   return (
     <div className="mt-5">
-      <p className="mb-2 text-sm font-semibold text-dim">Share this product</p>
+      <p className="mb-2 text-sm font-semibold text-dim">{label}</p>
       <div className="flex flex-wrap items-center gap-2">
         <a className={b} target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`}><WhatsAppIcon size={16} /> WhatsApp</a>
         <a className={b} target="_blank" rel="noopener noreferrer" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}><Facebook size={16} /> Facebook</a>

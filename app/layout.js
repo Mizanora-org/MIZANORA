@@ -36,6 +36,11 @@ import Tracker from '@/components/Tracker';
 import Maintenance from '@/components/Maintenance';
 import HideOnAdmin from '@/components/HideOnAdmin';
 import AppMusic from '@/components/AppMusic';
+import QuranSession from '@/components/QuranSession';
+import SiteFx from '@/components/SiteFx';
+import SiteInject from '@/components/SiteInject';
+import { getQuranConfig } from '@/lib/quranServer';
+import { getInject } from '@/lib/injectServer';
 
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
 const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
@@ -77,6 +82,8 @@ export default async function RootLayout({ children }) {
   const categories = await getCategories();
   // The background music of the whole app (Admin > Music). Read from the shared cache, so it costs no extra reads.
   const music = await getAppMusic();
+  // v23: Quran session setting and Studio (animations + snippets). Both come from the shared cache: no extra reads per visitor.
+  const [quran, inject] = await Promise.all([getQuranConfig(), getInject()]);
   // The assistant button disappears while the site is shut, on high alert, or when its switch is off in Admin > Control.
   const assistant = down || status.mode === 'saver' || status.features.assistant === false ? { enabled: false, name: 'Noor', voiceMode: 'browser', greeting: '' } : await getPublicAssistant();
   return (
@@ -98,11 +105,15 @@ export default async function RootLayout({ children }) {
             <Header categories={categories} music={music} />
             {/* The footer and the floating buttons sit INSIDE main: on /admin the whole main area belongs to the admin panel, so
                 nothing of the shop shows up under it (HideOnAdmin). Printing is unchanged (both carry .no-print like before). */}
+            <SiteInject items={inject.items} slot="top" />
             <main id="main">
               {children}
               <HideOnAdmin><Footer categories={categories} /></HideOnAdmin>
               <HideOnAdmin><WhatsAppFab /></HideOnAdmin>
             </main>
+            <SiteInject items={inject.items} slot="end" />
+            <SiteFx effects={inject.effects} />
+            <QuranSession cfg={quran} />
             <AssistantFab cfg={assistant} />
             <BottomNav />
             <InstallBanner />

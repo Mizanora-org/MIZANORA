@@ -7,6 +7,10 @@ import { authClient } from '@/lib/firebase-client';
 const CHIPS = [
   'Shop ka overview dikhao',
   'Winter theme lagao',
+  'Quran session subah 9 se 9:30 tak surah Al-Kahf ke saath set karo',
+  'Abhi 30 minute ke liye Quran shuru karo',
+  'Top 10 products par 15% deal laga kar /deals set karo',
+  'Site par golden sparkle aur confetti animation on karo',
   'Is video ko feed mein add karo: ',
   'Aaj ke tasks dikhao',
   'Pakistan mein online shopping ke top keywords par research karo',
@@ -75,7 +79,7 @@ export default function AdminAi() {
                   {(m.pending || []).map((p, k) => (
                     <div key={k} className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
                       <p className="text-xs font-extrabold uppercase tracking-wide">Aap ki manzoori chahiye</p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm">{p.summary}</p>
+                      <p className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words text-sm">{p.summary}</p>
                       <div className="mt-2 flex gap-2"><button type="button" disabled={busy} onClick={() => confirm(i, k, p)} className="btn-gold !px-4 !py-1.5 text-sm">Confirm</button><button type="button" disabled={busy} onClick={() => cancel(i, k)} className="btn-ghost !px-4 !py-1.5 text-sm">Cancel</button></div>
                     </div>
                   ))}

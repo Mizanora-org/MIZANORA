@@ -235,3 +235,138 @@ a:active, button:not(:disabled):active { opacity: .92; }
 body[data-season="winter"] .mz-page { background-image: linear-gradient(180deg, rgba(186, 230, 253, .22), rgba(186, 230, 253, 0) 360px); }
 body[data-season="winter"] { --mz-frost: 1; }
 @media (prefers-reduced-motion: reduce) { .mz-hero-snow { animation-duration: 14s; } }
+
+/* ===================================================================================================================
+   v23: QURAN SESSION (components/QuranStage.js, QuranSession.js, QuranHost.js) and the reader pages (/quran)
+   Only transform / opacity animations (cheap on phones); everything stops for people who asked for reduced motion.
+   =================================================================================================================== */
+.mzq { --q1: #06402B; --q2: #0B6B45; --q3: #052E20; --ink: #F8F3DE; --gold: #F2C766; --dimc: rgba(248, 243, 222, .78); --hl: #fff; --btn: #1d1600;
+  position: relative; display: flex; flex-direction: column; overflow: hidden; color: var(--ink); isolation: isolate;
+  background: radial-gradient(120% 90% at 50% 0%, var(--q2) 0%, var(--q1) 52%, var(--q3) 100%); }
+.mzq[data-style="night"] { --q1: #0A1130; --q2: #1B2A6B; --q3: #060A1E; --ink: #EEF1FF; --gold: #F4D58D; --dimc: rgba(238, 241, 255, .76); }
+.mzq[data-style="gold"] { --q1: #F8EBC8; --q2: #FFF8E6; --q3: #EFDCA4; --ink: #3A2A0A; --gold: #A96B0C; --dimc: rgba(58, 42, 10, .72); --hl: #7A4300; --btn: #fff; }
+.mzq-page { min-height: min(78dvh, 720px); border-radius: 1.5rem; box-shadow: 0 30px 60px -30px rgba(6, 64, 43, .6); }
+.mzq-sheet { width: 100%; max-width: 44rem; height: min(88dvh, 760px); margin: 0 auto; border-radius: 1.75rem 1.75rem 0 0; animation: mz-sheet .38s cubic-bezier(.2, .8, .2, 1) both; box-shadow: 0 -20px 60px -20px rgba(0, 0, 0, .6); }
+.mzq-full { position: fixed; inset: 0; width: 100%; height: 100dvh; border-radius: 0; animation: mzq-in .45s ease both; }
+.mzq:fullscreen { width: 100vw; height: 100vh; border-radius: 0; }
+.mzq-layer { position: fixed; inset: 0; z-index: 95; display: flex; align-items: flex-end; justify-content: center; }
+.mzq-layer.is-full { align-items: stretch; }
+.mzq-scrim { position: absolute; inset: 0; background: rgba(4, 18, 12, .55); animation: mzq-fade .3s ease both; cursor: default; border: 0; }
+.mzq-layer > .mzq { position: relative; z-index: 1; }
+
+.mzq-bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.mzq-star { position: absolute; left: 50%; top: 46%; width: 130%; max-width: 900px; color: var(--gold); opacity: .09; transform: translate(-50%, -50%); animation: mzq-spin 120s linear infinite; }
+.mzq-dot { position: absolute; bottom: -12px; left: var(--x); width: var(--s); height: var(--s); border-radius: 50%; background: var(--gold); opacity: 0; box-shadow: 0 0 10px var(--gold); animation: mzq-up var(--d) linear var(--w) infinite; }
+.mzq[data-playing="0"] .mzq-dot { animation-play-state: paused; }
+
+.mzq-head { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 6px; }
+.mzq-kicker { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); font-weight: 800; }
+.mzq-surah { font-weight: 700; font-size: .98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mzq-surah span { font-weight: 500; opacity: .75; font-size: .85rem; }
+.mzq-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; border: 0; background: rgba(255, 255, 255, .13); color: var(--ink); transition: transform .15s ease, background .2s; cursor: pointer; }
+.mzq[data-style="gold"] .mzq-icon { background: rgba(58, 42, 10, .09); }
+.mzq-icon:active { transform: scale(.9); }
+
+.mzq-body { position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 18px; text-align: center; scrollbar-width: none; }
+.mzq-body::-webkit-scrollbar { display: none; }
+.mzq-ayah { max-width: 46rem; margin: auto; animation: mzq-in .7s cubic-bezier(.2, .8, .2, 1) both; }
+.mzq[data-anim="rise"] .mzq-ayah { animation: mzq-rise .95s cubic-bezier(.16, 1, .3, 1) both; }
+.mzq[data-anim="float"] .mzq-ayah { animation: mzq-in .7s ease both, mzq-bob 7s ease-in-out .7s infinite; }
+.mzq-bism { color: var(--gold); font-family: var(--font-arabic), 'Amiri', serif; font-size: 1.35rem; margin-bottom: 10px; opacity: .95; }
+.mzq-ar { font-family: var(--font-arabic), 'Amiri', 'Noto Naskh Arabic', serif; line-height: 2.25; font-size: clamp(1.8rem, 6.2vw, 2.8rem); word-spacing: .08em; text-wrap: balance; }
+.mzq[data-size="s"] .mzq-ar { font-size: clamp(1.45rem, 5vw, 2.05rem); }
+.mzq[data-size="l"] .mzq-ar { font-size: clamp(2.2rem, 7.6vw, 3.7rem); }
+.mzq-w { display: inline-block; transition: color .25s ease, opacity .3s ease, text-shadow .3s ease, transform .3s ease; }
+.mzq-w.is-past { color: var(--gold); }
+.mzq-w.is-now { color: var(--hl); text-shadow: 0 0 22px var(--gold), 0 0 5px var(--gold); transform: scale(1.06); }
+.mzq-w.is-next { opacity: .62; }
+.mzq[data-anim="type"] .mzq-w.is-next { opacity: 0; transform: translateY(8px); }
+.mzq[data-anim="rise"] .mzq-w.is-now { text-shadow: none; transform: none; color: var(--gold); }
+.mzq-end { color: var(--gold); font-size: .62em; opacity: .9; }
+.mzq-tr { margin: 14px auto 0; max-width: 40rem; font-size: 1.05rem; line-height: 1.95; color: var(--dimc); animation: mzq-fade .9s ease .15s both; text-wrap: pretty; }
+.mzq-tr[lang="ur"] { font-size: 1.18rem; }
+.mzq-state { display: flex; align-items: center; gap: 10px; color: var(--dimc); font-size: .95rem; padding: 24px; }
+.mzq-spin { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--gold); border-right-color: transparent; animation: mzq-spin .8s linear infinite; }
+.mzq-tap { margin-top: 18px; display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; background: var(--gold); color: var(--btn); padding: 12px 22px; font-weight: 800; box-shadow: 0 10px 30px -8px var(--gold); animation: mzq-pulse 1.8s ease-in-out infinite; cursor: pointer; }
+
+.mzq-foot { position: relative; z-index: 2; padding: 6px 16px calc(12px + env(safe-area-inset-bottom)); }
+.mzq-bar { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .16); overflow: hidden; margin: 0 4px 10px; }
+.mzq[data-style="gold"] .mzq-bar { background: rgba(58, 42, 10, .13); }
+.mzq-bar i { display: block; height: 100%; background: var(--gold); border-radius: 3px; transition: width .35s linear; }
+.mzq-ctl { display: flex; align-items: center; justify-content: center; gap: 20px; }
+.mzq-play { position: relative; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--gold); color: var(--btn); box-shadow: 0 12px 28px -10px var(--gold); transition: transform .15s ease; cursor: pointer; }
+.mzq-play:active { transform: scale(.93); }
+.mzq-play:disabled { opacity: .5; }
+.mzq-ring { position: absolute; inset: -7px; border-radius: 50%; background: conic-gradient(var(--gold) var(--p, 0deg), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)); opacity: .9; }
+.mzq-meta { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; font-size: .78rem; color: var(--dimc); }
+.mzq-eq { display: inline-flex; align-items: flex-end; gap: 3px; height: 14px; }
+.mzq-eq i { width: 3px; height: 4px; border-radius: 2px; background: var(--gold); opacity: .6; }
+.mzq[data-playing="1"] .mzq-eq i { animation: mz-wave .9s ease-in-out infinite; }
+.mzq[data-playing="1"] .mzq-eq i:nth-child(2) { animation-delay: .15s; } .mzq[data-playing="1"] .mzq-eq i:nth-child(3) { animation-delay: .3s; } .mzq[data-playing="1"] .mzq-eq i:nth-child(4) { animation-delay: .45s; }
+.mzq-chip { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 999px; padding: 1px 10px; font-size: .75rem; cursor: pointer; }
+.mzq-msg { max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mzq-credit { margin-top: 8px; text-align: center; font-size: .62rem; opacity: .5; }
+
+.mzq-pill-wrap { position: fixed; left: 12px; bottom: calc(5.3rem + env(safe-area-inset-bottom)); z-index: 60; max-width: min(80vw, 320px); }
+@media (min-width: 640px) { .mzq-pill-wrap { bottom: 20px; left: 20px; } }
+.mzq-pill { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; border-radius: 999px; padding: 7px 16px 7px 7px; color: #FFF8DC; background: linear-gradient(135deg, #0E8556, #06402B); box-shadow: 0 14px 30px -12px rgba(6, 64, 43, .9), 0 0 0 1px rgba(242, 199, 102, .55); animation: mzq-pulse 2.6s ease-in-out infinite; cursor: pointer; }
+.mzq-pill b { font-size: .85rem; line-height: 1.2; } .mzq-pill small { font-size: .7rem; opacity: .85; }
+.mzq-pill-ic { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: #F2C766; color: #1d1600; animation: mz-glow 3s ease-in-out infinite; }
+.mzq-pill-x { position: absolute; top: -7px; right: -4px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 0; background: #12201A; color: #fff; opacity: .85; cursor: pointer; }
+
+/* the reader page (/quran/<surah>) */
+.mzq-list { counter-reset: ay; }
+.mzq-row { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; padding: 14px 4px; border-bottom: 1px solid var(--line, #DCE1D6); }
+.mzq-row[data-on="1"] { background: rgba(11, 107, 69, .07); border-radius: 14px; }
+.mzq-row .num { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(11, 107, 69, .1); color: #0B6B45; font-weight: 800; font-size: .78rem; border: 0; cursor: pointer; }
+.mzq-row .ar { font-family: var(--font-arabic), 'Amiri', serif; font-size: 1.7rem; line-height: 2.2; direction: rtl; text-align: right; }
+.mzq-row .tr { margin-top: 4px; color: #46544C; line-height: 1.85; }
+
+@keyframes mzq-in { from { opacity: 0; transform: translateY(14px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes mzq-rise { from { opacity: 0; transform: translateY(44px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes mzq-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mzq-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes mzq-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.mzq-spin { animation-name: mzq-rot; } @keyframes mzq-rot { to { transform: rotate(360deg); } }
+@keyframes mzq-up { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .85; } 100% { transform: translateY(-105vh); opacity: 0; } }
+@keyframes mzq-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+@media (prefers-reduced-motion: reduce) {
+  .mzq-star, .mzq-dot, .mzq-pill, .mzq-pill-ic, .mzq-tap, .mzq-ayah, .mzq-tr, .mzq-sheet, .mzq-full, .mzq-eq i { animation: none !important; }
+  .mzq-dot { opacity: 0; }
+}
+
+/* v23: deals page hero */
+.mz-deal-hero { background: linear-gradient(120deg, #B91C1C, #EA580C 55%, #F59E0B); background-size: 160% 160%; animation: mz-gradient 12s ease infinite; box-shadow: 0 24px 50px -26px rgba(185, 28, 28, .7); }
+.mz-deal-glow { position: absolute; inset: -40% -10% auto auto; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .35), transparent 65%); animation: mzq-bob 8s ease-in-out infinite; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .mz-deal-hero, .mz-deal-glow { animation: none; } }
+
+/* ===================================================================================================================
+   v23: SITE STUDIO animations (components/SiteFx.js). Switched on from Admin > Studio through <html data-fx="...">.
+   =================================================================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  .fx-pre { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .6s cubic-bezier(.2, .8, .2, 1), transform .6s cubic-bezier(.2, .8, .2, 1); will-change: opacity, transform; }
+  .fx-pre.fx-in { opacity: 1; transform: none; }
+  html[data-fx~="tilt"] .mz-card:hover { transform: perspective(800px) translateY(-4px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+  html[data-fx~="shimmer"] [data-pb] { position: relative; overflow: hidden; }
+  html[data-fx~="shimmer"] [data-pb]::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .65) 50%, transparent 70%); transform: translateX(-120%); animation: mz-shimmer 2.6s ease-in-out infinite; }
+  html[data-fx~="glow"] .btn-gold { animation: fx-glow 2.4s ease-in-out infinite; }
+}
+html[data-fx~="smooth"] { scroll-behavior: smooth; }
+html[data-fx~="smooth"] a, html[data-fx~="smooth"] button { touch-action: manipulation; }
+@keyframes fx-glow { 0%, 100% { box-shadow: 0 8px 20px -6px rgba(11, 107, 69, .5); } 50% { box-shadow: 0 8px 30px -2px rgba(14, 133, 86, .95), 0 0 0 4px rgba(242, 199, 102, .35); } }
+.fx-sparkles, .fx-confetti, .fx-lanterns, .fx-progress { position: fixed; pointer-events: none; z-index: 9990; }
+.fx-sparkles, .fx-confetti { inset: 0; overflow: hidden; }
+.fx-sparkles i { position: absolute; width: var(--sz, 6px); height: var(--sz, 6px); margin: -3px; border-radius: 50%; background: radial-gradient(circle, #FFF6D6 0%, #F2C766 55%, transparent 72%); box-shadow: 0 0 8px #F2C766; animation: fx-spark .75s ease-out forwards; }
+@keyframes fx-spark { from { opacity: 1; transform: translate(0, 0) scale(1); } to { opacity: 0; transform: translate(var(--dx, 0), 26px) scale(.2); } }
+.fx-confetti i { position: absolute; width: 8px; height: 12px; border-radius: 2px; animation: fx-conf 1.5s cubic-bezier(.2, .7, .3, 1) forwards; }
+@keyframes fx-conf { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 340px)) rotate(var(--rot)); } }
+.fx-progress { top: 0; left: 0; right: 0; height: 3px; z-index: 9995; }
+.fx-progress i { display: block; height: 100%; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #0E8556, #F2C766); }
+.fx-lanterns { top: 0; left: 0; right: 0; height: 0; z-index: 40; }
+.fx-lanterns span { position: absolute; top: 0; width: 34px; height: 92px; transform-origin: 50% 0; animation: mz-swing 4.2s ease-in-out infinite; }
+.fx-lanterns .l1 { left: 8%; } .fx-lanterns .l2 { right: 8%; animation-delay: -1.8s; height: 70px; }
+.fx-lanterns span::before { content: ''; position: absolute; left: 50%; top: 0; width: 1.5px; height: 40px; background: #C9A24B; }
+.fx-lanterns .l2::before { height: 26px; }
+.fx-lanterns span i { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; border-radius: 10px 10px 16px 16px; background: radial-gradient(circle at 50% 55%, #FFE08A 0%, #F29F05 55%, #B45309 100%); box-shadow: 0 0 22px rgba(255, 190, 70, .85); animation: mz-glow 3s ease-in-out infinite; }
+.fx-lanterns span i::before, .fx-lanterns span i::after { content: ''; position: absolute; left: 20%; right: 20%; height: 5px; background: #7C4A0B; border-radius: 3px; }
+.fx-lanterns span i::before { top: -3px; } .fx-lanterns span i::after { bottom: -3px; }

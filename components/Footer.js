@@ -30,10 +30,10 @@ export default function Footer({ categories = [] }) {
             })}
           </div>
         </div>
-        <FooterCol title="Shop" links={[['/products', 'All products'], ...categories.slice(0, 5).map((c) => [`/category/${c.slug}`, c.name]), ['/cart', 'Cart']]} />
+        <FooterCol title="Shop" links={[['/deals', 'Deals'], ['/products', 'All products'], ...categories.slice(0, 5).map((c) => [`/category/${c.slug}`, c.name]), ['/cart', 'Cart']]} />
         <FooterCol title="Help" links={[['/workers', 'Earn with Mizanora'], ['/reels', 'Reels'], ['/account', 'My account'], ['/track', 'Track order'], ['/wishlist', 'Wishlist'], ['/how-to-order', 'How to order'], ['/faq', 'FAQ'], ['/returns', 'Returns'], ['/contact', 'Contact support'], ['/connect', 'Official accounts']]} />
         <div>
-          <FooterCol title="Company" links={[['/about', 'About us'], ['/team', 'Team & profiles'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
+          <FooterCol title="Company" links={[['/about', 'About us'], ['/team', 'Team & profiles'], ['/muaaz-iqbal', 'Muaaz Iqbal'], ['/quran', 'Quran'], ['/islamic', 'Islamic reminders'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
           <p className="mt-4 text-sm font-semibold text-cream">Get the app</p>
           <span className="mt-2 block text-sm"><InstallApp /></span>
           <p className="mt-1 text-xs text-faint">Tez khulta hai, weak internet par bhi chalta hai. Free.</p>
