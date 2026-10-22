@@ -154,7 +154,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
       // Her memory of this shopper's taste, mirrored onto the device: the home page "Aap ke liye" shelf uses this copy.
       if (j.prefs && j.prefs.cats) { try { localStorage.setItem('mz_ai_prefs', JSON.stringify({ cats: j.prefs.cats, at: Date.now() })); } catch (_) { /* ignore */ } }
     } catch (_) { /* offline: keep the polite message */ }
-    const withReply = [...next, { role: 'assistant', text: reply.text, products: reply.products || [], deals: reply.deals || [] }];
+    const withReply = [...next, { role: 'assistant', text: reply.text, products: reply.products || [], deals: reply.deals || [], links: reply.links || [] }];
     msgsRef.current = withReply; setMsgs(withReply);
     busyRef.current = false; setBusy(false);
     await say(reply.text);
@@ -323,7 +323,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     setAdded((a) => ({ ...a, [`deal:${d.slug}`]: true }));
   };
 
-  const chips = [slug ? 'Is ka rate kam karo' : 'Sab se sasti deals dikhao', 'Rs 1000 se kam cheezein', 'Aaj ki best deals', 'Delivery kaise hoti hai?'];
+  const chips = [slug ? 'Is ka rate kam karo' : 'Sab se sasti deals dikhao', 'Rs 1000 se kam cheezein', 'Quran kab chalega?', 'Koi mazedar paheli sunao', 'Delivery kaise hoti hai?'];
   if (!open) return null;
 
   const status = listening ? 'Sun rahi hoon... boliye'
@@ -430,6 +430,13 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
                           : <button type="button" onClick={() => addCard(p)} className="w-full rounded-full bg-gold py-1.5 text-xs font-bold text-white active:bg-goldhi">{added[p.slug] ? 'Added' : 'Add to cart'}</button>}
                       </div>
                     </div>
+                  ))}
+                </div>
+              )}
+              {(m.links || []).length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {m.links.filter((l) => typeof l.href === 'string' && l.href.startsWith('/')).map((l) => (
+                    <Link key={l.href} href={l.href} onClick={onClose} className="rounded-full border border-gold bg-gold/10 px-3.5 py-1.5 text-xs font-bold text-gold active:scale-95">{l.label}</Link>
                   ))}
                 </div>
               )}

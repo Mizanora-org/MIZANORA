@@ -30,7 +30,9 @@ async function loadSurah(n, reciter, translation) {
   return null;
 }
 
-export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', translation = 'ur.jalandhry', volume = 85, continuous = false, loop = true, initial = null }) {
+export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', translation = 'ur.jalandhry', volume = 85, continuous = false, loop = true, initial = null, radio = false }) {
+  // RADIO (live session): always surah after surah (114 -> 1), the admin's range is only the very first start, no loop restart.
+  if (radio) { continuous = true; loop = false; to = 0; }
   const [cur, setCur] = useState(surah);
   const [data, setData] = useState(initial && initial.surah === surah ? initial : null);
   const [i, setI] = useState(Math.max(0, from - 1));
@@ -162,26 +164,26 @@ export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', 
       if (!('mediaSession' in navigator)) return undefined;
       navigator.mediaSession.setActionHandler('play', () => play());
       navigator.mediaSession.setActionHandler('pause', () => pause());
-      navigator.mediaSession.setActionHandler('nexttrack', () => next(true));
-      navigator.mediaSession.setActionHandler('previoustrack', () => prev());
+      navigator.mediaSession.setActionHandler('nexttrack', radio ? null : () => next(true));
+      navigator.mediaSession.setActionHandler('previoustrack', radio ? null : () => prev());
     } catch (_) { /* not supported */ }
     return undefined;
-  }, [play, pause, next, prev]);
+  }, [play, pause, next, prev, radio]);
 
   useEffect(() => () => { const a = audio.current; if (a) { a.pause(); a.removeAttribute('src'); } }, []);
 
   const ayah = data && data.ayahs[i] ? data.ayahs[i] : null;
-  return { state, data, i, ayah, playing, blocked, prog, rate, setRate, play, pause, toggle, next: () => next(true), prev, goTo, cur, lo: loOf(), hi: hiOf() };
+  return { radio, state, data, i, ayah, playing, blocked, prog, rate, setRate, play, pause, toggle, next: () => next(true), prev, goTo, cur, lo: loOf(), hi: hiOf() };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 export default function QuranStage({ player, style = 'emerald', animation = 'glow', size = 'm', showArabic = true, showTranslation = true, variant = 'page', title = 'Tilawat-e-Quran', onClose = null, message = '' }) {
-  const { state, data, ayah, i, playing, blocked, prog, toggle, next, prev, rate, setRate, lo, hi } = player;
+  const { radio, state, data, ayah, i, playing, blocked, prog, toggle, next, prev, rate, setRate, lo, hi } = player;
   const stageRef = useRef(null);
   const [full, setFull] = useState(false);
   const words = useMemo(() => (ayah ? wordShares(ayah.ar) : []), [ayah]);
   const active = playing ? words.reduce((k, w, n) => (prog >= w.start - 0.02 ? n : k), -1) : -1;
-  const overall = data && hi > lo ? Math.min(1, ((i - lo) + prog) / (hi - lo)) : 0;
+  const overall = data && hi > lo ? Math.min(1, ((i - (radio ? 0 : lo)) + prog) / (hi - (radio ? 0 : lo))) : 0;
   const info = data ? surahInfo(data.surah) : null;
 
   useEffect(() => {
@@ -195,10 +197,17 @@ export default function QuranStage({ player, style = 'emerald', animation = 'glo
   };
 
   return (
-    <div ref={stageRef} className={`mzq mzq-${variant}`} data-style={style} data-anim={animation} data-size={size} data-playing={playing ? '1' : '0'}>
+    <div ref={stageRef} className={`mzq mzq-${variant}`} data-style={style} data-anim={animation} data-size={size} data-playing={playing ? '1' : '0'} data-radio={radio ? '1' : '0'}>
       <div className="mzq-bg" aria-hidden="true">
+        <i className="mzq-orb o1" /><i className="mzq-orb o2" /><i className="mzq-orb o3" />
+        <i className="mzq-rays" />
         <svg className="mzq-star" viewBox="0 0 200 200"><g fill="none" stroke="currentColor" strokeWidth="1"><rect x="40" y="40" width="120" height="120" /><rect x="40" y="40" width="120" height="120" transform="rotate(45 100 100)" /><circle cx="100" cy="100" r="62" /><circle cx="100" cy="100" r="38" /></g></svg>
+        <svg className="mzq-star mzq-star2" viewBox="0 0 200 200"><g fill="none" stroke="currentColor" strokeWidth=".8"><polygon points="100,12 120,80 188,100 120,120 100,188 80,120 12,100 80,80" /><circle cx="100" cy="100" r="88" /><circle cx="100" cy="100" r="50" strokeDasharray="3 5" /></g></svg>
+        <svg className="mzq-moon" viewBox="0 0 100 100"><path d="M62 10a40 40 0 1 0 28 68A34 34 0 0 1 62 10z" fill="currentColor" /></svg>
+        {Array.from({ length: 22 }, (_, n) => <b key={n} className="mzq-twk" style={{ '--x': `${(n * 53 + 11) % 97}%`, '--y': `${(n * 31 + 7) % 62}%`, '--d': `${2.2 + (n % 6) * 0.7}s`, '--w': `${(n * 0.37) % 4}s` }} />)}
         {Array.from({ length: 14 }, (_, n) => <span key={n} className="mzq-dot" style={{ '--x': `${(n * 37 + 8) % 100}%`, '--d': `${6 + (n % 5) * 2.2}s`, '--s': `${2 + (n % 3)}px`, '--w': `${(n * 0.7) % 6}s` }} />)}
+        {Array.from({ length: 5 }, (_, n) => <em key={n} className="mzq-lamp" style={{ '--x': `${12 + n * 19}%`, '--d': `${5 + n * 1.3}s`, '--w': `${n * 0.9}s` }} />)}
+        <svg className="mzq-city" viewBox="0 0 400 90" preserveAspectRatio="none"><path fill="currentColor" d="M0 90V70h18V48l4-10 4 10v22h14V62q14-30 28 0v8h16V30l3-12 3 12v40h16V58q22-40 44 0v12h20V40l3-16 3 16v30h14V64q18-34 36 0v6h18V46l4-12 4 12v24h16V60q26-44 52 0v10h20V36l3-14 3 14v34h18V90z" /></svg>
       </div>
 
       <header className="mzq-head">
@@ -234,19 +243,29 @@ export default function QuranStage({ player, style = 'emerald', animation = 'glo
 
       <footer className="mzq-foot">
         <div className="mzq-bar" aria-hidden="true"><i style={{ width: `${overall * 100}%` }} /></div>
-        <div className="mzq-ctl">
-          <button type="button" onClick={prev} className="mzq-icon" aria-label="Previous ayah"><ChevronLeft size={22} /></button>
-          <button type="button" onClick={toggle} className="mzq-play" aria-label={playing ? 'Pause' : 'Play'} disabled={state !== 'ready'}>
-            <span className="mzq-ring" aria-hidden="true" style={{ '--p': `${prog * 360}deg` }} />
-            {playing ? <Pause size={26} /> : <Play size={26} />}
-          </button>
-          <button type="button" onClick={next} className="mzq-icon" aria-label="Next ayah"><ChevronRight size={22} /></button>
-        </div>
-        <div className="mzq-meta">
-          <span className="mzq-eq" aria-hidden="true"><i /><i /><i /><i /></span>
-          <button type="button" className="mzq-chip" onClick={() => setRate(rate >= 1.25 ? 0.85 : rate >= 1 ? 1.25 : 1)} aria-label="Speed">{rate}x</button>
-          {message && <span className="mzq-msg">{message}</span>}
-        </div>
+        {radio ? (
+          <div className="mzq-live">
+            <span className="mzq-livebadge"><i aria-hidden="true" />LIVE</span>
+            <span className="mzq-eq" aria-hidden="true"><i /><i /><i /><i /><i /></span>
+            {message && <span className="mzq-msg">{message}</span>}
+          </div>
+        ) : (
+          <>
+            <div className="mzq-ctl">
+              <button type="button" onClick={prev} className="mzq-icon" aria-label="Previous ayah"><ChevronLeft size={22} /></button>
+              <button type="button" onClick={toggle} className="mzq-play" aria-label={playing ? 'Pause' : 'Play'} disabled={state !== 'ready'}>
+                <span className="mzq-ring" aria-hidden="true" style={{ '--p': `${prog * 360}deg` }} />
+                {playing ? <Pause size={26} /> : <Play size={26} />}
+              </button>
+              <button type="button" onClick={next} className="mzq-icon" aria-label="Next ayah"><ChevronRight size={22} /></button>
+            </div>
+            <div className="mzq-meta">
+              <span className="mzq-eq" aria-hidden="true"><i /><i /><i /><i /></span>
+              <button type="button" className="mzq-chip" onClick={() => setRate(rate >= 1.25 ? 0.85 : rate >= 1 ? 1.25 : 1)} aria-label="Speed">{rate}x</button>
+              {message && <span className="mzq-msg">{message}</span>}
+            </div>
+          </>
+        )}
         <p className="mzq-credit">Text: Tanzil (Uthmani) · Recitation and translations: AlQuran Cloud / Islamic Network</p>
       </footer>
     </div>

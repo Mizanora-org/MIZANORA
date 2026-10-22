@@ -49,3 +49,23 @@ AI ko bade jawab/code ke liye zyada token aur 10 steps mile hain.
 - Test hua: `node scripts/check.js`, `node scripts/typecheck.js`, saari `scripts/test-*.mjs` (naya `test-v23.mjs`: surah totals 6236, Pakistan-time schedule, midnight window, API parsing, deals filter, snippet sanitiser, AI file guard).
 - **Test nahi hua**: asli `next build`, asli Firebase / AlQuran Cloud / GitHub / Gemini (is sandbox mein npm aur ye sites blocked thin). Deploy ke baad: `npm run check && npm test`, phir Admin > Quran > "Test on this screen", /deals, /quran/1-al-fatihah dekhein.
 - Browser ki awaaz audio files ke codec par chalti hai; agar kisi qari ka link na chale to qari badal dein.
+
+---
+## v23.1 (update)
+
+**Quran = live radio**
+- Visitors get NO play / pause / speed / next buttons. It runs by itself in the admin's time window, surah after surah (114 is followed by 1).
+- One shared place (Firestore `siteMeta/quranState`, written by `/api/quran/state`): everybody joins at the live ayah; when the window ends the place is kept, and the next window continues from exactly there. Admin > Quran shows the place and has "Start over from the surah / ayah above". The first start (before any place is saved) is the surah/ayah set in Admin > Quran.
+- Only honest steps forward are accepted by the server (a stranger cannot throw the radio to another surah); writes are limited to one every 8 seconds.
+- New living background: drifting light orbs, rotating rays, twinkling stars, swaying lanterns, a glowing crescent, a mosque skyline, LIVE badge and a sound-wave.
+- The admin "Test" button keeps the normal player (with buttons) and does not move the live place.
+- Browsers still need ONE touch before sound can start (browser rule); everything else is automatic. No GitHub Action is needed.
+
+**Deal groups** (Admin > Deals)
+- Make a group by words (Shirts, Shoes, Pants, Watches, Mens catalogue...), give it one rate (percent off or a fixed price), Preview, Apply, Undo. Matching LIVE products get the new price with the old price struck through, so they show in the home feed "Hot deals" and on /deals. Prices never go under cost + Rs 50 when a cost is known. Undo restores the old prices and leaves a price you changed by hand alone.
+- Products that only exist in the import files (archive) are not changed by groups.
+- The AI manager can do the same (`apply_deal_group`, `undo_deal_group`; the admin confirms first).
+
+**Customer assistant**
+- `quran_info` (live time, surah info, an exact ayah from the Quran data, page links) and `shop_pages` (buttons to deals, blog, tracking, returns...).
+- Chit-chat, clean jokes, paheliyan, true Islamic stories, small tasks and research (web search) stay honest and Islamic; ayat are never quoted from memory.

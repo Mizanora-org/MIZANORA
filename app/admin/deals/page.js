@@ -2,9 +2,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Copy, ExternalLink, Flame } from 'lucide-react';
-import { dbClient } from '@/lib/firebase-client';
+import { Copy, ExternalLink, Flame, Plus, Trash2 } from 'lucide-react';
+import { authClient, dbClient } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
+import { cleanGroup } from '@/lib/dealGroups';
 import { DEALS_DEFAULT, DEALS_DOC, cleanDeals } from '@/lib/deals';
 import { absUrl } from '@/lib/config';
 
@@ -18,6 +19,7 @@ export default function AdminDeals() {
   const [pinned, setPinned] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState({}); // per group: the last preview / result text
 
   useEffect(() => {
     getDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id)).then((d) => {
@@ -40,6 +42,27 @@ export default function AdminDeals() {
     } catch (e) { setMsg(`Could not save: ${e.message}`); }
     setBusy(false);
   }
+  const PRESETS = [['Shirts', 'shirt, tshirt, kameez'], ['Shoes', 'shoes, shoe, sneakers, sandal, joota'], ['Pants', 'pant, jeans, trouser, shalwar'], ['Watches', 'watch, ghari'], ['Mens catalogue', 'men, mens, man']];
+  const setGroup = (i, patch) => setCfg((c) => ({ ...c, groups: c.groups.map((g, n) => (n === i ? { ...g, ...patch } : g)) }));
+  const addGroup = (name = 'New group', words = '') => setCfg((c) => ({ ...c, groups: [...c.groups, { id: `g${Date.now().toString(36)}`, name, words: words.split(',').map((w) => w.trim()).filter(Boolean), exclude: name === 'Mens catalogue' ? ['women', 'womens', 'ladies'] : [], pct: 20, price: 0, on: true }].slice(0, 24) }));
+  async function act(i, action) {
+    const g = cleanGroup(cfg.groups[i]);
+    if (!g) { setInfo((x) => ({ ...x, [i]: 'Give the group a name first.' })); return; }
+    if (action === 'apply' && !window.confirm(`Change the REAL prices of every matching live product to a deal (${g.price ? `Rs ${g.price}` : `${g.pct}% off`})? You can undo it.`)) return;
+    setBusy(true); setInfo((x) => ({ ...x, [i]: 'Working...' }));
+    try {
+      const token = await authClient().currentUser.getIdToken();
+      const r = await fetch('/api/admin/deal-groups', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action, group: g, id: g.id }) });
+      const j = await r.json();
+      let text;
+      if (!j.ok) text = j.error || 'Could not finish.';
+      else if (action === 'preview') text = `${j.count} live product(s) would change.${(j.sample || []).map((x) => ` ${x.name}: Rs ${x.from} to Rs ${x.to}.`).join('')}${j.skippedCount ? ` ${j.skippedCount} would be skipped (${(j.skipped || []).slice(0, 2).join('; ')}).` : ''}`;
+      else text = j.summary || 'Done.';
+      setInfo((x) => ({ ...x, [i]: text }));
+      if (j.ok && action !== 'preview') { await setDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id), { ...cleanDeals({ ...cfg, pinned }), updatedAtMs: Date.now() }); await revalidateSite(undefined, ['deals-config']); }
+    } catch (e) { setInfo((x) => ({ ...x, [i]: `Could not finish: ${e.message}` })); }
+    setBusy(false);
+  }
   const copy = async () => { try { await navigator.clipboard.writeText(link); setMsg('Link copied.'); } catch { setMsg(link); } };
 
   return (
@@ -55,6 +78,37 @@ export default function AdminDeals() {
           <Link href="/deals" target="_blank" className="btn-ghost !px-4 !py-2 text-sm"><ExternalLink size={15} /> Open</Link>
         </div>
         <p className="text-xs text-dim">Every in-stock product whose price is under its old price (compare price) appears here by itself, live products and catalogue-file products together, biggest discount first. Share this one link on WhatsApp, Facebook, Instagram and TikTok.</p>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="text-lg font-extrabold">Deal groups: one rate for a whole catalogue</h2>
+        <p className="text-xs text-dim">Make a group by words (for example Shirts = shirt, tshirt), give it ONE rate (a percent off, or one fixed price such as Rs 999) and press Apply. Every matching live product becomes a deal (old price struck through) and appears in the home feed "Hot deals" and on /deals. Undo puts the old prices back. Whole words only ("men" does not match "women"). Products of the file catalogue (import files) are not changed here.</p>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map(([n, w]) => <button key={n} type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => addGroup(n, w)}><Plus size={13} /> {n}</button>)}
+          <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => addGroup()}><Plus size={13} /> Other</button>
+        </div>
+        {cfg.groups.map((g, i) => (
+          <div key={g.id} className="space-y-2 rounded-xl border border-line bg-surface p-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block text-sm"><span className="label">Group name</span><input className="input" maxLength={40} value={g.name} onChange={(e) => setGroup(i, { name: e.target.value })} /></label>
+              <label className="block text-sm"><span className="label">Words (comma separated)</span><input className="input" value={(g.words || []).join(', ')} onChange={(e) => setGroup(i, { words: e.target.value.split(',').map((w) => w.trim()).filter(Boolean) })} /></label>
+              <label className="block text-sm"><span className="label">Not these words (optional)</span><input className="input" value={(g.exclude || []).join(', ')} onChange={(e) => setGroup(i, { exclude: e.target.value.split(',').map((w) => w.trim()).filter(Boolean) })} /></label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block text-sm"><span className="label">Percent off</span><input type="number" min={0} max={80} className="input" value={g.price ? 0 : g.pct} onChange={(e) => setGroup(i, { pct: Number(e.target.value) || 0, price: 0 })} /></label>
+                <label className="block text-sm"><span className="label">or fixed price Rs</span><input type="number" min={0} className="input" value={g.price || ''} placeholder="0" onChange={(e) => setGroup(i, { price: Number(e.target.value) || 0, pct: 0 })} /></label>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" disabled={busy} onClick={() => act(i, 'preview')}>Preview</button>
+              <button type="button" className="btn-gold !px-3 !py-1.5 text-xs" disabled={busy} onClick={() => act(i, 'apply')}>Apply deal</button>
+              <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" disabled={busy} onClick={() => act(i, 'undo')}>Undo</button>
+              <button type="button" className="ml-auto text-red-600" aria-label="Remove group" onClick={() => setCfg((c) => ({ ...c, groups: c.groups.filter((_, n) => n !== i) }))}><Trash2 size={17} /></button>
+            </div>
+            {info[i] && <p role="status" className="rounded-lg bg-raised p-2 text-xs text-cream">{info[i]}</p>}
+          </div>
+        ))}
+        {!cfg.groups.length && <p className="text-sm text-dim">No group yet. Tap Shirts, Shoes, Pants, Watches or Mens catalogue above.</p>}
+        <p className="text-xs text-dim">Remember to press Save below to keep the groups in the list.</p>
       </section>
 
       <section className="card space-y-3">

@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { BookOpen, Clock, MoonStar, Play, Plus, Trash2 } from 'lucide-react';
 import { dbClient } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
+import { STATE_DOC, cleanState } from '@/lib/quranState';
 import { ANIMATIONS, DISPLAYS, MODES, QURAN_DEFAULT, QURAN_DOC, RECITERS, STYLES, SURAHS, TRANSLATIONS, cleanQuran, describeWindows, quranStatus, surahInfo } from '@/lib/quran';
 
 // Admin > Quran: everything about the Quran session of the shop in one place (see lib/quran.js for what the session is).
@@ -31,11 +32,13 @@ export default function AdminQuran() {
   const [busy, setBusy] = useState(false);
   const [test, setTest] = useState(false);
   const [tick, setTick] = useState(0);
+  const [pos, setPos] = useState(undefined); // the live position: undefined = loading, null = none saved yet
 
   useEffect(() => {
     let live = true;
     getDoc(doc(dbClient(), QURAN_DOC.collection, QURAN_DOC.id)).then((d) => { if (live) setCfg(d.exists() ? cleanQuran({ ...QURAN_DEFAULT, ...d.data() }) : { ...QURAN_DEFAULT, mode: 'off' }); })
       .catch((e) => { if (live) { setMsg(`Could not read the setting: ${e.message}`); setCfg({ ...QURAN_DEFAULT, mode: 'off' }); } });
+    getDoc(doc(dbClient(), STATE_DOC.collection, STATE_DOC.id)).then((d) => { if (live) setPos(d.exists() ? cleanState(d.data()) : null); }).catch(() => { if (live) setPos(null); });
     const t = setInterval(() => setTick((x) => x + 1), 20000);
     return () => { live = false; clearInterval(t); };
   }, []);
@@ -116,9 +119,12 @@ export default function AdminQuran() {
           <Pick label="Reciter" value={cfg.reciter} onChange={(v) => set('reciter', v)} options={RECITERS} />
           <Pick label="Translation shown under the ayah" value={cfg.translation} onChange={(v) => set('translation', v)} options={TRANSLATIONS} />
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Switch label="Continue with the next surah" hint="After the last ayah the next surah follows, one after the other." checked={cfg.continuous} onChange={(v) => set('continuous', v)} />
-          <Switch label="Start again from the beginning" hint="When the range ends (and 'continue' is off)." checked={cfg.loop} onChange={(v) => set('loop', v)} />
+        <div className="space-y-2 rounded-xl border border-line bg-surface p-3 text-sm">
+          <p><b className="text-cream">Live radio.</b> Visitors do not get play / pause / speed buttons. The recitation runs by itself in your time window, surah after surah (after 114 it starts again at 1). Where it stops when the window ends is remembered, and the next window goes on from exactly that place. The surah and ayah above are only the very first start (or after you press "Start over").</p>
+          <p className="text-dim">Now: {pos === undefined ? 'checking...' : pos ? `Surah ${pos.surah} (${surahInfo(pos.surah).name}), ayah ${pos.ayah}` : 'no place saved yet (the first start is used)'}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-ghost !px-4 !py-2 text-sm" disabled={busy} onClick={async () => { setBusy(true); try { await setDoc(doc(dbClient(), STATE_DOC.collection, STATE_DOC.id), { surah: cfg.surah, ayah: cfg.from, atMs: 0 }); setPos({ surah: cfg.surah, ayah: cfg.from, atMs: 0 }); setMsg('The live place is now the start above.'); } catch (e) { setMsg(`Could not change: ${e.message}`); } setBusy(false); }}>Start over from the surah / ayah above</button>
+          </div>
         </div>
       </section>
 
@@ -147,7 +153,7 @@ export default function AdminQuran() {
         <span className="text-xs text-dim">The shop never plays sound without a touch from the visitor (browser rule). Without internet the session simply does not start.</span>
       </div>
 
-      {test && <Host cfg={shown} autoStart onClose={() => setTest(false)} />}
+      {test && <Host cfg={shown} autoStart radio={false} onClose={() => setTest(false)} />}
     </div>
   );
 }

@@ -74,6 +74,37 @@ assert.equal(ok('app/admin/foo/page.js'), true);
 assert.equal(ok('.env'), false); assert.equal(ok('lib/adminAuth.js'), false); assert.equal(ok('lib/firebase-admin.js'), false);
 assert.equal(ok('app/../.env'), false); assert.equal(ok('package.json'), false); assert.equal(ok('firestore.rules'), false); assert.equal(ok('.github/workflows/D.yml'), false);
 
+// ---- v23.1: live radio pointer
+const S = await imp('lib/quranState.js');
+assert.deepEqual(S.cleanState({ surah: 36, ayah: 9999 }), { surah: 36, ayah: 83, atMs: 0 });
+assert.equal(S.cleanState({ surah: 0, ayah: 1 }), null);
+const t0 = 1_000_000;
+const here = { surah: 2, ayah: 10, atMs: t0 };
+assert.equal(S.acceptMove(here, { surah: 2, ayah: 11, atMs: t0 }, t0 + 5000), true);       // the next ayah
+assert.equal(S.acceptMove(here, { surah: 2, ayah: 10, atMs: t0 }, t0 + 5000), true);       // same ayah (second visitor)
+assert.equal(S.acceptMove(here, { surah: 50, ayah: 1, atMs: t0 }, t0 + 5000), false);      // a stranger cannot throw the radio away
+assert.equal(S.acceptMove(here, { surah: 50, ayah: 1, atMs: t0 }, t0 + 200000), true);      // ...unless nobody moved it for a while
+assert.equal(S.acceptMove({ surah: 2, ayah: 286, atMs: t0 }, { surah: 3, ayah: 1, atMs: t0 }, t0 + 5000), true); // next surah
+assert.equal(S.acceptMove({ surah: 114, ayah: 6, atMs: t0 }, { surah: 1, ayah: 1, atMs: t0 }, t0 + 5000), true);  // after An-Nas comes Al-Fatiha
+assert.equal(S.acceptMove(null, { surah: 5, ayah: 1, atMs: t0 }), true);
+assert.deepEqual(S.startPoint({ surah: 18, from: 1 }, null), { surah: 18, ayah: 1, resumed: false });
+assert.deepEqual(S.startPoint({ surah: 18, from: 1 }, { surah: 36, ayah: 12 }), { surah: 36, ayah: 12, resumed: true });
+
+// ---- v23.1: deal groups
+const G = await imp('lib/dealGroups.js');
+const mens = G.cleanGroup({ name: 'Mens catalogue', words: 'men, mens', exclude: 'women, ladies', pct: 20 });
+assert.equal(G.matchesGroup({ name: 'Men Cotton Shirt' }, mens), true);
+assert.equal(G.matchesGroup({ name: 'Women Cotton Shirt' }, mens), false);
+assert.equal(G.matchesGroup({ name: 'Leather Belt', category: 'Mens' }, mens), true);
+const shoes = G.cleanGroup({ name: 'Shoes', words: ['shoes'], price: 1499 });
+assert.equal(G.matchesGroup({ name: 'Sports Shoe' }, shoes), true);
+assert.equal(G.matchesGroup({ name: 'Shirt' }, shoes), false);
+assert.equal(G.groupPrice(2000, shoes), 1499);
+assert.equal(G.groupPrice(1200, shoes), 0);          // a "deal" that is not lower is no deal
+assert.equal(G.groupPrice(1000, mens), 800);
+assert.equal(G.cleanGroups([{ name: 'A', words: 'x', pct: 10 }, { name: 'A', words: 'y', pct: 10 }, { name: '' }]).length, 1);
+assert.equal(D.cleanDeals({ groups: [{ name: 'Watches', words: 'watch', pct: 15 }] }).groups[0].id, 'watches');
+
 // Every blog has front matter
 for (const f of fs.readdirSync(path.join(root, 'content/blog'))) {
   const t = fs.readFileSync(path.join(root, 'content/blog', f), 'utf8');

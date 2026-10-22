@@ -9,6 +9,8 @@ import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { geminiCall, ladderFor, loadAssistant } from '@/lib/gemini';
 import { makeDeal, makeNeg, priceDeal, readNeg } from '@/lib/deal';
 import { webAnswer } from '@/lib/webAnswer';
+import { SURAHS, describeWindows, quranStatus, slugOfSurah, surahInfo } from '@/lib/quran';
+import { getQuranConfig, getSurah } from '@/lib/quranServer';
 import { learnFrom, readPrefs, topCats, writePrefs } from '@/lib/aiPrefs';
 
 export const runtime = 'nodejs';
@@ -46,6 +48,16 @@ const TOOLS = [{
       name: 'request_discount',
       description: 'Call this EVERY time the shopper asks for a lower price / discount / "rate kam karo" / bargains on a product (even if you think the answer is no). The server decides if any discount is possible. Never promise a discount yourself.',
       parameters: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] },
+    },
+    {
+      name: 'quran_info',
+      description: 'Everything about the Quran on this website: is the live recitation on now / when is the next time, find a surah by number or name, read one ayah (Arabic + translation, exact text from the Quran data), and the page links. Use it for any Quran question: "Quran kab chalega", "Surah Yaseen kitni ayat", "Ayat 255 Al-Baqarah sunao/padho", "Quran sunna hai".',
+      parameters: { type: 'object', properties: { surah: { type: 'string', description: 'Surah number (1-114) or name, e.g. 36 or Yaseen. Empty for just the live status.' }, ayah: { type: 'integer', description: 'Optional ayah number inside that surah.' } } },
+    },
+    {
+      name: 'shop_pages',
+      description: 'Links to the shop pages the shopper may want: deals, quran, blog, islamic feed, order tracking, returns, shipping, contact, size guide, how to order, about, catalogue. Call it when they ask where something is, or you want to show them the right page.',
+      parameters: { type: 'object', properties: { page: { type: 'string', description: 'deals | quran | blog | islamic | track | returns | shipping | contact | size-guide | how-to-order | about | products | reels | faq | muaaz-iqbal' } }, required: ['page'] },
     },
     {
       name: 'web_answer',
@@ -90,7 +102,7 @@ async function runSearch(a, liked = []) {
 
 // A plain "show me X" message is answered here, without calling Gemini at all (saves free-limit requests and is instant).
 // Anything else (bargaining, questions, greetings, chit-chat) goes to Gemini.
-const NOT_PLAIN = /(kam\s*kar|kam\s*karo|discount|rate\s*kam|bargain|last price|final price|best price|offer|qeemat|price\s*kam|sasta\s*kar|mehnga\s*hai|delivery|deliver|return|exchange|refund|order|track|payment|cash|advance|easypaisa|jazzcash|kitne\s*din|kab\s*tak|kahan|kaise|kyun|kyon|why|how|when|policy|status|warranty|complaint|shikayat|address|number|whatsapp|\?|thanks|shukriya|salam|hello|\bhi\b)/i;
+const NOT_PLAIN = /(quran|qur'an|surah|surat|ayat|ayah|tilawat|namaz|dua|joke|lateefa|paheli|kahani|story|quiz|shayari|kaun|kya\s+hai|kyun|kaise|kab\s|weather|mausam|news|translate|tarjuma|kam\s*kar|kam\s*karo|discount|rate\s*kam|bargain|last price|final price|best price|offer|qeemat|price\s*kam|sasta\s*kar|mehnga\s*hai|delivery|deliver|return|exchange|refund|order|track|payment|cash|advance|easypaisa|jazzcash|kitne\s*din|kab\s*tak|kahan|kaise|kyun|kyon|why|how|when|policy|status|warranty|complaint|shikayat|address|number|whatsapp|\?|thanks|shukriya|salam|hello|\bhi\b)/i;
 function plainSearch(text, hasCurrent) {
   const t = String(text || '');
   if (NOT_PLAIN.test(t) || t.split(/\s+/).length > 9) return null;
@@ -114,6 +126,24 @@ async function costOf(id) {
   } catch { return 0; }
 }
 
+
+const PAGES = {
+  deals: ['/deals', 'Aaj ki Deals'], quran: ['/quran', 'Quran padhein / suniye'], blog: ['/blog', 'Blog'], islamic: ['/islamic', 'Islamic feed'],
+  track: ['/track', 'Order track karein'], returns: ['/returns', 'Returns'], shipping: ['/shipping', 'Delivery'], contact: ['/contact', 'Rabta'],
+  'size-guide': ['/size-guide', 'Size guide'], 'how-to-order': ['/how-to-order', 'Order kaise karein'], about: ['/about', 'Mizanora ke bare mein'],
+  products: ['/products', 'Sab products'], reels: ['/reels', 'Videos'], faq: ['/faq', 'FAQ'], 'muaaz-iqbal': ['/muaaz-iqbal', 'Founder'],
+};
+function surahFrom(v) {
+  const t = String(v || '').trim().toLowerCase();
+  if (!t) return null;
+  const n = Math.floor(Number(t));
+  if (n >= 1 && n <= 114) return surahInfo(n);
+  const key = (x) => String(x).toLowerCase().replace(/[^a-z]/g, '').replace(/^(al|an|ar|as|at|az|ad|ash|adh)/, '');
+  const k = key(t.replace(/^surah\s*/, ''));
+  if (!k) return null;
+  return SURAHS.find((s) => key(s.name) === k) || SURAHS.find((s) => key(s.name).startsWith(k) && k.length >= 3) || null;
+}
+
 function systemPrompt(cfg, total, catList, cur, liked = []) {
   return `You are ${cfg.name}, the friendly young female shop assistant of MIZANORA, a Pakistani online store (cash on delivery all over Pakistan). You speak with customers (by voice and text) in the SAME language they use: Roman Urdu by default (English if they write English, Urdu script if they write Urdu). You are a woman: use feminine forms ("main dikha sakti hoon", "karti hoon"). Warm, polite, a little playful, never pushy.
 STYLE: very short, 1 to 3 sentences, easy words, no markdown, no emojis, no bullet lists (your words are read aloud). Do not read long lists of products aloud: say how many you found and mention the best one or two; the app shows product cards under your message.
@@ -127,6 +157,9 @@ RULES:
 5. For order status, returns or anything about THIS shop that you do not know, send them to WhatsApp support.
 6. GENERAL QUESTIONS: you are also a helpful, knowledgeable friend. When the shopper asks anything outside the shop (general knowledge, Islamic questions, news, weather, school, health basics, how-to, advice) call web_answer, then tell the answer in your own short, warm words (2 to 4 sentences). Mention the source in a few words when it matters ("Sahih Bukhari ke mutabiq"). If the tool fails say honestly you could not check right now.
 7. HONESTY AND ISLAM: always speak the truth, never exaggerate a product, never invent facts, ayat, ahadees or references. Speak with adab (Assalam o Alaikum if they greet, InshaAllah, JazakAllah where natural). In religious matters give only well-known, sourced answers; where scholars differ or it is a personal ruling say "is ke liye kisi mustanad aalim se poochein". Never help with riba, gambling, cheating, adult content or hurting anyone: refuse politely and kindly. Never insult any person, sect or religion. For health or legal matters give general information only and advise a doctor or lawyer for real decisions.
+8. QURAN AND THE SITE: the website has a live Quran recitation (admin sets the times) and Quran reading pages. For ANY Quran question call quran_info (live time, surah info, an exact ayah). Never quote an ayah from your own memory: only the text quran_info returns. To point to a page (deals, blog, order tracking, returns...) call shop_pages.
+9. ENTERTAINMENT: you may also chat, tell clean jokes, paheliyan (riddles), short true Islamic stories (only well-known ones, never invented), fun facts, quiz questions, motivation and shayari. Keep it halal and polite: no music/gossip/vulgar or hurtful humour, no mockery of religion. Stories and jokes may be up to 6 short sentences; everything else stays short.
+10. TASKS: you can help with small tasks too (draft a message, translate, calculate, plan a gift or a budget, explain something simply, compare options). Use web_answer for anything that needs fresh facts. If something is beyond you, say so honestly.
 ${cur ? `The shopper is looking at this product right now: ${JSON.stringify(brief(cur))}. "Is", "yeh", "isko" mean this product.` : ''}`;
 }
 
@@ -167,6 +200,7 @@ export async function POST(req) {
   const asks = readNeg(body.neg);
   const shown = new Map();
   const deals = [];
+  const links = [];
   const lastText = history[history.length - 1].text;
   let webUsed = 0;
 
@@ -206,6 +240,32 @@ export async function POST(req) {
       deals.push({ slug: p.slug, name: p.name, image: p.images[0] || '', price: p.price, off: r.off, newPrice: r.newPrice, token: makeDeal(p.id, r.off), hasOptions: hasOpts(p) });
       return { granted: true, discount_pkr: r.off, new_price_pkr: r.newPrice, final_best_price: r.final };
     }
+    if (name === 'shop_pages') {
+      const pg = PAGES[String(a.page || '').toLowerCase()];
+      if (!pg) return { error: 'unknown page', known: Object.keys(PAGES) };
+      links.push({ label: pg[1], href: pg[0] });
+      return { page: pg[0], note: 'the app shows a button for this page under your message' };
+    }
+    if (name === 'quran_info') {
+      const cfg2 = await getQuranConfig();
+      const st = quranStatus(cfg2);
+      const out = { live_now: st.live, schedule: cfg2.mode === 'off' ? 'The live recitation is switched off at the moment.' : cfg2.mode === 'always' ? 'Always on.' : describeWindows(cfg2.windows), note: 'Times are Pakistan time. The live recitation plays by itself during those times (no buttons), surah after surah.' };
+      links.push({ label: st.live ? 'Live tilawat suniye' : 'Quran padhein', href: '/quran' });
+      const s = surahFrom(a.surah);
+      if (s) {
+        out.surah = { number: s.n, name: s.name, ayat: s.ayat };
+        links.push({ label: `Surah ${s.name}`, href: `/quran/${slugOfSurah(s.n)}` });
+        const ay = Math.floor(Number(a.ayah));
+        if (ay >= 1 && ay <= s.ayat) {
+          try {
+            const d = await getSurah(s.n, cfg2.reciter, 'en.sahih');
+            const x = d.ayahs.find((q) => q.n === ay);
+            if (x) out.ayah = { number: ay, arabic: clip(x.ar, 500), translation_english: clip(x.tr, 500), note: 'Exact text from the Quran data. For an Urdu meaning use the page link or say the English meaning; do not invent a tafseer.' };
+          } catch { out.ayah_error = 'could not load the ayah right now'; }
+        } else if (a.ayah) out.ayah_error = `This surah has ${s.ayat} ayat.`;
+      } else if (a.surah) out.surah_error = 'surah not found';
+      return out;
+    }
     if (name === 'web_answer') {
       if (webUsed >= 1) return { error: 'already searched once for this message' };
       webUsed += 1;
@@ -237,7 +297,7 @@ export async function POST(req) {
       const r = await geminiCall(ladderFor(cfg, 'chat'), {
         systemInstruction: { parts: [{ text: systemPrompt(cfg, total, catList, cur, liked) }] },
         contents, tools: TOOLS,
-        generationConfig: { temperature: 0.5, maxOutputTokens: 420 },
+        generationConfig: { temperature: 0.5, maxOutputTokens: 650 },
       }, { timeoutMs: 9000, deadlineMs: 26000, maxTries: 4 });
       if (!r.ok) { console.error('assistant Gemini failed', r.status, String(r.error || '').slice(0, 160)); return await fallback(r.status); }
       const content = r.json.candidates && r.json.candidates[0] && r.json.candidates[0].content;
@@ -261,6 +321,6 @@ export async function POST(req) {
   return NextResponse.json({
     ok: true, text,
     products: shownList.filter((p) => !dealSlugs.has(p.slug)).slice(0, 6).map(card),
-    deals, neg: makeNeg(asks), prefs: prefsOut(),
+    deals, links: links.filter((l, i, arr) => arr.findIndex((x) => x.href === l.href) === i).slice(0, 4), neg: makeNeg(asks), prefs: prefsOut(),
   });
 }
