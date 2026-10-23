@@ -203,6 +203,9 @@ export default function SearchBox({ id, className = '', categories = [] }) {
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-faint"><CornerDownLeft size={13} /> Enter</span>
                 </button>
               </li>
+              <li>
+                <Link href={`/search?q=${encodeURIComponent(q.trim())}`} onClick={() => { setOpen(false); remember(q); }} className="block border-t border-line px-3 py-2.5 text-sm font-bold text-saffron hover:bg-raised">Search everything: tools, Live TV, Quran, Hadith, blog &rarr;</Link>
+              </li>
             </ul>
           )}
         </div>

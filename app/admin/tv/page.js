@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Trash2, Tv } from 'lucide-react';
 import { authClient, dbClient } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
-import { MAX_CHANNELS, TV_DEFAULT, TV_DOC, cleanChannel, cleanTv, parseM3U } from '@/lib/liveTv';
+import { MAX_CHANNELS, TV_DEFAULT, TV_DOC, cleanChannel, cleanTv, parseM3U, TV_PRESETS } from '@/lib/liveTv';
 
 // Admin > Live TV: load channels (M3U file, M3U link, pasted text or one by one) and choose the PRODUCTS whose ad plays while a visitor
 // switches channel. Saved in Firestore siteMeta/liveTv; the /live page refreshes within seconds of pressing Save.
@@ -119,6 +119,7 @@ export default function AdminTv() {
         <h2 className="text-lg font-extrabold">2. Add channels ({cfg.channels.length}/{MAX_CHANNELS})</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-sm"><span className="label">Upload an M3U / M3U8 file</span><input type="file" accept=".m3u,.m3u8,.txt,audio/x-mpegurl,application/vnd.apple.mpegurl" className="input" onChange={fromFile} /></label>
+          <div className="text-sm"><span className="label">Quick lists (public iptv-org playlists): tap one, then press Load</span><div className="mb-2 flex flex-wrap gap-1.5">{TV_PRESETS.map(([n, u]) => <button key={u} type="button" className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-bold hover:border-gold" onClick={() => setLink(u)}>{n}</button>)}</div></div>
           <div className="text-sm"><span className="label">Or an M3U link (https)</span><div className="flex gap-2"><input className="input" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://.../playlist.m3u" /><button type="button" className="btn-ghost" disabled={busy === 'link' || !link} onClick={fromLink}>{busy === 'link' ? '...' : 'Load'}</button></div></div>
         </div>
         <label className="block text-sm"><span className="label">Or paste the playlist text</span><textarea className="input font-mono text-xs" rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'#EXTM3U\n#EXTINF:-1 group-title="News",My Channel\nhttps://example.com/live.m3u8'} /></label>

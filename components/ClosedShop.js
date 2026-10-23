@@ -15,6 +15,8 @@ export default function ClosedShop({ hours }) {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           <Link className="rounded-full bg-[#F5B83D] px-5 py-3 font-bold text-[#0B6B45]" href="/quran">Quran padhein</Link>
           <Link className="rounded-full bg-white/15 px-5 py-3 font-bold text-white" href="/hadith">Hadees</Link>
+          <Link className="rounded-full bg-white/15 px-5 py-3 font-bold text-white" href="/live">Live TV</Link>
+          <Link className="rounded-full bg-white/15 px-5 py-3 font-bold text-white" href="/tools">Free tools</Link>
           <a className="rounded-full bg-white px-5 py-3 font-bold text-[#0B6B45]" href={`https://wa.me/${SITE.whatsapp}`} rel="noopener noreferrer">WhatsApp</a>
         </div>
         <p className="mt-5 text-xs text-white/75">Aap ke pehle se diye gaye orders mehfooz hain.</p>

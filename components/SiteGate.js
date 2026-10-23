@@ -7,7 +7,7 @@ import { shopOpenNow } from '@/lib/shopHours';
 // v24: SHOP HOURS. Outside the hours the admin set, visitors see the "shop is closed" screen (with the live Quran) and the shop opens by
 // itself at opening time. The check uses the visitor's clock against Pakistan time, so nothing is read from Firebase and no redeploy is needed.
 // The first (server) render is always the open shop, so Google sees the real pages; the closed screen appears right after load.
-const ALWAYS_OPEN = ['/admin', '/quran', '/hadith', '/islamic'];
+const ALWAYS_OPEN = ['/admin', '/quran', '/hadith', '/islamic', '/tools', '/live', '/search'];
 
 export default function SiteGate({ down, hours, maintenance, closed, children }) {
   const path = usePathname() || '';

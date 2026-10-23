@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ProductAds from '@/components/ProductAds';
 import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { absUrl } from '@/lib/config';
 import { PageHead } from '@/components/Prose';
@@ -36,6 +37,7 @@ export default function QuranIndex() {
         </ol>
         <p className="mt-6 text-xs text-faint">Arabic text: Tanzil.net (Uthmani). Translations and recitation: AlQuran Cloud and Islamic Network.</p>
       </div>
+      <ProductAds seed="quran" title="Shop on Mizanora" />
       <JsonLd data={[breadcrumbJsonLd(crumbs), list]} />
     </>
   );

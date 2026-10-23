@@ -29,6 +29,8 @@ import { inCategory } from '@/lib/cats';
 import { DEPARTMENTS } from '@/lib/departments';
 import JsonLd from '@/components/JsonLd';
 import ForYouShelf from '@/components/ForYouShelf';
+import HomeHub from '@/components/HomeHub';
+import { getTvConfig } from '@/lib/liveTvServer';
 import { SOCIAL_ICONS } from '@/components/Icons';
 
 export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
@@ -70,6 +72,7 @@ export default async function Home() {
   // A shop can keep EVERY product in those files (CSV import -> data/catalog) and still fill this home page,
   // with no Firestore writes and no Firestore reads for visitors.
   const [all, banners, reels, categories, totalCount, reelMusic, feedPosts] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount(), getReelMusic(), getFeedPosts()]);
+  const tv = await getTvConfig().catch(() => null);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
@@ -111,6 +114,7 @@ export default async function Home() {
 
       <ReorderBanner />
       <SignInStrip />
+      <HomeHub tv={tv} />
 
       <section className="mx-auto max-w-7xl px-3 pt-4 sm:px-4" aria-label="Why shop with us">
         <ul className="no-sb flex gap-2.5 overflow-x-auto lg:grid lg:grid-cols-4">
