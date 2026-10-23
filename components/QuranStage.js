@@ -154,14 +154,16 @@ export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', 
     return () => { dead = true; };
   }, [reciter, translation, playIndex]);
 
-  // The translation did not arrive the first time (the service was busy): try again quietly, twice.
+  // The translation did not arrive the first time (the service was busy): try again quietly (up to 5 times per surah).
   const trTries = useRef(0);
+  const trSurah = useRef(0);
+  if (data && trSurah.current !== data.surah) { trSurah.current = data.surah; trTries.current = 0; } // a new surah (live radio moves on by itself) gets its own tries
   useEffect(() => {
-    if (!translation || !data || data.trOk || state !== 'ready' || trTries.current >= 2) return undefined;
+    if (!translation || !data || data.trOk || state !== 'ready' || trTries.current >= 5) return undefined;
     const t = setTimeout(() => {
       trTries.current += 1;
       loadSurah(data.surah, reciter, translation).then((d) => { if (d && d.trOk) setData((cur2) => (cur2 && cur2.surah === d.surah ? { ...cur2, ayahs: cur2.ayahs.map((a, k) => ({ ...a, tr: d.ayahs[k].tr })), trOk: true } : cur2)); });
-    }, 4000);
+    }, 3000 + trTries.current * 4000);
     return () => clearTimeout(t);
   }, [data, translation, reciter, state]);
 

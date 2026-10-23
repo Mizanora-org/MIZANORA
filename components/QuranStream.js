@@ -7,7 +7,7 @@ import { streamTarget } from '@/lib/quran';
 // The "ready-made live stream" version of the Quran session: the admin pasted the link of an existing live Quran stream
 // (a YouTube live / channel link, or a live audio stream). The same beautiful living background, a LIVE badge, no buttons for the visitor.
 // A stream has no ayah timing, so no ayah text is shown (use the normal ayah-by-ayah mode when you want the ayat on the screen).
-export default function QuranStream({ cfg, onClose }) {
+export default function QuranStream({ cfg, onClose, onFail }) {
   const t = streamTarget(cfg.streamUrl);
   const audio = useRef(null);
   const [blocked, setBlocked] = useState(false);
@@ -22,6 +22,14 @@ export default function QuranStream({ cfg, onClose }) {
     if (p && p.then) p.then(() => { setBlocked(false); setOn(true); }).catch((e) => { if (e && e.name === 'NotAllowedError') setBlocked(true); else setFailed(true); });
   };
   useEffect(() => { if (t && t.kind === 'audio') start(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // v24: a stream that is wrong, broken or silent must never leave visitors with nothing: after a moment the ayah-by-ayah recitation (same
+  // live place, with ayat and translation) takes over by itself.
+  useEffect(() => {
+    if (!onFail) return undefined;
+    if (!t || failed) { const x = setTimeout(onFail, 1800); return () => clearTimeout(x); }
+    if (t.kind === 'audio' && !on && !blocked) { const x = setTimeout(onFail, 20000); return () => clearTimeout(x); }
+    return undefined;
+  }, [t, failed, on, blocked, onFail]);
   useEffect(() => {
     if (!blocked) return undefined;
     const ev = ['pointerup', 'touchend', 'click', 'keydown'];

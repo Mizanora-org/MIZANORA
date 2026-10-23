@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authClient } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
+import { DEFAULT_HOURS, describeHours, shopOpenNow } from '@/lib/shopHours';
 
 // Admin > Control: shut the website down, switch to HIGH ALERT, pause single features, and clean Firebase in a controlled way.
 const FEATURES = [
@@ -20,6 +21,7 @@ export default function Control() {
   const [reason, setReason] = useState('');
   const [backAt, setBackAt] = useState('');
   const [feat, setFeat] = useState({});
+  const [hours, setHours] = useState(DEFAULT_HOURS);
   const [info, setInfo] = useState({ project: '', deletedToday: 0, env: false });
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState('');
@@ -42,7 +44,7 @@ export default function Control() {
   const load = useCallback(async () => {
     try {
       const j = await api({ action: 'get' });
-      setSt(j.status); setMode(j.status.mode); setReason(j.status.reason); setBackAt(j.status.backAt); setFeat(j.status.features);
+      setSt(j.status); setMode(j.status.mode); setReason(j.status.reason); setBackAt(j.status.backAt); setFeat(j.status.features); setHours(j.status.hours || DEFAULT_HOURS);
       setInfo({ project: j.project, deletedToday: j.deletedToday, env: j.envOverride });
     } catch (e) { setMsg(e.message); }
   }, [api]);
@@ -51,7 +53,7 @@ export default function Control() {
 
   const apply = (m = mode) => guard('apply', async () => {
     if (m === 'down' && !window.confirm('Shut the website down now? Visitors will see your reason until you switch it back to Normal.')) return;
-    const j = await api({ action: 'set', mode: m, reason, backAt, features: feat });
+    const j = await api({ action: 'set', mode: m, reason, backAt, features: feat, hours });
     setSt(j.status); setMode(j.status.mode); setReason(j.status.reason);
     setMsg(m === 'down' ? 'The website is SHUT DOWN. Visitors now see your reason (the first page loads may take a minute to switch).' : m === 'saver' ? 'HIGH ALERT is on: no catalogue refreshes from Firebase.' : 'Saved. The shop is Normal.');
   });
@@ -110,6 +112,22 @@ export default function Control() {
           <button type="button" className="rounded-full bg-red-600 px-5 py-3 text-sm font-extrabold text-white" disabled={busy === 'apply'} onClick={panic}>PANIC: SHUT DOWN NOW</button>
         </div>
         <p className="text-xs text-dim">If Firebase is so full that this page cannot save, set <b>SITE_MODE=down</b> and <b>SITE_DOWN_REASON</b> in Vercel &gt; Environment Variables and redeploy. That needs no Firebase at all.</p>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="text-lg font-extrabold">Shop hours (open / closed by the clock)</h2>
+        <p className="text-xs text-dim">Outside these hours visitors see &quot;Shop is closed&quot; and the live Quran keeps playing. The shop opens again by itself. Pakistan time. Emergency shut-down above always wins.</p>
+        <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" className="h-4 w-4 accent-[#0B6B45]" checked={hours.enabled} onChange={(e) => setHours((h) => ({ ...h, enabled: e.target.checked }))} /> Use shop hours</label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm"><span className="label">Opens at</span><input type="time" className="input" value={hours.open} onChange={(e) => setHours((h) => ({ ...h, open: e.target.value }))} /></label>
+          <label className="block text-sm"><span className="label">Closes at</span><input type="time" className="input" value={hours.close} onChange={(e) => setHours((h) => ({ ...h, close: e.target.value }))} /></label>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((n, d) => { const on = !hours.days.length || hours.days.includes(d); return <button key={n} type="button" onClick={() => setHours((h) => { const cur = h.days.length ? h.days : [0, 1, 2, 3, 4, 5, 6]; const nx = cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]; return { ...h, days: nx.length === 7 ? [] : nx }; })} className={`rounded-full border px-3 py-1 font-semibold ${on ? 'border-gold bg-gold/10' : 'border-line text-dim'}`}>{n}</button>; })}
+        </div>
+        <label className="block text-sm"><span className="label">Message while closed (optional)</span><input className="input" maxLength={200} placeholder="Dukaan subah 9 baje khulegi. Tab tak Quran sunein." value={hours.closedMessage} onChange={(e) => setHours((h) => ({ ...h, closedMessage: e.target.value }))} /></label>
+        <p className="text-xs text-dim">{describeHours(hours)} Right now: <b>{shopOpenNow(hours).open ? 'OPEN' : 'CLOSED'}</b>. Press Apply above to save.</p>
+        <button type="button" className="btn-ghost" disabled={busy === 'apply'} onClick={() => apply()}>Save shop hours</button>
       </section>
 
       <section className="card space-y-2">

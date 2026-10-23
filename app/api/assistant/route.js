@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { denyIf } from '@/lib/siteGate';
+import { denyIf, getSiteStatus } from '@/lib/siteGate';
+import { describeHours } from '@/lib/shopHours';
+import { BOOKS, hadithUrl, okBook, okLang, parseGrades } from '@/lib/hadith';
 import { getCategories, getProduct, getTotalCount } from '@/lib/products';
 import { browseRemote, searchRemote } from '@/lib/catalogQuery';
 import { parseQuery } from '@/lib/search';
@@ -57,7 +59,12 @@ const TOOLS = [{
     {
       name: 'shop_pages',
       description: 'Links to the shop pages the shopper may want: deals, quran, blog, islamic feed, order tracking, returns, shipping, contact, size guide, how to order, about, catalogue. Call it when they ask where something is, or you want to show them the right page.',
-      parameters: { type: 'object', properties: { page: { type: 'string', description: 'deals | quran | blog | islamic | track | returns | shipping | contact | size-guide | how-to-order | about | products | reels | faq | muaaz-iqbal' } }, required: ['page'] },
+      parameters: { type: 'object', properties: { page: { type: 'string', description: 'deals | quran | blog | islamic | track | returns | shipping | contact | size-guide | how-to-order | about | products | reels | faq | muaaz-iqbal | hadith | reviews' } }, required: ['page'] },
+    },
+    {
+      name: 'hadith_info',
+      description: 'Read ONE exact hadith from the hadith data of this website (Sahih al-Bukhari, Sahih Muslim, Abu Dawud, Tirmidhi, Nasai, Ibn Majah, Muwatta Malik, Nawawi 40, Qudsi 40) by its number, with the grade given in the data. Use it whenever someone asks for a hadith text or a hadith number. Never quote a hadith from memory.',
+      parameters: { type: 'object', properties: { book: { type: 'string', description: 'bukhari | muslim | abudawud | tirmidhi | nasai | ibnmajah | malik | nawawi | qudsi' }, number: { type: 'integer', description: 'Hadith number in that book.' }, lang: { type: 'string', description: 'eng | urd | ara (default eng)' } }, required: ['book', 'number'] },
     },
     {
       name: 'web_answer',
@@ -131,7 +138,7 @@ const PAGES = {
   deals: ['/deals', 'Aaj ki Deals'], quran: ['/quran', 'Quran padhein / suniye'], blog: ['/blog', 'Blog'], islamic: ['/islamic', 'Islamic feed'],
   track: ['/track', 'Order track karein'], returns: ['/returns', 'Returns'], shipping: ['/shipping', 'Delivery'], contact: ['/contact', 'Rabta'],
   'size-guide': ['/size-guide', 'Size guide'], 'how-to-order': ['/how-to-order', 'Order kaise karein'], about: ['/about', 'Mizanora ke bare mein'],
-  products: ['/products', 'Sab products'], reels: ['/reels', 'Videos'], faq: ['/faq', 'FAQ'], 'muaaz-iqbal': ['/muaaz-iqbal', 'Founder'],
+  products: ['/products', 'Sab products'], reels: ['/reels', 'Videos'], faq: ['/faq', 'FAQ'], 'muaaz-iqbal': ['/muaaz-iqbal', 'Founder'], hadith: ['/hadith', 'Hadees padhein'], reviews: ['/reviews', 'Customer reviews'],
 };
 function surahFrom(v) {
   const t = String(v || '').trim().toLowerCase();
@@ -144,10 +151,10 @@ function surahFrom(v) {
   return SURAHS.find((s) => key(s.name) === k) || SURAHS.find((s) => key(s.name).startsWith(k) && k.length >= 3) || null;
 }
 
-function systemPrompt(cfg, total, catList, cur, liked = []) {
+function systemPrompt(cfg, total, catList, cur, liked = [], hoursText = '') {
   return `You are ${cfg.name}, the friendly young female shop assistant of MIZANORA, a Pakistani online store (cash on delivery all over Pakistan). You speak with customers (by voice and text) in the SAME language they use: Roman Urdu by default (English if they write English, Urdu script if they write Urdu). You are a woman: use feminine forms ("main dikha sakti hoon", "karti hoon"). Warm, polite, a little playful, never pushy.
 STYLE: very short, 1 to 3 sentences, easy words, no markdown, no emojis, no bullet lists (your words are read aloud). Do not read long lists of products aloud: say how many you found and mention the best one or two; the app shows product cards under your message.
-SHOP FACTS: ${total} products. Categories: ${catList || 'various'}. Payment: cash on delivery (some prepaid options may exist at checkout). Delivery fee Rs ${SITE.shippingFee}${SITE.freeShippingOver ? `, free over Rs ${SITE.freeShippingOver}` : ''}. Support on WhatsApp ${SITE.whatsapp}. Orders are placed on the website (cart, then checkout).
+SHOP FACTS: ${total} products. Categories: ${catList || 'various'}. Payment: cash on delivery (some prepaid options may exist at checkout). Delivery fee Rs ${SITE.shippingFee}${SITE.freeShippingOver ? `, free over Rs ${SITE.freeShippingOver}` : ''}. Support on WhatsApp ${SITE.whatsapp}.${hoursText ? ` Shop hours: ${hoursText} Outside the hours the website shows a closed screen with the live Quran.` : ''} Orders are placed on the website (cart, then checkout).
 ${liked.length ? `THIS SHOPPER'S TASTE (from earlier chats on this device): ${liked.map((c) => `${c.name} (${c.count})`).join(', ')}. When the message is general ("kuch acha", "deals", "naya kya hai"), show products from these first and say it in a friendly way (for example: "aap ko pehle X pasand aaya tha, ye dekhein").` : ''}
 RULES:
 1. Never invent products, prices, stock or policies. Use search_products / get_product for anything about products. If the tools find nothing, say so and suggest a different search.
@@ -159,7 +166,7 @@ RULES:
 7. HONESTY AND ISLAM: always speak the truth, never exaggerate a product, never invent facts, ayat, ahadees or references. Speak with adab (Assalam o Alaikum if they greet, InshaAllah, JazakAllah where natural). In religious matters give only well-known, sourced answers; where scholars differ or it is a personal ruling say "is ke liye kisi mustanad aalim se poochein". Never help with riba, gambling, cheating, adult content or hurting anyone: refuse politely and kindly. Never insult any person, sect or religion. For health or legal matters give general information only and advise a doctor or lawyer for real decisions.
 8. QURAN AND THE SITE: the website has a live Quran recitation (admin sets the times) and Quran reading pages. For ANY Quran question call quran_info (live time, surah info, an exact ayah). Never quote an ayah from your own memory: only the text quran_info returns. To point to a page (deals, blog, order tracking, returns...) call shop_pages.
 9. ENTERTAINMENT: you may also chat, tell clean jokes, paheliyan (riddles), short true Islamic stories (only well-known ones, never invented), fun facts, quiz questions, motivation and shayari. Keep it halal and polite: no music/gossip/vulgar or hurtful humour, no mockery of religion. Stories and jokes may be up to 6 short sentences; everything else stays short.
-10. TASKS: you can help with small tasks too (draft a message, translate, calculate, plan a gift or a budget, explain something simply, compare options). Use web_answer for anything that needs fresh facts. If something is beyond you, say so honestly.
+11. HADITH: the website has a hadith reader (/hadith). When someone asks for a hadith or a hadith number call hadith_info and give only its exact text with book and number and the grade it returns. Never quote a hadith from your own memory and never grade one yourself.\n12. LONGER ANSWERS: the 1 to 3 sentence rule is for shopping. When the person clearly asks you to explain, research, compare, tell a story or chat about something, you may answer in up to 6 short sentences. You can talk about anything halal: studies, ideas, advice, general knowledge, the website itself and its features (Quran live, hadith, deals, reviews, wishlist, worker programme). If you do not know something about the website, say so and point to the right page with shop_pages.\n10. TASKS: you can help with small tasks too (draft a message, translate, calculate, plan a gift or a budget, explain something simply, compare options). Use web_answer for anything that needs fresh facts. If something is beyond you, say so honestly.
 ${cur ? `The shopper is looking at this product right now: ${JSON.stringify(brief(cur))}. "Is", "yeh", "isko" mean this product.` : ''}`;
 }
 
@@ -195,6 +202,8 @@ export async function POST(req) {
     } catch (e) { console.error('prefs save failed:', e.message); }
   };
   const prefsOut = () => (prefs && prefs.cats ? { cats: prefs.cats } : null);
+  let hoursText = '';
+  try { const st = await getSiteStatus(); hoursText = st && st.hours && st.hours.enabled ? describeHours(st.hours) : ''; } catch { /* hours are optional */ }
   const cur = body.slug ? await getProduct(String(body.slug).slice(0, 120)).catch(() => null) : null;
 
   const asks = readNeg(body.neg);
@@ -266,6 +275,22 @@ export async function POST(req) {
       } else if (a.surah) out.surah_error = 'surah not found';
       return out;
     }
+    if (name === 'hadith_info') {
+      const book = String(a.book || '').toLowerCase().replace(/[^a-z]/g, '');
+      const lang = okLang(String(a.lang || 'eng')) ? String(a.lang || 'eng') : 'eng';
+      const n = Math.floor(Number(a.number));
+      if (!okBook(book)) return { error: 'unknown book', known: BOOKS.map((b) => b.key) };
+      if (!(n >= 1 && n <= 60000)) return { error: 'bad hadith number' };
+      links.push({ label: 'Hadees padhein', href: '/hadith' });
+      try {
+        const r = await fetch(hadithUrl(lang, book, n), { signal: AbortSignal.timeout(9000) });
+        if (!r.ok) return { error: `hadith ${n} not found in ${book} (${lang})` };
+        const j = await r.json();
+        const h = j && Array.isArray(j.hadiths) && j.hadiths[0];
+        if (!h || !h.text) return { error: 'hadith text not found' };
+        return { book: BOOKS.find((b) => b.key === book).name, number: n, language: lang, text: clip(h.text, 900), grades: parseGrades(h.grades), note: 'Exact text from the hadith data. Say the book and number. Do not add a ruling of your own; for rulings say to ask a qualified aalim.' };
+      } catch { return { error: 'could not load the hadith right now' }; }
+    }
     if (name === 'web_answer') {
       if (webUsed >= 1) return { error: 'already searched once for this message' };
       webUsed += 1;
@@ -295,9 +320,9 @@ export async function POST(req) {
   try {
     for (let step = 0; step < 4; step++) {
       const r = await geminiCall(ladderFor(cfg, 'chat'), {
-        systemInstruction: { parts: [{ text: systemPrompt(cfg, total, catList, cur, liked) }] },
+        systemInstruction: { parts: [{ text: systemPrompt(cfg, total, catList, cur, liked, hoursText) }] },
         contents, tools: TOOLS,
-        generationConfig: { temperature: 0.5, maxOutputTokens: 650 },
+        generationConfig: { temperature: 0.5, maxOutputTokens: 900 },
       }, { timeoutMs: 9000, deadlineMs: 26000, maxTries: 4 });
       if (!r.ok) { console.error('assistant Gemini failed', r.status, String(r.error || '').slice(0, 160)); return await fallback(r.status); }
       const content = r.json.candidates && r.json.candidates[0] && r.json.candidates[0].content;

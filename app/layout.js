@@ -34,6 +34,7 @@ import { getSiteStatus } from '@/lib/siteGate';
 import SiteGate from '@/components/SiteGate';
 import Tracker from '@/components/Tracker';
 import Maintenance from '@/components/Maintenance';
+import ClosedShop from '@/components/ClosedShop';
 import HideOnAdmin from '@/components/HideOnAdmin';
 import AppMusic from '@/components/AppMusic';
 import QuranSession from '@/components/QuranSession';
@@ -84,6 +85,8 @@ export default async function RootLayout({ children }) {
   const music = await getAppMusic();
   // v23: Quran session setting and Studio (animations + snippets). Both come from the shared cache: no extra reads per visitor.
   const [quran, inject] = await Promise.all([getQuranConfig(), getInject()]);
+  // v24: while the shop is shut down or outside its hours the Quran keeps playing (unless the admin turned that off in Admin > Quran).
+  const closedQuran = { ...quran, mode: quran.closedPlay === false ? quran.mode : 'always', display: 'sheet', pages: 'all' };
   // The assistant button disappears while the site is shut, on high alert, or when its switch is off in Admin > Control.
   const assistant = down || status.mode === 'saver' || status.features.assistant === false ? { enabled: false, name: 'Noor', voiceMode: 'browser', greeting: '' } : await getPublicAssistant();
   return (
@@ -94,7 +97,7 @@ export default async function RootLayout({ children }) {
         <meta name="google-adsense-account" content="ca-pub-4008582341764263" />
       </head>
       <body data-season={(seasonFor(new Date(), themeMode) || {}).id || 'none'}>
-        <SiteGate down={down} maintenance={<Maintenance reason={status.reason} backAt={status.backAt} />}>
+        <SiteGate down={down} hours={status.hours} maintenance={<><Maintenance reason={status.reason} backAt={status.backAt} /><QuranSession cfg={closedQuran} /></>} closed={<><ClosedShop hours={status.hours} /><QuranSession cfg={closedQuran} /></>}>
         <SplashScreen />
         <RouteProgress />
         <AppMusic music={music} />

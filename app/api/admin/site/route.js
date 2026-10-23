@@ -44,7 +44,7 @@ export async function POST(req) {
 
     if (act === 'set') {
       const old = await getSiteStatus();
-      const s = cleanStatus({ mode: b.mode, reason: b.reason, backAt: b.backAt, features: b.features, since: Date.now(), by: a.email || a.uid || '' });
+      const s = cleanStatus({ mode: b.mode, reason: b.reason, backAt: b.backAt, features: b.features, hours: b.hours === undefined ? old.hours : b.hours, since: Date.now(), by: a.email || a.uid || '' });
       if (s.mode === 'down' && !s.reason) s.reason = 'We are doing important work on the shop. Please come back soon.';
       // Both databases: the Realtime Database copy is what the website reads first (separate quota).
       let wrote = false;

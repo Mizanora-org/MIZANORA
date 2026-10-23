@@ -31,7 +31,8 @@ function readPrefs(cfg) {
 //  * LIVE RADIO: the visitor joins where the recitation is right now (shared pointer, /api/quran/state), it continues surah after
 //    surah, and there is no pause / speed / next button. When the admin's window ends the pointer stays, so the next window goes on from there.
 export default function QuranHost({ cfg, onClose, autoStart = true, radio = true }) {
-  if (radio && cfg.source === 'stream' && cfg.streamUrl) return <QuranStream cfg={cfg} onClose={onClose} />;
+  const [streamBad, setStreamBad] = useState(false);
+  if (radio && cfg.source === 'stream' && cfg.streamUrl && !streamBad) return <QuranStream cfg={cfg} onClose={onClose} onFail={() => setStreamBad(true)} />;
   return <AyahHost cfg={cfg} onClose={onClose} autoStart={autoStart} radio={radio} />;
 }
 

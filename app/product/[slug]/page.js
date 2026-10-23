@@ -15,6 +15,7 @@ import ShareButtons from '@/components/ShareButtons';
 import WishButton from '@/components/WishButton';
 import { parseVideos } from '@/lib/video';
 import { getReviews } from '@/lib/reviews';
+import { summarize } from '@/lib/reviewStats';
 import Stars from '@/components/Stars';
 import ReviewForm from '@/components/ReviewForm';
 import RecentlyViewed from '@/components/RecentlyViewed';
@@ -134,10 +135,11 @@ export default async function ProductPage({ params }) {
         <section className="mt-12" aria-labelledby="rev">
           <h2 id="rev" className="section-title mb-3">Customer reviews</h2>
           {reviews.length > 0 ? (
-            <div className="mb-4 flex items-center gap-3"><span className="text-4xl font-extrabold">{avg.toFixed(1)}</span><div><Stars value={avg} size={20} /><p className="text-sm text-dim">{reviews.length} review{reviews.length > 1 ? 's' : ''}</p></div></div>
+            <div className="mb-4 flex flex-wrap items-center gap-5"><div className="flex items-center gap-3"><span className="text-4xl font-extrabold">{avg.toFixed(1)}</span><div><Stars value={avg} size={20} /><p className="text-sm text-dim">{reviews.length} review{reviews.length > 1 ? 's' : ''}</p></div></div>
+              <div className="min-w-[10rem] flex-1 space-y-1" aria-label="Rating breakdown">{[5, 4, 3, 2, 1].map((n) => <div key={n} className="flex items-center gap-2 text-xs text-dim"><span className="w-3">{n}</span><span className="h-2 flex-1 overflow-hidden rounded-full bg-line"><span className="block h-full rounded-full bg-saffron" style={{ width: `${summarize(reviews).pct[n - 1]}%` }} /></span><span className="w-8 text-right">{summarize(reviews).pct[n - 1]}%</span></div>)}</div></div>
           ) : <p className="mb-4 text-dim">No reviews yet. Be the first to review this product.</p>}
           <ul className="mb-5 space-y-3">
-            {reviews.map((r) => <li key={r.id} className="card !p-4"><div className="flex items-center justify-between gap-2"><b>{r.name}</b><Stars value={r.rating} /></div><p className="mt-1 text-sm text-dim">{r.text}</p></li>)}
+            {reviews.map((r) => <li key={r.id} className="card !p-4"><div className="flex items-center justify-between gap-2"><b>{r.name}</b><Stars value={r.rating} /></div><p className="mt-1 text-sm text-dim">{r.text}</p>{r.createdAtMs > 0 && <p className="mt-1 text-[11px] text-dim/70">{new Date(r.createdAtMs).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Karachi' })}</p>}</li>)}
           </ul>
           <ReviewForm productId={p.id} productName={p.name} />
         </section>

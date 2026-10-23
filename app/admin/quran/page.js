@@ -153,6 +153,7 @@ export default function AdminQuran() {
         <div className="grid gap-2 sm:grid-cols-2">
           <Switch label="Start the voice by itself" hint="Browsers need one touch first, then it starts." checked={cfg.autoStart} onChange={(v) => set('autoStart', v)} />
           <Switch label="Pause the shop music" hint="While the recitation plays." checked={cfg.pauseMusic} onChange={(v) => set('pauseMusic', v)} />
+          <Switch label="Keep playing when the shop is closed" hint="Outside shop hours or after an emergency shut-down the live Quran continues on the closed screen." checked={cfg.closedPlay !== false} onChange={(v) => set('closedPlay', v)} />
           <Switch label="Show the Arabic text" checked={cfg.showArabic} onChange={(v) => set('showArabic', v)} />
           <Switch label="Visitors can choose translation, voice and text size" hint="A small settings button on the screen. Kept on the visitor's own device." checked={cfg.allowChoice} onChange={(v) => set('allowChoice', v)} />
         </div>
