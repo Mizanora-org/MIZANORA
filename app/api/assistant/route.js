@@ -59,7 +59,7 @@ const TOOLS = [{
     {
       name: 'shop_pages',
       description: 'Links to the shop pages the shopper may want: deals, quran, blog, islamic feed, order tracking, returns, shipping, contact, size guide, how to order, about, catalogue. Call it when they ask where something is, or you want to show them the right page.',
-      parameters: { type: 'object', properties: { page: { type: 'string', description: 'deals | quran | blog | islamic | track | returns | shipping | contact | size-guide | how-to-order | about | products | reels | faq | muaaz-iqbal | hadith | reviews' } }, required: ['page'] },
+      parameters: { type: 'object', properties: { page: { type: 'string', description: 'deals | quran | blog | islamic | track | returns | shipping | contact | size-guide | how-to-order | about | products | reels | faq | muaaz-iqbal | hadith | reviews | live' } }, required: ['page'] },
     },
     {
       name: 'hadith_info',
@@ -138,7 +138,7 @@ const PAGES = {
   deals: ['/deals', 'Aaj ki Deals'], quran: ['/quran', 'Quran padhein / suniye'], blog: ['/blog', 'Blog'], islamic: ['/islamic', 'Islamic feed'],
   track: ['/track', 'Order track karein'], returns: ['/returns', 'Returns'], shipping: ['/shipping', 'Delivery'], contact: ['/contact', 'Rabta'],
   'size-guide': ['/size-guide', 'Size guide'], 'how-to-order': ['/how-to-order', 'Order kaise karein'], about: ['/about', 'Mizanora ke bare mein'],
-  products: ['/products', 'Sab products'], reels: ['/reels', 'Videos'], faq: ['/faq', 'FAQ'], 'muaaz-iqbal': ['/muaaz-iqbal', 'Founder'], hadith: ['/hadith', 'Hadees padhein'], reviews: ['/reviews', 'Customer reviews'],
+  products: ['/products', 'Sab products'], reels: ['/reels', 'Videos'], faq: ['/faq', 'FAQ'], 'muaaz-iqbal': ['/muaaz-iqbal', 'Founder'], hadith: ['/hadith', 'Hadees padhein'], live: ['/live', 'Live TV'], reviews: ['/reviews', 'Customer reviews'],
 };
 function surahFrom(v) {
   const t = String(v || '').trim().toLowerCase();

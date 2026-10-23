@@ -63,4 +63,38 @@ ok('reviews: links, phone numbers, repeats and too-short text are refused; a rea
 const seeded = fs.readdirSync(path.join(root, 'scripts')).concat(fs.readdirSync(path.join(root, 'lib')));
 assert.ok(!seeded.some((f) => /fake|seed.?review/i.test(f)));
 ok('no fake-review generator exists in the project');
+
+// ---- Live TV (v24.1)
+const T = await imp('lib/liveTv.js');
+const m3u = `#EXTM3U\n#EXTINF:-1 tvg-logo="https://x.io/a.png" group-title="News",Channel A\nhttps://x.io/a.m3u8\n#EXTINF:-1,Channel B\nhttp://x.io/b.m3u8\n#EXTINF:-1 group-title="Kids",Channel C, Live\nhttps://x.io/c.m3u8?token=1\n#EXTINF:-1,Dup\nhttps://x.io/a.m3u8\n`;
+const pl = T.parseM3U(m3u);
+assert.equal(pl.channels.length, 3); assert.equal(pl.skipped, 1);
+assert.equal(pl.channels[0].name, 'Channel A'); assert.equal(pl.channels[0].group, 'News'); assert.equal(pl.channels[0].logo, 'https://x.io/a.png');
+assert.equal(pl.channels[1].name, 'Channel C, Live');
+assert.equal(T.cleanTv({ channels: pl.channels }).channels.length, 2); // the duplicate url is dropped by cleanTv
+assert.equal(T.cleanTv({ channels: [...pl.channels, ...pl.channels] }).channels.length, 2);
+ok('live tv: M3U parsing, http skipped, duplicates dropped');
+assert.equal(T.channelTarget('https://www.youtube.com/watch?v=dQw4w9WgXcQ').kind, 'youtube');
+assert.equal(T.channelTarget('https://x.io/live.m3u8?a=1').kind, 'hls');
+assert.equal(T.channelTarget('https://x.io/r.mp3').kind, 'audio');
+assert.equal(T.channelTarget('https://x.io/v.mp4').kind, 'video');
+assert.equal(T.channelTarget('http://x.io/live.m3u8'), null);
+assert.equal(T.channelTarget('https://www.youtube.com/@name'), null);
+ok('live tv: link kinds (youtube, hls, audio, video), http refused');
+const ch = [{ off: false }, { off: true }, { off: false }];
+assert.equal(T.stepIndex(ch, 0, 1), 2); assert.equal(T.stepIndex(ch, 2, 1), 0); assert.equal(T.stepIndex(ch, 0, -1), 2); assert.equal(T.stepIndex([], 0, 1), -1);
+assert.equal(T.pickAd(['a', 'b'], 0), 'a'); assert.equal(T.pickAd(['a', 'b'], 3), 'b'); assert.equal(T.pickAd([], 1), null);
+ok('live tv: next / previous skip switched-off channels and wrap; ads rotate');
+const ct = T.cleanTv({ ads: { seconds: 999, skipAfter: -3, slugs: ['ok-slug', '../bad', 'ok-slug'] } });
+assert.equal(ct.ads.seconds, 20); assert.equal(ct.ads.skipAfter, 0); assert.deepEqual(ct.ads.slugs, ['ok-slug']); assert.equal(ct.enabled, false);
+ok('live tv: settings are cleaned (limits, safe slugs, off by default)');
+const imp2 = fs.readFileSync(path.join(root, 'app/api/admin/tv-import/route.js'), 'utf8');
+assert.ok(imp2.includes('verifyAdmin') && imp2.includes("redirect: 'error'") && imp2.includes('priv('));
+ok('live tv: playlist import is admin only and blocks private addresses');
+for (const f of ['muaaz-iqbal-biography-profile-projects-skills', 'muaaz-iqbal-noor-ai-assistant-quran-hadith-live-tv', 'hadith-reader-bukhari-muslim-urdu-english-arabic', 'live-quran-tilawat-urdu-translation-mizanora', 'mizanora-live-tv-channels-m3u-product-ads']) {
+  const t = fs.readFileSync(path.join(root, 'content/blog', `${f}.md`), 'utf8');
+  assert.ok(/^---\ntitle: .+\nslug: .+\ndescription: .+\ndate: 2026-10-23\n---\n/.test(t), f);
+  assert.ok(!/2009|27 ?nov/i.test(t), `${f} must not contain the date of birth`);
+}
+ok('blogs: 5 new posts have front matter and no date of birth');
 console.log('\nAll v24 tests passed.');

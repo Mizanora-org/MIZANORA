@@ -42,3 +42,18 @@ Upgrade: purani files ko is zip ki files se replace karein (`mizanora-v16.rar` h
 ## Kya test hua / kya nahi
 - Test hua: `node scripts/check.js`, `node scripts/typecheck.js`, saari `scripts/test-*.mjs` (naya v24 test sahit).
 - **Test nahi hua**: asli `next build` (npm/network band), asli Firebase, AlQuran Cloud, hadith-api, Gemini. Deploy ke baad: `npm run check && npm test`, phir Admin > Control > Shop hours, Admin > Quran > Test, `/hadith`, `/reviews`, aur Noor se "Bukhari hadith 1" poochh kar dekhein.
+
+---
+## v24.1: Live TV + blogs
+
+**Live TV (`/live`, Admin > Live TV)**
+- Channels: M3U/M3U8 **file upload**, M3U **link** (server downloads it, https only, 2 MB, private addresses blocked), **paste** the text, ya ek ek channel haath se. Rename, up/down, on/off, delete, search. 800 channels tak.
+- Visitor ke liye: **Pichla / Agla** buttons, channel list + search, channel badalte hi nayi channel peeche load hoti hai.
+- **Ads**: Admin > Live TV > "Ads between channels" mein products chunein (search se ya slug likh kar). Jab visitor Next/Previous dabaye ya list se channel chune, chune hue products ka ad chalta hai (photo, naam, asli qeemat shop se, "Abhi dekhein" button), ek ke baad ek baari baari. Ad ki lambai 3 se 20 second, skip kitni der baad, aur "TV khulte waqt bhi ek ad" ka switch.
+- Playback: YouTube live link (iframe), HLS `.m3u8` (Safari khud, baqi browsers mein hls.js 1.5.17 cdnjs se), mp4/webm, mp3/aac. Channel na chale to "Agla channel" ka button aata hai.
+- Pehli baar OFF hai. Koi channel project mein nahi diya gaya: sirf wohi chalta hai jo aap daalein. **Sirf wohi streams daalein jin ko dikhane ka aap ko haq hai** (apni, ya jin ka malik allow kare). Bahut se IPTV playlists ke links http:// hote hain: https website par browser unhein block karta hai, isliye woh skip ho jate hain (admin ko ginti dikhti hai). Kuch stream servers dusri website par chalne se mana karte hain: un channels par visitor ko "nahi chal raha" aur Next ka button dikhta hai.
+- Test nahi hua: asli streams, asli hls.js (sandbox mein internet band). hls.js ka script cdnjs se aata hai (SRI hash nahi laga sakta tha, internet na hone ki wajah se).
+
+**Blogs (5 naye)**: Muaaz Iqbal biography, Muaaz Iqbal ka v24 upgrade (Noor, Quran, Hadith, TV), Hadith reader guide, Live Quran + Urdu translation guide, Live TV guide. Muaaz Iqbal ki date of birth kisi blog ya page mein nahi hai (test is ko check karta hai).
+
+Test: `node scripts/test-v24.mjs` (ab 16 checks).

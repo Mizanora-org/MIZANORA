@@ -11,7 +11,7 @@ export async function POST(req) {
   if (!admin.ok) return NextResponse.json({ ok: false }, { status: admin.status });
   const { slug, tags } = await req.json().catch(() => ({}));
   // v23: "light" refresh for settings (Quran, deals page, injections...). It does NOT re-read the product catalogue from Firebase.
-  const LIGHT = ['quran', 'deals-config', 'inject', 'theme', 'app-music', 'reel-music', 'feed-posts'];
+  const LIGHT = ['quran', 'deals-config', 'inject', 'theme', 'app-music', 'reel-music', 'feed-posts', 'livetv'];
   if (Array.isArray(tags) && tags.length) {
     tags.filter((t) => LIGHT.includes(t)).forEach((t) => revalidateTag(t));
     revalidatePath('/', 'layout');
@@ -25,6 +25,7 @@ export async function POST(req) {
   revalidateTag('theme');
   revalidateTag('feed-posts');
   revalidateTag('quran');
+  revalidateTag('livetv');
   revalidateTag('deals-config');
   revalidateTag('inject');
   revalidatePath('/', 'layout');
