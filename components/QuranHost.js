@@ -2,7 +2,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import QuranStage, { useQuran } from './QuranStage';
+import QuranStream from './QuranStream';
 import { startPoint } from '@/lib/quranState';
+import { RECITERS, TRANSLATIONS } from '@/lib/quran';
+
+// The visitor's own choice (translation, voice, text size, volume) is kept on his device.
+const PKEY = 'mz_quran_prefs';
+function readPrefs(cfg) {
+  const base = { reciter: cfg.reciter, translation: cfg.translation, size: cfg.size, showArabic: cfg.showArabic, volume: cfg.volume };
+  if (!cfg.allowChoice) return base;
+  try {
+    const j = JSON.parse(localStorage.getItem(PKEY) || 'null') || {};
+    return {
+      reciter: RECITERS.some((r) => r[0] === j.reciter) ? j.reciter : base.reciter,
+      translation: typeof j.translation === 'string' && TRANSLATIONS.some((t) => t[0] === j.translation) ? j.translation : base.translation,
+      size: ['s', 'm', 'l'].includes(j.size) ? j.size : base.size,
+      showArabic: typeof j.showArabic === 'boolean' ? j.showArabic : base.showArabic,
+      volume: Number.isFinite(j.volume) ? Math.min(100, Math.max(0, j.volume)) : base.volume,
+    };
+  } catch (_) { return base; }
+}
 
 // The pop-up / full-screen shell of the Quran session. Loaded only when the session is opened (next/dynamic in QuranSession).
 //  * starts the recitation by itself when the admin allowed it (autoStart): at once, or with the visitor's first touch when the
@@ -12,6 +31,11 @@ import { startPoint } from '@/lib/quranState';
 //  * LIVE RADIO: the visitor joins where the recitation is right now (shared pointer, /api/quran/state), it continues surah after
 //    surah, and there is no pause / speed / next button. When the admin's window ends the pointer stays, so the next window goes on from there.
 export default function QuranHost({ cfg, onClose, autoStart = true, radio = true }) {
+  if (radio && cfg.source === 'stream' && cfg.streamUrl) return <QuranStream cfg={cfg} onClose={onClose} />;
+  return <AyahHost cfg={cfg} onClose={onClose} autoStart={autoStart} radio={radio} />;
+}
+
+function AyahHost({ cfg, onClose, autoStart, radio }) {
   const [start, setStart] = useState(radio ? null : { surah: cfg.surah, ayah: cfg.from || 1 });
   useEffect(() => {
     if (!radio) return undefined;
@@ -36,7 +60,9 @@ function Loading({ cfg, onClose }) {
 }
 
 function Live({ cfg, onClose, autoStart, radio, start }) {
-  const player = useQuran({ surah: start.surah, from: start.ayah, to: radio ? 0 : cfg.to, reciter: cfg.reciter, translation: cfg.translation, volume: cfg.volume, continuous: cfg.continuous, loop: cfg.loop, radio });
+  const [prefs, setPrefs] = useState(() => (typeof window === 'undefined' ? { reciter: cfg.reciter, translation: cfg.translation, size: cfg.size, showArabic: cfg.showArabic, volume: cfg.volume } : readPrefs(cfg)));
+  const change = (patch) => setPrefs((p) => { const n = { ...p, ...patch }; try { localStorage.setItem(PKEY, JSON.stringify(n)); } catch (_) { /* storage blocked */ } return n; });
+  const player = useQuran({ surah: start.surah, from: start.ayah, to: radio ? 0 : cfg.to, reciter: prefs.reciter, translation: prefs.translation, volume: prefs.volume, continuous: cfg.continuous, loop: cfg.loop, radio });
   const lastPost = useRef('');
   // Tell the server which ayah is being recited (only honest steps forward are kept) so the next visitor / the next window continues here.
   useEffect(() => {
@@ -86,7 +112,7 @@ function Live({ cfg, onClose, autoStart, radio, start }) {
   return createPortal(
     <div className={`mzq-layer ${full ? 'is-full' : 'is-sheet'}`} role="dialog" aria-modal="true" aria-label={cfg.title}>
       {!full && <button type="button" className="mzq-scrim" aria-label="Close" onClick={onClose} />}
-      <QuranStage player={player} style={cfg.style} animation={cfg.animation} size={cfg.size} showArabic={cfg.showArabic} showTranslation={Boolean(cfg.translation)} variant={full ? 'full' : 'sheet'} title={cfg.title} message={cfg.message} onClose={onClose} />
+      <QuranStage player={player} style={cfg.style} animation={cfg.animation} size={prefs.size} showArabic={prefs.showArabic} showTranslation={Boolean(prefs.translation)} settings={cfg.allowChoice ? { ...prefs, onChange: change } : null} variant={full ? 'full' : 'sheet'} title={cfg.title} message={cfg.message} onClose={onClose} />
     </div>,
     document.body,
   );

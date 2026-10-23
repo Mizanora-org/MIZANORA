@@ -35,6 +35,9 @@ export default async function SurahPage({ params }) {
   const tr = TRANSLATIONS.some((r) => r[0] === cfg.translation) ? cfg.translation : 'ur.jalandhry';
   let data = null;
   try { data = await getSurah(n, rec, tr); } catch (e) { console.error('surah page:', e.message); }
+  // The text could not be read for the moment: fail this render on purpose. A failed render is never stored (the last good page stays, or the
+  // visitor can simply try again), whereas a page saying "not reachable" would have been kept for a whole week.
+  if (!data || !data.arOk) throw new Error('quran text unavailable');
   const s = surahInfo(n);
   const crumbs = [['/', 'Home'], ['/quran', 'Quran'], [`/quran/${slugOfSurah(n)}`, `Surah ${s.name}`]];
   const ld = {

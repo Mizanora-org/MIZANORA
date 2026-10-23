@@ -23,7 +23,9 @@ export async function GET(req) {
   const t = TRANSLATIONS.some((x) => x[0] === tRaw) ? tRaw : '';
   try {
     const data = await getSurah(surahInfo(s).n, r, t);
-    return NextResponse.json({ ok: true, ...data }, { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' } });
+    // A complete answer may be kept by the CDN for a day; an answer with a missing part (text or translation down) only for a minute.
+    const whole = data.arOk && (!t || data.trOk);
+    return NextResponse.json({ ok: true, ...data }, { headers: { 'Cache-Control': whole ? 'public, s-maxage=86400, stale-while-revalidate=604800' : 'public, s-maxage=30' } });
   } catch (e) {
     console.error('quran api failed:', e.message);
     return NextResponse.json({ ok: false, error: 'The Quran service is not reachable right now.' }, { status: 502 });

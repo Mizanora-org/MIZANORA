@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Pause, Play, X } from 'lucide-react';
-import { apiUrl, parseSurahResponse, surahInfo, wordShares } from '@/lib/quran';
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Pause, Play, Settings, X } from 'lucide-react';
+import { RECITERS, TRANSLATIONS, assembleSurah, audioUrl, editionUrl, parseEdition, surahInfo, wordShares } from '@/lib/quran';
 
 // ---------------------------------------------------------------------------------------------------------------------
 // THE QURAN PLAYER (v23).  Two parts in this file:
@@ -14,20 +14,29 @@ import { apiUrl, parseSurahResponse, surahInfo, wordShares } from '@/lib/quran';
 // in proportion to their length and the progress of the file (a close approximation, no timing data is needed).
 // ---------------------------------------------------------------------------------------------------------------------
 
+const getJson = async (url, ms = 9000) => {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) return null; return await r.json(); } catch (_) { return null; } finally { clearTimeout(t); }
+};
+
+// NEVER gives up: the voice files have computed addresses, so even when every text service is down the recitation can play.
+// 1) our own server (it caches), 2) the text / translation / voice straight from the public API, each one separately,
+// 3) only the voice (data.arOk false: the screen says the text is not available, the recitation goes on).
 async function loadSurah(n, reciter, translation) {
   const q = new URLSearchParams({ s: String(n), r: reciter, t: translation || '' });
-  try {
-    const r = await fetch(`/api/quran?${q}`);
-    const j = await r.json();
-    if (j && j.ok && Array.isArray(j.ayahs) && j.ayahs.length) return j;
-  } catch (_) { /* try the public API directly */ }
-  const tryUrl = async (t) => {
-    const r = await fetch(apiUrl(n, reciter, t));
-    return parseSurahResponse(await r.json(), { reciter, translation: t });
-  };
-  try { const d = await tryUrl(translation); if (d) return d; } catch (_) { /* next */ }
-  if (translation) { try { const d = await tryUrl(''); if (d) return d; } catch (_) { /* give up */ } }
-  return null;
+  const j = await getJson(`/api/quran?${q}`, 12000);
+  let d = j && j.ok && Array.isArray(j.ayahs) && j.ayahs.length ? j : null;
+  if (d && d.arOk && (!translation || d.trOk)) return d;
+  // Something is missing: ask the public API from the browser, only for the missing parts.
+  const [ar, tr, au] = await Promise.all([
+    d && d.arOk ? null : getJson(editionUrl(n, 'quran-uthmani')),
+    translation && !(d && d.trOk) ? getJson(editionUrl(n, translation)) : null,
+    d ? null : getJson(editionUrl(n, reciter)),
+  ]);
+  const fresh = assembleSurah(n, { ar: parseEdition(ar), tr: parseEdition(tr), au: parseEdition(au) }, reciter);
+  if (!d) return fresh;
+  return { ...d, ayahs: d.ayahs.map((a, i) => ({ ...a, ar: a.ar || fresh.ayahs[i].ar, bism: a.ar ? a.bism : fresh.ayahs[i].bism, tr: a.tr || fresh.ayahs[i].tr })), arOk: d.arOk || fresh.arOk, trOk: d.trOk || fresh.trOk, name: d.name || fresh.name };
 }
 
 export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', translation = 'ur.jalandhry', volume = 85, continuous = false, loop = true, initial = null, radio = false }) {
@@ -89,7 +98,6 @@ export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', 
   const openSurah = useCallback(async (n, auto) => {
     setState('loading'); setCur(n); setProg(0);
     const d = await loadSurah(n, reciter, translation);
-    if (!d) { setState('error'); return; }
     setData(d); setI(ranged.current && n === surah ? Math.max(0, from - 1) : 0); setState('ready');
     if (auto) playIndex(ranged.current && n === surah ? Math.max(0, from - 1) : 0, d);
   }, [reciter, translation, surah, from, playIndex]);
@@ -117,16 +125,45 @@ export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', 
   const toggle = useCallback(() => { const a = el(); if (a && !a.paused && !a.ended) pause(); else play(); }, [el, pause, play]);
   const setRate = useCallback((r) => { setRateState(r); const a = el(); if (a) a.playbackRate = r; }, [el]);
 
-  // First load, and a new load whenever the surah / reciter / translation setting changes.
+  // First load, and a new load whenever the surah setting changes.
+  const firstKey = useRef('');
   useEffect(() => {
     ranged.current = true;
     let dead = false;
+    firstKey.current = `${reciter}|${translation}`;
     if (initial && initial.surah === surah && !translation === !(initial.ayahs[0] && initial.ayahs[0].tr)) { setData(initial); setCur(surah); setI(Math.max(0, from - 1)); setState('ready'); return undefined; }
     setState('loading');
-    loadSurah(surah, reciter, translation).then((d) => { if (dead) return; if (!d) { setState('error'); return; } setData(d); setCur(surah); setI(Math.max(0, from - 1)); setState('ready'); });
+    loadSurah(surah, reciter, translation).then((d) => { if (dead) return; setData(d); setCur(surah); setI(Math.max(0, from - 1)); setState('ready'); });
     return () => { dead = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surah, reciter, translation, from]);
+  }, [surah, from]);
+
+  // The visitor picked another voice or translation: reload the surah being recited, KEEP the place, carry on if it was playing.
+  useEffect(() => {
+    const key = `${reciter}|${translation}`;
+    if (!firstKey.current || firstKey.current === key) return undefined;
+    firstKey.current = key;
+    let dead = false;
+    const L = live.current;
+    loadSurah(L.cur, reciter, translation).then((d) => {
+      if (dead) return;
+      setData(d);
+      const a = audio.current;
+      if (a && L.playing) { a.pause(); a.dataset.src = ''; setTimeout(() => playIndex(Math.min(live.current.i, d.ayahs.length - 1), d), 0); }
+    });
+    return () => { dead = true; };
+  }, [reciter, translation, playIndex]);
+
+  // The translation did not arrive the first time (the service was busy): try again quietly, twice.
+  const trTries = useRef(0);
+  useEffect(() => {
+    if (!translation || !data || data.trOk || state !== 'ready' || trTries.current >= 2) return undefined;
+    const t = setTimeout(() => {
+      trTries.current += 1;
+      loadSurah(data.surah, reciter, translation).then((d) => { if (d && d.trOk) setData((cur2) => (cur2 && cur2.surah === d.surah ? { ...cur2, ayahs: cur2.ayahs.map((a, k) => ({ ...a, tr: d.ayahs[k].tr })), trOk: true } : cur2)); });
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [data, translation, reciter, state]);
 
   // Audio events: next ayah when one ends; skip a file that cannot be played; keep the volume in step with the setting.
   useEffect(() => {
@@ -134,6 +171,12 @@ export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', 
     if (!a) return undefined;
     const ended = () => next(true);
     const failed = () => {
+      // The chosen voice has no file at this address: play the same ayah by the default voice once, before skipping it.
+      const L = live.current; const ay = L.data && L.data.ayahs[L.i];
+      if (ay && L.data) {
+        const alt = audioUrl('ar.alafasy', L.data.surah, ay.n);
+        if (a.dataset.src !== alt) { a.src = alt; a.dataset.src = alt; a.play().catch(() => {}); return; }
+      }
       errs.current += 1;
       if (errs.current >= 3) { setPlaying(false); setState('error'); return; }
       setTimeout(() => next(true), 300);
@@ -177,14 +220,27 @@ export function useQuran({ surah = 1, from = 1, to = 0, reciter = 'ar.alafasy', 
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-export default function QuranStage({ player, style = 'emerald', animation = 'glow', size = 'm', showArabic = true, showTranslation = true, variant = 'page', title = 'Tilawat-e-Quran', onClose = null, message = '' }) {
+export default function QuranStage({ player, style = 'emerald', animation = 'glow', size = 'm', showArabic = true, showTranslation = true, variant = 'page', title = 'Tilawat-e-Quran', onClose = null, message = '', settings = null }) {
   const { radio, state, data, ayah, i, playing, blocked, prog, toggle, next, prev, rate, setRate, lo, hi } = player;
   const stageRef = useRef(null);
+  const bodyRef = useRef(null);
   const [full, setFull] = useState(false);
+  const [setOpen, setSetOpen] = useState(false);
   const words = useMemo(() => (ayah ? wordShares(ayah.ar) : []), [ayah]);
   const active = playing ? words.reduce((k, w, n) => (prog >= w.start - 0.02 ? n : k), -1) : -1;
   const overall = data && hi > lo ? Math.min(1, ((i - (radio ? 0 : lo)) + prog) / (hi - (radio ? 0 : lo))) : 0;
   const info = data ? surahInfo(data.surah) : null;
+
+  // A new ayah always starts at the TOP of the screen (a long ayah used to leave the screen scrolled down, so the visitor had to scroll back up),
+  // and while a long ayah is recited the screen follows the word being recited.
+  const ayahKey = data && ayah ? `${data.surah}:${ayah.n}` : '';
+  useEffect(() => { const b = bodyRef.current; if (b) b.scrollTop = 0; }, [ayahKey]);
+  useEffect(() => {
+    const b = bodyRef.current;
+    if (!b || active < 0 || b.scrollHeight <= b.clientHeight + 6) return;
+    const w = b.querySelector('.is-now');
+    if (w) b.scrollTo({ top: Math.max(0, w.offsetTop - b.clientHeight / 2), behavior: 'smooth' });
+  }, [active]);
 
   useEffect(() => {
     const on = () => setFull(Boolean(document.fullscreenElement));
@@ -216,15 +272,35 @@ export default function QuranStage({ player, style = 'emerald', animation = 'glo
           <p className="mzq-surah">{data ? `${info.n}. ${data.name}` : 'Quran'}{data && ayah ? <span> · Ayah {ayah.n} / {data.ayahs.length}</span> : null}</p>
         </div>
         <div className="flex items-center gap-1.5">
+          {settings && <button type="button" onClick={() => setSetOpen((v) => !v)} className="mzq-icon" aria-label="Awaz aur tarjuma ki choice" aria-expanded={setOpen}><Settings size={18} /></button>}
           <button type="button" onClick={toggleFull} className="mzq-icon" aria-label={full ? 'Exit full screen' : 'Full screen'}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>
           {onClose && <button type="button" onClick={onClose} className="mzq-icon" aria-label="Close"><X size={20} /></button>}
         </div>
       </header>
 
-      <main className="mzq-body" aria-live="polite">
+      {settings && setOpen && (
+        <div className="mzq-set" role="dialog" aria-label="Choice">
+          <div className="mzq-set-head"><b>Aap ki pasand</b><button type="button" className="mzq-icon" onClick={() => setSetOpen(false)} aria-label="Close"><X size={18} /></button></div>
+          <label><span>Tarjuma (translation)</span>
+            <select value={settings.translation} onChange={(e) => settings.onChange({ translation: e.target.value })}>{TRANSLATIONS.map(([k, l]) => <option key={k || 'none'} value={k}>{l}</option>)}</select></label>
+          <label><span>Qari (awaz)</span>
+            <select value={settings.reciter} onChange={(e) => settings.onChange({ reciter: e.target.value })}>{RECITERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+          <div className="mzq-set-row"><span>Arabic ka size</span>
+            <div>{[['s', 'Chota'], ['m', 'Darmiyana'], ['l', 'Bara']].map(([k, l]) => <button key={k} type="button" data-on={settings.size === k ? '1' : '0'} onClick={() => settings.onChange({ size: k })}>{l}</button>)}</div></div>
+          <label className="mzq-set-check"><input type="checkbox" checked={settings.showArabic} onChange={(e) => settings.onChange({ showArabic: e.target.checked })} /> <span>Arabic text dikhayein</span></label>
+          <label><span>Awaz ki buland-i: {settings.volume}%</span>
+            <input type="range" min={0} max={100} value={settings.volume} onChange={(e) => settings.onChange({ volume: Number(e.target.value) })} /></label>
+          <p className="mzq-set-note">Yeh sirf aap ke apne phone / computer par yaad rehta hai.</p>
+        </div>
+      )}
+
+      <main ref={bodyRef} className="mzq-body" aria-live="polite">
         {state === 'loading' && <div className="mzq-state"><span className="mzq-spin" aria-hidden="true" />Quran load ho raha hai...</div>}
-        {state === 'error' && <div className="mzq-state">Quran abhi load nahi ho saka (internet ya service). Thori dair baad dobara koshish karein.</div>}
-        {state === 'ready' && ayah && (
+        {state === 'error' && <div className="mzq-state">Awaz abhi nahi chal saki (internet ya service). Thori dair baad dobara koshish karein.</div>}
+        {state === 'ready' && ayah && !ayah.ar && (
+          <div key={`na-${data.surah}-${ayah.n}`} className="mzq-ayah"><p className="mzq-tr">Surah {data.name}, ayah {ayah.n}</p><p className="mzq-tr">Arabic text abhi load nahi hua, tilawat chal rahi hai.</p></div>
+        )}
+        {state === 'ready' && ayah && !!ayah.ar && (
           <div key={`${data.surah}-${ayah.n}`} className="mzq-ayah">
             {ayah.bism && showArabic && <p lang="ar" dir="rtl" className="mzq-bism">بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</p>}
             {showArabic && (
@@ -233,6 +309,7 @@ export default function QuranStage({ player, style = 'emerald', animation = 'glo
                 <span className="mzq-end" aria-hidden="true">﴿{ayah.n}﴾</span>
               </p>
             )}
+            {showTranslation && !ayah.tr && data && !data.trOk && <p className="mzq-tr mzq-tr-wait">Tarjuma load ho raha hai...</p>}
             {showTranslation && ayah.tr && <p className="mzq-tr" lang={/[؀-ۿ]/.test(ayah.tr) ? 'ur' : 'en'} dir={/[؀-ۿ]/.test(ayah.tr) ? 'rtl' : 'ltr'}>{ayah.tr}</p>}
           </div>
         )}

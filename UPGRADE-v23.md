@@ -69,3 +69,21 @@ AI ko bade jawab/code ke liye zyada token aur 10 steps mile hain.
 **Customer assistant**
 - `quran_info` (live time, surah info, an exact ayah from the Quran data, page links) and `shop_pages` (buttons to deals, blog, tracking, returns...).
 - Chit-chat, clean jokes, paheliyan, true Islamic stories, small tasks and research (web search) stay honest and Islamic; ayat are never quoted from memory.
+
+---
+## v23.2 (fixes after real use)
+
+**Quran: starts even when a text service is down**
+- The recitation files have computed addresses, so the voice no longer depends on any API answer. Arabic text, translation and voice are fetched as separate small requests (server first, then the browser straight from the public API), so one failing never removes the others. A missing translation is retried by itself and shows "Tarjuma load ho raha hai"; missing Arabic text shows a short notice while the recitation goes on.
+- The Urdu translation problem: the old single combined request lost the translation silently when it failed. Fixed as above.
+- Bug "it starts at the bottom, I must scroll up": a long ayah left the screen scrolled down for the next ayah. Every ayah now starts at the top and a long ayah follows the word being recited.
+- A surah page that could not read its text is no longer stored for a week (it fails and is retried instead).
+- Visitors get a small settings button: translation (Urdu Jalandhry / Junagarhi / English / none), voice (qari), Arabic size, Arabic on/off, volume. Kept on the visitor's own device. Admin can switch this off (Admin > Quran > "Visitors can choose...").
+- New in Admin > Quran: Source "A ready-made live stream" (paste a YouTube live / video / channel link or a live mp3/aac stream address). It has no ayah timing, so no ayat are shown in that mode.
+- If a chosen voice has no file for an ayah, that ayah is played by the default voice instead of being skipped.
+- Tested in a real browser (headless Chromium with a stand-in server): the session starts by itself, runs ayah after ayah and surah after surah, shows no pause/speed buttons, reports its place, keeps the visitor's choice, and keeps reciting when every text service returns an error.
+
+**Deals: choose products yourself**
+- Admin > Deals: "Pick products by hand" / "Choose products by hand" inside any group. It searches the whole shop (live products AND the old catalogue files), you tick products, set one rate, Preview, Apply, Undo.
+- Products that exist only in the catalogue files become a deal through a small live copy with the new price (live copies win over the file copy, so cart and checkout use the deal price too). Up to 300 such products per group. Undo deletes the copy, the old price returns.
+- The AI manager's `apply_deal_group` accepts exact product slugs too.

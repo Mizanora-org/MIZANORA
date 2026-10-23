@@ -105,6 +105,28 @@ assert.equal(G.groupPrice(1000, mens), 800);
 assert.equal(G.cleanGroups([{ name: 'A', words: 'x', pct: 10 }, { name: 'A', words: 'y', pct: 10 }, { name: '' }]).length, 1);
 assert.equal(D.cleanDeals({ groups: [{ name: 'Watches', words: 'watch', pct: 15 }] }).groups[0].id, 'watches');
 
+// ---- v23.2: the Quran never depends on one API answer
+const A = Q.assembleSurah(112, {}, 'ar.husary');
+assert.equal(A.ayahs.length, 4); assert.equal(A.arOk, false); assert.equal(A.ayahs[0].au, 'https://cdn.islamic.network/quran/audio/128/ar.husary/6222.mp3');
+const fakeAr = { name: 'x', ayahs: [1, 2, 3, 4].map((n) => ({ text: `ar${n}` })) };
+const fakeTr = { ayahs: [1, 2, 3, 4].map((n) => ({ text: `ur${n}` })) };
+const B = Q.assembleSurah(112, { ar: fakeAr, tr: fakeTr }, 'ar.alafasy');
+assert.equal(B.ayahs[2].ar, 'ar3'); assert.equal(B.ayahs[2].tr, 'ur3'); assert.ok(B.arOk && B.trOk);
+assert.equal(Q.assembleSurah(112, { ar: fakeAr }).trOk, false);
+assert.equal(Q.audioUrl('evil', 1, 1), 'https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3'); // unknown voice -> the default one
+assert.equal(Q.cleanQuran({}).allowChoice, true);
+assert.equal(Q.cleanQuran({ source: 'stream', streamUrl: 'http://x.y/z' }).source, 'ayah');   // only https streams
+assert.equal(Q.streamTarget('https://youtu.be/abcdefghijk').kind, 'youtube');
+assert.equal(Q.streamTarget('https://example.com/live.mp3').kind, 'audio');
+assert.equal(Q.streamTarget('https://www.youtube.com/@someone'), null);
+
+// ---- v23.2: products chosen by hand
+const hand = G.cleanGroup({ name: 'My picks', ids: ['abc-1', 'x y!z', 'abc-1'], pct: 10 });
+assert.deepEqual(hand.ids, ['abc-1', 'xyz']);
+assert.equal(G.matchesGroup({ id: 'abc-1', name: 'Anything' }, hand), true);
+assert.equal(G.matchesGroup({ id: 'nope', name: 'Anything' }, hand), false);
+assert.equal(G.cleanGroup({ name: 'Big', ids: Array.from({ length: 500 }, (_, i) => `p${i}`), pct: 5 }).ids.length, 300);
+
 // Every blog has front matter
 for (const f of fs.readdirSync(path.join(root, 'content/blog'))) {
   const t = fs.readFileSync(path.join(root, 'content/blog', f), 'utf8');

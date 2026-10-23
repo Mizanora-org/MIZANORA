@@ -20,6 +20,7 @@ export default function AdminDeals() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState({}); // per group: the last preview / result text
+  const [pick, setPick] = useState({ i: -1, q: '', items: [], busy: false, msg: '' }); // the product picker of one group
 
   useEffect(() => {
     getDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id)).then((d) => {
@@ -44,7 +45,17 @@ export default function AdminDeals() {
   }
   const PRESETS = [['Shirts', 'shirt, tshirt, kameez'], ['Shoes', 'shoes, shoe, sneakers, sandal, joota'], ['Pants', 'pant, jeans, trouser, shalwar'], ['Watches', 'watch, ghari'], ['Mens catalogue', 'men, mens, man']];
   const setGroup = (i, patch) => setCfg((c) => ({ ...c, groups: c.groups.map((g, n) => (n === i ? { ...g, ...patch } : g)) }));
-  const addGroup = (name = 'New group', words = '') => setCfg((c) => ({ ...c, groups: [...c.groups, { id: `g${Date.now().toString(36)}`, name, words: words.split(',').map((w) => w.trim()).filter(Boolean), exclude: name === 'Mens catalogue' ? ['women', 'womens', 'ladies'] : [], pct: 20, price: 0, on: true }].slice(0, 24) }));
+  const addGroup = (name = 'New group', words = '') => setCfg((c) => ({ ...c, groups: [...c.groups, { id: `g${Date.now().toString(36)}`, name, words: words.split(',').map((w) => w.trim()).filter(Boolean), exclude: name === 'Mens catalogue' ? ['women', 'womens', 'ladies'] : [], ids: [], pct: 20, price: 0, on: true }].slice(0, 24) }));
+  async function search(q) {
+    setPick((p) => ({ ...p, q, busy: true, msg: '' }));
+    try {
+      const token = await authClient().currentUser.getIdToken();
+      const r = await fetch('/api/admin/deal-search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ q }) });
+      const j = await r.json();
+      setPick((p) => ({ ...p, items: j.ok ? j.items : [], busy: false, msg: j.ok ? (j.items.length ? '' : 'No product found.') : (j.error || 'Search failed.') }));
+    } catch (e) { setPick((p) => ({ ...p, busy: false, msg: `Search failed: ${e.message}` })); }
+  }
+  const toggleId = (i, id) => setCfg((c) => ({ ...c, groups: c.groups.map((g, n) => (n === i ? { ...g, ids: (g.ids || []).includes(id) ? g.ids.filter((x) => x !== id) : [...(g.ids || []), id].slice(0, 300) } : g)) }));
   async function act(i, action) {
     const g = cleanGroup(cfg.groups[i]);
     if (!g) { setInfo((x) => ({ ...x, [i]: 'Give the group a name first.' })); return; }
@@ -56,7 +67,7 @@ export default function AdminDeals() {
       const j = await r.json();
       let text;
       if (!j.ok) text = j.error || 'Could not finish.';
-      else if (action === 'preview') text = `${j.count} live product(s) would change.${(j.sample || []).map((x) => ` ${x.name}: Rs ${x.from} to Rs ${x.to}.`).join('')}${j.skippedCount ? ` ${j.skippedCount} would be skipped (${(j.skipped || []).slice(0, 2).join('; ')}).` : ''}`;
+      else if (action === 'preview') text = `${j.count} product(s) would change (${j.liveCount} live, ${j.archiveCount} from the catalogue files${j.archiveTooMany ? `, ${j.archiveTooMany} more than one group can handle` : ''}${j.archiveOff ? '; catalogue files could not be read' : ''}).${(j.sample || []).map((x) => ` ${x.name}: Rs ${x.from} to Rs ${x.to}.`).join('')}${j.skippedCount ? ` ${j.skippedCount} would be skipped (${(j.skipped || []).slice(0, 2).join('; ')}).` : ''}`;
       else text = j.summary || 'Done.';
       setInfo((x) => ({ ...x, [i]: text }));
       if (j.ok && action !== 'preview') { await setDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id), { ...cleanDeals({ ...cfg, pinned }), updatedAtMs: Date.now() }); await revalidateSite(undefined, ['deals-config']); }
@@ -82,10 +93,11 @@ export default function AdminDeals() {
 
       <section className="card space-y-3">
         <h2 className="text-lg font-extrabold">Deal groups: one rate for a whole catalogue</h2>
-        <p className="text-xs text-dim">Make a group by words (for example Shirts = shirt, tshirt), give it ONE rate (a percent off, or one fixed price such as Rs 999) and press Apply. Every matching live product becomes a deal (old price struck through) and appears in the home feed "Hot deals" and on /deals. Undo puts the old prices back. Whole words only ("men" does not match "women"). Products of the file catalogue (import files) are not changed here.</p>
+        <p className="text-xs text-dim">Make a group by words (for example Shirts = shirt, tshirt) AND/OR tick the products yourself with "Choose products by hand" (it searches the whole shop, old catalogue products too). Give it ONE rate (a percent off, or one fixed price such as Rs 999) and press Apply. Every matching live product becomes a deal (old price struck through) and appears in the home feed "Hot deals" and on /deals. Undo puts the old prices back. Whole words only ("men" does not match "women"). Products that only exist in the catalogue files are turned into a deal through a small live copy (up to 300 per group); Undo removes that copy and the old price returns.</p>
         <div className="flex flex-wrap gap-2">
           {PRESETS.map(([n, w]) => <button key={n} type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => addGroup(n, w)}><Plus size={13} /> {n}</button>)}
           <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => addGroup()}><Plus size={13} /> Other</button>
+          <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => { addGroup('My picks'); setPick({ i: cfg.groups.length, q: '', items: [], busy: false, msg: '' }); search(''); }}><Plus size={13} /> Pick products by hand</button>
         </div>
         {cfg.groups.map((g, i) => (
           <div key={g.id} className="space-y-2 rounded-xl border border-line bg-surface p-3">
@@ -97,6 +109,35 @@ export default function AdminDeals() {
                 <label className="block text-sm"><span className="label">Percent off</span><input type="number" min={0} max={80} className="input" value={g.price ? 0 : g.pct} onChange={(e) => setGroup(i, { pct: Number(e.target.value) || 0, price: 0 })} /></label>
                 <label className="block text-sm"><span className="label">or fixed price Rs</span><input type="number" min={0} className="input" value={g.price || ''} placeholder="0" onChange={(e) => setGroup(i, { price: Number(e.target.value) || 0, pct: 0 })} /></label>
               </div>
+            </div>
+            <div className="rounded-lg border border-line p-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => { setPick({ i, q: '', items: [], busy: false, msg: '' }); if (pick.i !== i) search(''); else setPick((p) => ({ ...p, i: -1 })); }}>{pick.i === i ? 'Close product picker' : `Choose products by hand (${(g.ids || []).length} chosen)`}</button>
+                {(g.ids || []).length > 0 && <button type="button" className="text-xs text-red-600 underline" onClick={() => setGroup(i, { ids: [] })}>Clear chosen</button>}
+              </div>
+              {pick.i === i && (
+                <div className="mt-2 space-y-2">
+                  <form onSubmit={(e) => { e.preventDefault(); search(pick.q); }} className="flex gap-2">
+                    <input className="input" placeholder="Search a product (name or category)..." value={pick.q} onChange={(e) => setPick((p) => ({ ...p, q: e.target.value }))} />
+                    <button type="submit" className="btn-gold !px-4 !py-2 text-sm" disabled={pick.busy}>{pick.busy ? '...' : 'Search'}</button>
+                  </form>
+                  {pick.msg && <p className="text-xs text-dim">{pick.msg}</p>}
+                  <ul className="grid max-h-80 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                    {pick.items.map((p) => {
+                      const on = (g.ids || []).includes(p.id);
+                      return (
+                        <li key={p.id}>
+                          <label className={`flex cursor-pointer items-center gap-2 rounded-lg border p-1.5 text-xs ${on ? 'border-gold bg-gold/10' : 'border-line'}`}>
+                            <input type="checkbox" className="h-4 w-4 accent-[#0B6B45]" checked={on} onChange={() => toggleId(i, p.id)} />
+                            {p.image ? <img src={p.image} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded object-cover" /> : <span className="h-10 w-10 shrink-0 rounded bg-raised" />}
+                            <span className="min-w-0"><b className="line-clamp-2 font-semibold text-cream">{p.name}</b><span className="text-dim">Rs {p.price}{p.comparePrice > p.price ? ` (was ${p.comparePrice})` : ''}</span></span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" disabled={busy} onClick={() => act(i, 'preview')}>Preview</button>

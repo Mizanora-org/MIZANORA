@@ -110,6 +110,16 @@ export default function AdminQuran() {
 
       <section className="card space-y-3">
         <h2 className="text-lg font-extrabold">2. What is recited</h2>
+        <div className="space-y-2 rounded-xl border border-line bg-surface p-3">
+          <Pick label="Source" value={cfg.source} onChange={(v) => set('source', v)} options={[['ayah', 'Ayah by ayah, with the ayat and translation on the screen (recommended)'], ['stream', 'A ready-made live stream (paste its link)']]} />
+          {cfg.source === 'stream' && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block text-sm sm:col-span-2"><span className="label">Live stream link (https)</span><input className="input" value={cfg.streamUrl} onChange={(e) => set('streamUrl', e.target.value)} placeholder="https://www.youtube.com/watch?v=...  or  https://....mp3" /></label>
+              <label className="block text-sm"><span className="label">Name shown to visitors</span><input className="input" maxLength={60} value={cfg.streamTitle} onChange={(e) => set('streamTitle', e.target.value)} placeholder="Makkah Live" /></label>
+              <p className="text-xs text-dim">Works with a YouTube live / video link, a YouTube channel link (youtube.com/channel/UC...) or the address of a live audio stream (mp3 / aac). A stream has no ayah timing, so the ayat are not shown: only the voice or the video. If the link is wrong the visitor sees a short notice, nothing breaks.</p>
+            </div>
+          )}
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Pick label="Surah" value={cfg.surah} onChange={(v) => setCfg((c) => cleanQuran({ ...c, surah: Number(v), from: 1, to: 0 }))} options={SURAHS.map((s) => [s.n, `${s.n}. ${s.name} (${s.ayat} ayat)`])} />
           <div className="grid grid-cols-2 gap-3">
@@ -140,10 +150,11 @@ export default function AdminQuran() {
           <label className="block text-sm"><span className="label">Volume: {cfg.volume}%</span><input type="range" min={0} max={100} className="w-full accent-[#0B6B45]" value={cfg.volume} onChange={(e) => set('volume', Number(e.target.value))} /></label>
           <Pick label="Show on" value={cfg.pages} onChange={(v) => set('pages', v)} options={[['all', 'Every page'], ['home', 'Home page only']]} />
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           <Switch label="Start the voice by itself" hint="Browsers need one touch first, then it starts." checked={cfg.autoStart} onChange={(v) => set('autoStart', v)} />
           <Switch label="Pause the shop music" hint="While the recitation plays." checked={cfg.pauseMusic} onChange={(v) => set('pauseMusic', v)} />
           <Switch label="Show the Arabic text" checked={cfg.showArabic} onChange={(v) => set('showArabic', v)} />
+          <Switch label="Visitors can choose translation, voice and text size" hint="A small settings button on the screen. Kept on the visitor's own device." checked={cfg.allowChoice} onChange={(v) => set('allowChoice', v)} />
         </div>
       </section>
 
