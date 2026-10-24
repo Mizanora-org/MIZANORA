@@ -427,3 +427,128 @@ html[data-fx~="smooth"] a, html[data-fx~="smooth"] button { touch-action: manipu
 .mz-feed[data-filter="islamic"] > :not([data-kind="islamic"]),
 .mz-feed[data-filter="tv"] > :not([data-kind="tv"]),
 .mz-feed[data-filter="tool"] > :not([data-kind="tool"]) { display: none; }
+
+/* ===================================================================================================================
+   v27: QURAN & HADITH LIVE CHANNEL (components/LiveChannel.js, app/live-channel) - a broadcast station skin.
+   A TV channel frame: shimmering Mizanora logo + LIVE pill + a ticking PAKISTAN clock on top, an animated Islamic
+   stage in the middle (tilawat / hadith / product ads), an EPG strip and a ticker below. Only transform / opacity
+   animations; everything stops for people who asked for reduced motion.
+   =================================================================================================================== */
+.mzc { --c1: #06402B; --c2: #0B6B45; --c3: #04241A; --ink: #F8F3DE; --gold: #F2C766; --dimc: rgba(248, 243, 222, .8); --hl: #fff; --btn: #1d1600;
+  position: relative; min-height: 100dvh; overflow: hidden; isolation: isolate; color: var(--ink);
+  background: radial-gradient(120% 100% at 50% 0%, var(--c2) 0%, var(--c1) 48%, var(--c3) 100%); }
+.mzc[data-theme="night"] { --c1: #0A1130; --c2: #1B2A6B; --c3: #05081C; --ink: #EEF1FF; --gold: #F4D58D; --dimc: rgba(238, 241, 255, .78); }
+.mzc[data-theme="gold"] { --c1: #F8EBC8; --c2: #FFF8E6; --c3: #EFDCA4; --ink: #3A2A0A; --gold: #A96B0C; --dimc: rgba(58, 42, 10, .74); --hl: #7A4300; --btn: #fff; }
+
+.mzc-bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.mzc-star { position: absolute; left: 50%; top: 42%; width: min(120vw, 900px); color: var(--gold); opacity: .1; transform: translate(-50%, -50%); animation: mzc-spin 140s linear infinite; }
+.mzc-orb { position: absolute; border-radius: 50%; filter: blur(2px); opacity: .16; background: radial-gradient(circle, var(--gold), transparent 70%); animation: mzc-bob 9s ease-in-out infinite; }
+.mzc-twk { position: absolute; left: var(--x); top: var(--y); width: 3px; height: 3px; border-radius: 50%; background: var(--gold); opacity: 0; box-shadow: 0 0 8px var(--gold); animation: mzc-twinkle var(--d) ease-in-out var(--w) infinite; }
+.mzc-lamp { position: absolute; top: -8%; left: var(--x); width: 2px; height: 26vh; background: linear-gradient(180deg, var(--gold), transparent); opacity: .1; transform: rotate(12deg); animation: mzc-lamp 8s ease-in-out var(--w) infinite; }
+
+/* ---- channel chrome (the "channel ki tarah" top bar) ---- */
+.mzc-top { position: relative; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 14px 16px 8px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, .38), transparent); }
+.mzc-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mzc-logo { display: grid; place-items: center; width: 46px; height: 46px; flex: none; border-radius: 14px;
+  background: linear-gradient(140deg, var(--gold), #b98a2c); color: var(--btn); box-shadow: 0 10px 26px -10px var(--gold), 0 0 0 1px rgba(255, 255, 255, .22) inset;
+  animation: mzc-glow 3.6s ease-in-out infinite; }
+.mzc-logo svg { width: 27px; height: 27px; }
+.mzc-name { font-family: var(--font-display), system-ui, sans-serif; font-weight: 900; letter-spacing: .12em; font-size: clamp(.95rem, 3.6vw, 1.35rem); line-height: 1.1;
+  background: linear-gradient(92deg, var(--gold), var(--hl), var(--gold)); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: mzc-shimmer 6.5s linear infinite; }
+.mzc-name small { display: block; letter-spacing: .22em; font-size: .56rem; font-weight: 700; color: var(--dimc); -webkit-text-fill-color: var(--dimc); animation: none; }
+.mzc-live { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 5px 12px; font-size: .72rem; font-weight: 900; letter-spacing: .14em;
+  background: #D92534; color: #fff; box-shadow: 0 8px 22px -8px rgba(217, 37, 52, .9); }
+.mzc-live i { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: mzc-pulse 1.4s ease-in-out infinite; }
+.mzc-live.is-off { background: rgba(255, 255, 255, .16); box-shadow: none; }
+.mzc-clock { margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.mzc-clock b { display: block; font-size: clamp(1.05rem, 4vw, 1.55rem); font-weight: 900; letter-spacing: .04em; color: var(--hl); text-shadow: 0 2px 18px rgba(0, 0, 0, .45); }
+.mzc-clock small { font-size: .68rem; letter-spacing: .12em; color: var(--gold); font-weight: 700; text-transform: uppercase; }
+.mzc-clock em { display: block; font-style: normal; font-size: .64rem; color: var(--dimc); }
+
+/* ---- the stage ---- */
+.mzc-stage { position: relative; z-index: 2; width: min(1120px, 100%); margin: 8px auto 0; padding: 0 14px 20px; }
+.mzc-screen { position: relative; border-radius: 22px; overflow: hidden; box-shadow: 0 36px 80px -30px rgba(0, 0, 0, .75), 0 0 0 1px rgba(242, 199, 102, .35);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .02) 55%, rgba(0, 0, 0, .18)); backdrop-filter: blur(6px); }
+.mzc-screen::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, .08) 48%, transparent 62%); background-size: 240% 100%; animation: mzc-sweep 9s linear infinite; }
+.mzc-body { position: relative; min-height: clamp(320px, 52vw, 470px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: clamp(18px, 4vw, 40px); }
+.mzc-card { max-width: 46rem; animation: mzc-in .75s cubic-bezier(.2, .8, .2, 1) both; }
+.mzc-kicker { font-size: .7rem; letter-spacing: .22em; text-transform: uppercase; font-weight: 900; color: var(--gold); }
+.mzc-title { margin-top: 8px; font-family: var(--font-display), system-ui, sans-serif; font-size: clamp(1.35rem, 4.6vw, 2.15rem); font-weight: 900; line-height: 1.25; }
+.mzc-ar { font-family: var(--font-arabic), 'Amiri', 'Noto Naskh Arabic', serif; line-height: 2.2; font-size: clamp(1.55rem, 5.4vw, 2.6rem); word-spacing: .08em; text-wrap: balance; margin-top: 12px; }
+.mzc-w { display: inline-block; opacity: .55; transition: opacity .5s ease, color .5s ease, text-shadow .5s ease, transform .5s ease; }
+.mzc-w.is-now { opacity: 1; color: var(--hl); text-shadow: 0 0 22px var(--gold), 0 0 5px var(--gold); transform: scale(1.05); }
+.mzc-w.is-past { opacity: 1; color: var(--gold); }
+.mzc-tr { margin: 14px auto 0; max-width: 40rem; font-size: clamp(.98rem, 2.8vw, 1.12rem); line-height: 1.95; color: var(--dimc); text-wrap: pretty; }
+.mzc-hadith { text-align: left; }
+.mzc-quote { position: relative; border-left: 3px solid var(--gold); border-radius: 0 16px 16px 0; background: rgba(0, 0, 0, .18); padding: 16px 18px; margin-top: 14px; }
+.mzc-quote p { line-height: 2; font-size: clamp(1rem, 3vw, 1.16rem); }
+.mzc-quote .by { margin-top: 10px; font-size: .78rem; letter-spacing: .08em; color: var(--gold); font-weight: 800; }
+.mzc-chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 12px; font-size: .72rem; font-weight: 800; letter-spacing: .06em; background: rgba(242, 199, 102, .18); color: var(--gold); border: 1px solid rgba(242, 199, 102, .45); }
+
+/* product ad card */
+.mzc-ad { display: grid; gap: 18px; grid-template-columns: 1fr; align-items: center; text-align: left; }
+@media (min-width: 720px) { .mzc-ad { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); } }
+.mzc-ad-photo { position: relative; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 3; background: rgba(0, 0, 0, .25); box-shadow: 0 26px 60px -22px rgba(0, 0, 0, .7); }
+.mzc-ad-photo img { width: 100%; height: 100%; object-fit: cover; animation: mzc-ken 14s ease-in-out infinite alternate; }
+.mzc-ad-tag { position: absolute; top: 12px; left: 12px; border-radius: 999px; padding: 5px 12px; font-size: .68rem; font-weight: 900; letter-spacing: .16em; background: #D92534; color: #fff; animation: mzc-pulse 2s ease-in-out infinite; }
+.mzc-price { display: flex; align-items: baseline; gap: 10px; margin-top: 10px; }
+.mzc-price b { font-size: clamp(1.5rem, 4.4vw, 2.1rem); color: var(--gold); }
+.mzc-price s { opacity: .55; font-size: .95rem; }
+.mzc-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.mzc-cta a, .mzc-cta button { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; padding: 12px 22px; font-weight: 800; cursor: pointer; text-decoration: none; }
+.mzc-cta .go { background: var(--gold); color: var(--btn); box-shadow: 0 12px 30px -10px var(--gold); }
+.mzc-cta .ghost { background: rgba(255, 255, 255, .12); color: var(--ink); }
+
+/* lower third (the TV bar under the program) */
+.mzc-lower { position: relative; z-index: 3; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgba(0, 0, 0, .42); border-top: 1px solid rgba(242, 199, 102, .35); }
+.mzc-lower .lab { flex: none; border-radius: 8px; padding: 4px 10px; font-size: .68rem; font-weight: 900; letter-spacing: .14em; background: var(--gold); color: var(--btn); }
+.mzc-lower .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .86rem; font-weight: 600; }
+.mzc-prog { height: 3px; background: rgba(255, 255, 255, .16); overflow: hidden; }
+.mzc-prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), #fff); transition: width .5s linear; }
+.mzc-eq { display: inline-flex; align-items: flex-end; gap: 3px; height: 15px; margin-left: auto; }
+.mzc-eq i { width: 3px; height: 4px; border-radius: 2px; background: var(--gold); animation: mzc-wave .9s ease-in-out infinite; }
+.mzc-eq i:nth-child(2) { animation-delay: .15s; } .mzc-eq i:nth-child(3) { animation-delay: .3s; } .mzc-eq i:nth-child(4) { animation-delay: .45s; } .mzc-eq i:nth-child(5) { animation-delay: .6s; }
+.mzc-eq.is-still i { animation: none; opacity: .45; }
+
+/* ---- EPG strip + ticker ---- */
+.mzc-epg { position: relative; z-index: 2; width: min(1120px, 100%); margin: 14px auto 0; padding: 0 14px; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.mzc-slot { border-radius: 14px; border: 1px solid rgba(242, 199, 102, .3); background: rgba(0, 0, 0, .22); padding: 10px 12px; animation: mzc-in .6s ease both; }
+.mzc-slot[data-now="1"] { border-color: var(--gold); box-shadow: 0 10px 30px -12px var(--gold); background: rgba(242, 199, 102, .12); }
+.mzc-slot .when { font-size: .66rem; letter-spacing: .16em; font-weight: 900; color: var(--gold); text-transform: uppercase; }
+.mzc-slot .what { margin-top: 3px; font-size: .88rem; font-weight: 700; line-height: 1.35; }
+.mzc-slot .sub { font-size: .72rem; color: var(--dimc); }
+.mzc-ticker { position: relative; z-index: 2; margin: 16px 0 0; padding: 10px 0 16px; overflow: hidden; }
+.mzc-ticker .mq-track { gap: 0; animation: marquee var(--mq-dur, 42s) linear infinite; }
+.mzc-ticker span { display: inline-flex; align-items: center; gap: 18px; padding-right: 18px; font-size: .86rem; font-weight: 600; letter-spacing: .03em; color: var(--dimc); white-space: nowrap; }
+.mzc-ticker b { color: var(--gold); }
+
+/* the "tap to go live" gate (browsers do not autoplay sound) */
+.mzc-gate { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  text-align: center; padding: 24px; background: rgba(4, 20, 14, .78); backdrop-filter: blur(8px); animation: mzc-fade .4s ease both; cursor: pointer; border: 0; color: inherit; width: 100%; }
+.mzc-gate .ring { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: var(--gold); color: var(--btn); box-shadow: 0 0 0 10px rgba(242, 199, 102, .22), 0 20px 50px -12px var(--gold); animation: mzc-pulse 1.8s ease-in-out infinite; }
+.mzc-gate .ring svg { width: 42px; height: 42px; margin-left: 5px; }
+.mzc-gate h2 { font-family: var(--font-display), system-ui, sans-serif; font-size: clamp(1.35rem, 5vw, 2rem); font-weight: 900; }
+.mzc-gate p { color: var(--dimc); max-width: 26rem; line-height: 1.8; font-size: .95rem; }
+
+.mzc-off { text-align: center; padding: 30px 20px; }
+.mzc-off h2 { font-family: var(--font-display), system-ui, sans-serif; font-size: 1.5rem; font-weight: 900; }
+.mzc-off p { color: var(--dimc); margin-top: 8px; line-height: 1.8; }
+
+@keyframes mzc-in { from { opacity: 0; transform: translateY(16px); filter: blur(5px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes mzc-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mzc-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes mzc-bob { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-18px) scale(1.06); } }
+@keyframes mzc-twinkle { 0%, 100% { opacity: 0; transform: scale(.6); } 50% { opacity: .9; transform: scale(1.15); } }
+@keyframes mzc-lamp { 0%, 100% { opacity: .06; } 50% { opacity: .2; } }
+@keyframes mzc-glow { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.12); } }
+@keyframes mzc-shimmer { to { background-position: -220% 0; } }
+@keyframes mzc-sweep { to { background-position: -240% 0; } }
+@keyframes mzc-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: .85; } }
+@keyframes mzc-wave { 0%, 100% { height: 4px; } 50% { height: 15px; } }
+@keyframes mzc-ken { from { transform: scale(1); } to { transform: scale(1.12) translate(2%, -2%); } }
+@media (prefers-reduced-motion: reduce) {
+  .mzc-star, .mzc-orb, .mzc-twk, .mzc-lamp, .mzc-logo, .mzc-name, .mzc-screen::after, .mzc-live i, .mzc-eq i, .mzc-ad-photo img, .mzc-gate .ring, .mzc-ad-tag, .mzc-ticker .mq-track { animation: none !important; }
+  .mzc-twk { opacity: .4; }
+}

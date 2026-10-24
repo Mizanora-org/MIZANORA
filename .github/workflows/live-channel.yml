@@ -1,0 +1,68 @@
+# Live Channel (Quran & Hadith on YouTube) - v27
+#
+# This is the "action" that keeps Mizanora's Quran & Hadith channel alive: every hour it wakes up, reads the channel
+# schedule (Admin > Live Channel, Pakistan time windows), and if the channel is on air it builds the live M3U8 playlist
+# (tilawat + hadees + product ad voiceovers) and pushes it to YouTube with ffmpeg over RTMPS.
+#
+# Secrets (repo -> Settings -> Secrets and variables -> Actions):
+#   YOUTUBE_STREAM_KEY   (required to actually go live) the stream key from Admin > Live Channel > YouTube
+#   LIVE_CHANNEL_API     (optional) the site origin, default https://mizanora.vercel.app
+#
+# Run it by hand: Actions tab -> "Live Channel (Quran & Hadith on YouTube)" -> Run workflow
+#   minutes  how long to stay live (1-60)
+#   dry_run  only build the playlist (safe test, nothing is sent to YouTube)
+#   force    go live even outside the schedule windows
+
+name: Live Channel (Quran & Hadith on YouTube)
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'How many minutes to stay live (1-60)'
+        required: false
+        default: '45'
+      dry_run:
+        description: 'Only build the playlist (no YouTube)'
+        type: boolean
+        required: false
+        default: false
+      force:
+        description: 'Go live even when the channel is off air'
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    - cron: '7 * * * *'   # every hour (UTC). The script exits at once when the channel is off air.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-channel
+  cancel-in-progress: false
+
+jobs:
+  cast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Go live (Quran tilawat + hadees + ads -> YouTube)
+        env:
+          YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
+          LIVE_CHANNEL_API: ${{ secrets.LIVE_CHANNEL_API }}
+          CAST_MINUTES: ${{ github.event.inputs.minutes || '45' }}
+        run: |
+          FLAGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then FLAGS="$FLAGS --dry-run"; fi
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then FLAGS="$FLAGS --force"; fi
+          node scripts/live-cast.mjs --minutes "$CAST_MINUTES" $FLAGS
