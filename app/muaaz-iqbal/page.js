@@ -3,7 +3,7 @@ import { pageMeta, breadcrumbJsonLd, faqJsonLd } from '@/lib/seo';
 import { absUrl } from '@/lib/config';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
-import { FOUNDER } from '@/lib/team';
+import { FOUNDER, FOUNDER_LINKS } from '@/lib/team';
 import FounderPhoto from '@/components/FounderPhoto';
 
 export const revalidate = 86400;
@@ -14,6 +14,11 @@ export const metadata = pageMeta({
 });
 
 const PROJECTS = [
+  ['Asaan Lang (آسان لینگ)', 'https://asaan-lang.vercel.app', 'Pakistan\'s Urdu and Roman-Urdu programming language: likho, agar, warna, har, kaam. Errors come in Roman-Urdu with the line number, it has a playground and a website compiler, and it needs only Python 3.8+. MIT licence. Code on GitHub: muaaziqbalvip/asaan-lang.'],
+  ['Mizanora order tracking (MIZANORAOT)', 'https://github.com/muaaziqbalvip/MIZANORAOT', 'Order tracking with tracking IDs and a Vercel API.'],
+  ['Mizanora Android', 'https://github.com/muaaziqbalvip/Mizanoraandroid', 'An Android panel and an APK build pipeline for the store.'],
+  ['Mizanora Agent Web', 'https://github.com/muaaziqbalvip/Mizanora-agent-web', 'Deploy requests and a Firebase admin for the Mizanora agents.'],
+  ['Mizanora AI WhatsApp agent', 'https://github.com/muaaziqbalvip/MIZANORA-AIWHATSAPP', 'A WhatsApp Agent API with Urdu voice.'],
   ['Mizanora', 'https://mizanora.vercel.app', 'An online marketplace for Pakistan ("Shop Smart. Shop Halal"): a catalogue of thousands of products, cash on delivery, WhatsApp ordering, deals, an Urdu voice assistant, worker programme and daily Islamic feed.'],
   ['HijriAnchor', 'https://mizanoraapp.com', 'A privacy-first, ad-free dual calendar and life planner app (Umm al-Qura Hijri with Gregorian), working offline, for Android and iOS.'],
   ['Muslim Islam Organization', 'https://muslimislam.vercel.app', 'An Islamic community portal with a project hub, a shared chat and device and network tools.'],
@@ -31,7 +36,8 @@ const FAQ = [
   ['Who is Muaaz Iqbal?', 'Muaaz Iqbal is a developer and entrepreneur from Kasur, Punjab, Pakistan. He is the founder of Mizanora, an online marketplace for Pakistan, and the maker of the HijriAnchor calendar app.'],
   ['What is Mizanora?', 'Mizanora is a Pakistani online store at mizanora.vercel.app with cash on delivery, WhatsApp ordering, deals, an Urdu AI assistant and an Islamic feed. Its motto is "Shop Smart. Shop Halal".'],
   ['What is HijriAnchor?', 'HijriAnchor is a privacy-first, ad-free, offline dual-calendar app that combines the Umm al-Qura Hijri calendar with the Gregorian calendar, for Android and iOS.'],
-  ['Where can I follow Muaaz Iqbal?', 'On YouTube (@MuaazIqbalofficial), X (@MizanoraApps) and Instagram (@mizanora and @mezanora.market).'],
+  ['Where can I follow Muaaz Iqbal?', 'On LinkedIn (Muaaz Iqbal), GitHub (muaaziqbalvip), YouTube (@MuaazIqbalofficial), X (@MizanoraApps) and Instagram (@mizanora and @mezanora.market).'],
+  ['What is Asaan Lang?', 'Asaan Lang is an Urdu and Roman-Urdu programming language made by Muaaz Iqbal. It is open source (MIT), runs on Python 3.8+, shows errors in Roman-Urdu and can compile a program into a website. Site: asaan-lang.vercel.app.'],
 ];
 
 export default function MuaazPage() {
@@ -43,8 +49,8 @@ export default function MuaazPage() {
       jobTitle: 'Founder and full-stack developer', url: absUrl('/muaaz-iqbal'), image: FOUNDER.photos[0],
       address: { '@type': 'PostalAddress', addressLocality: 'Kasur', addressRegion: 'Punjab', addressCountry: 'PK' },
       worksFor: { '@id': absUrl('/#org') },
-      sameAs: ['https://www.youtube.com/@MuaazIqbalofficial', 'https://x.com/MizanoraApps', 'https://www.instagram.com/mizanora', 'https://www.instagram.com/mezanora.market'],
-      knowsAbout: ['Next.js', 'React', 'Artificial intelligence', 'E-commerce', 'Islamic calendar apps'],
+      sameAs: ['https://pk.linkedin.com/in/muaaz-iqbal-744b25430', 'https://github.com/muaaziqbalvip', 'https://asaan-lang.vercel.app', 'https://www.youtube.com/@MuaazIqbalofficial', 'https://x.com/MizanoraApps', 'https://www.instagram.com/mizanora', 'https://www.instagram.com/mezanora.market'],
+      knowsAbout: ['Next.js', 'React', 'Artificial intelligence', 'E-commerce', 'Islamic calendar apps', 'Programming language design', 'Urdu programming'],
       owns: PROJECTS.filter((p) => p[1]).map(([name, url]) => ({ '@type': 'WebSite', name, url })),
     },
   };
@@ -58,9 +64,7 @@ export default function MuaazPage() {
             <h2 className="font-display text-2xl font-extrabold">Muaaz Iqbal</h2>
             <p className="text-dim">AI-native full-stack developer, indie founder and builder · Kasur, Punjab, Pakistan</p>
             <p className="mt-2 flex flex-wrap gap-2 text-sm font-bold">
-              <a className="rounded-full bg-gold/10 px-3 py-1 text-gold" href="https://www.youtube.com/@MuaazIqbalofficial" target="_blank" rel="noopener noreferrer me">YouTube</a>
-              <a className="rounded-full bg-gold/10 px-3 py-1 text-gold" href="https://x.com/MizanoraApps" target="_blank" rel="noopener noreferrer me">X @MizanoraApps</a>
-              <a className="rounded-full bg-gold/10 px-3 py-1 text-gold" href="https://www.instagram.com/mizanora" target="_blank" rel="noopener noreferrer me">Instagram @mizanora</a>
+              {FOUNDER_LINKS.map(([label, href]) => <a key={href} className="rounded-full bg-gold/10 px-3 py-1 text-gold" href={href} target="_blank" rel="noopener noreferrer me">{label}</a>)}
             </p>
           </div>
         </div>
@@ -69,6 +73,18 @@ export default function MuaazPage() {
           <h2 id="about">About Muaaz Iqbal</h2>
           <p><strong>Muaaz Iqbal</strong> is an independent software developer and digital entrepreneur from Kasur, Punjab, Pakistan. He designs, builds and ships complete products on his own: web platforms, a high-volume online store and a calendar app for phones. His way of working joins modern AI tools with honest business, privacy-first design and the idea behind the name Mizanora: <em>mizan</em>, balance and fair dealing.</p>
           <p>He is the founder of <Link href="/">Mizanora</Link>, an online market for Pakistan with cash on delivery, and of <strong>HijriAnchor</strong>, an offline, ad-free dual calendar. More about the people behind the shop is on the <Link href="/team">team page</Link>, and his story is told in <Link href="/blog/who-is-muaaz-iqbal-founder-of-mizanora">this article</Link>.</p>
+        </section>
+
+        <section className="prose-mz mt-8" aria-labelledby="asaan">
+          <h2 id="asaan">Asaan Lang: a programming language in Urdu</h2>
+          <p>Muaaz also created <a href="https://asaan-lang.vercel.app" target="_blank" rel="noopener noreferrer"><strong>Asaan Lang</strong></a>, a language where you think and code in Urdu or Roman-Urdu, so that beginners and Urdu-medium students do not need English first. It has loops, functions, lists, dictionaries, try / catch, a playground and a compiler that turns a program into a website. Here is the whole idea in five lines:</p>
+          <pre className="overflow-x-auto rounded-xl bg-[#0b1f17] p-4 text-sm leading-6 text-emerald-100"><code>{`naam = lo "Aap ka naam? "
+agar naam != "" to
+    likho "Khush Amdeed, " + naam + "!"
+warna
+    likho "Mehman, salaam!"
+bas`}</code></pre>
+          <p>Read more: <Link href="/blog/asaan-lang-urdu-programming-language-by-muaaz-iqbal">what Asaan Lang is</Link>, <Link href="/blog/learn-coding-in-urdu-asaan-lang-examples-for-beginners">8 examples for beginners</Link>, and <Link href="/blog/muaaz-iqbal-linkedin-github-asaan-lang-mizanora-projects">all his links and projects</Link>.</p>
         </section>
 
         <section className="mt-8" aria-labelledby="projects">

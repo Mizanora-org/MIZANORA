@@ -23,7 +23,7 @@ export async function POST(req) {
   if (!a.ok) return json({ ok: false, error: a.error }, a.status);
   let b; try { b = await req.json(); } catch { return json({ ok: false, error: 'Bad request' }, 400); }
   let u; try { u = new URL(String(b.url || '').trim()); } catch { return json({ ok: false, error: 'This is not a link.' }, 400); }
-  if (u.protocol !== 'https:') return json({ ok: false, error: 'Only https:// links can be loaded (browsers block http streams on this website anyway).' }, 400);
+  if (u.protocol !== 'https:') return json({ ok: false, error: 'Only https:// playlist links can be loaded here. For an http:// playlist, download it and upload the file instead.' }, 400);
   try {
     const addrs = net.isIP(u.hostname) ? [{ address: u.hostname }] : await dns.lookup(u.hostname, { all: true });
     if (!addrs.length || addrs.some((x) => priv(x.address))) return json({ ok: false, error: 'This address is not allowed.' }, 400);

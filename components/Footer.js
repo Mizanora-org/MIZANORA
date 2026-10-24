@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { SITE } from '@/lib/config';
-import { CREDIT, FOUNDER } from '@/lib/team';
+import { CREDIT, FOUNDER, FOUNDER_LINKS } from '@/lib/team';
 import { SOCIAL_ICONS } from './Icons';
 import FxToggle from './FxToggle';
 import InstallApp from './InstallApp';
@@ -22,6 +22,7 @@ export default function Footer({ categories = [] }) {
             <b className="text-cream">{FOUNDER.name}</b> — <b className="text-gold">{FOUNDER.role}</b>
             <span className="mt-1 block text-xs">Mizanora ka pura web app, assistant Noor aur worker programme inhi ne banaya.</span>
             <Link href="/team" className="mt-1.5 inline-block text-xs font-bold text-gold underline underline-offset-4">Team &amp; public profiles</Link>
+            <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold">{FOUNDER_LINKS.slice(0, 3).map(([l, u]) => <a key={u} href={u} target="_blank" rel="noopener noreferrer me" className="text-gold underline underline-offset-4">{l}</a>)}</span>
           </p>
           <div className="mt-4 flex gap-3">
             {socials.map((s) => {

@@ -1,5 +1,5 @@
 /* Mizanora service worker: offline fallback + fast repeat visits. Never touches /api or /admin. */
-const VERSION = 'mz-v3';
+const VERSION = 'mz-v4';
 const PRECACHE = ['/', '/offline', '/products', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png'];
 const MAX_ENTRIES = 300;
 

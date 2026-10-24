@@ -68,19 +68,19 @@ ok('no fake-review generator exists in the project');
 const T = await imp('lib/liveTv.js');
 const m3u = `#EXTM3U\n#EXTINF:-1 tvg-logo="https://x.io/a.png" group-title="News",Channel A\nhttps://x.io/a.m3u8\n#EXTINF:-1,Channel B\nhttp://x.io/b.m3u8\n#EXTINF:-1 group-title="Kids",Channel C, Live\nhttps://x.io/c.m3u8?token=1\n#EXTINF:-1,Dup\nhttps://x.io/a.m3u8\n`;
 const pl = T.parseM3U(m3u);
-assert.equal(pl.channels.length, 3); assert.equal(pl.skipped, 1);
+assert.equal(pl.channels.length, 4); assert.equal(pl.skipped, 0); assert.equal(pl.channels[1].url, 'http://x.io/b.m3u8');
 assert.equal(pl.channels[0].name, 'Channel A'); assert.equal(pl.channels[0].group, 'News'); assert.equal(pl.channels[0].logo, 'https://x.io/a.png');
-assert.equal(pl.channels[1].name, 'Channel C, Live');
-assert.equal(T.cleanTv({ channels: pl.channels }).channels.length, 2); // the duplicate url is dropped by cleanTv
-assert.equal(T.cleanTv({ channels: [...pl.channels, ...pl.channels] }).channels.length, 2);
-ok('live tv: M3U parsing, http skipped, duplicates dropped');
+assert.equal(pl.channels[2].name, 'Channel C, Live');
+assert.equal(T.cleanTv({ channels: pl.channels }).channels.length, 3); // the duplicate url is dropped by cleanTv
+assert.equal(T.cleanTv({ channels: [...pl.channels, ...pl.channels] }).channels.length, 3);
+ok('live tv: M3U parsing, http kept (played through the relay), duplicates dropped');
 assert.equal(T.channelTarget('https://www.youtube.com/watch?v=dQw4w9WgXcQ').kind, 'youtube');
 assert.equal(T.channelTarget('https://x.io/live.m3u8?a=1').kind, 'hls');
 assert.equal(T.channelTarget('https://x.io/r.mp3').kind, 'audio');
 assert.equal(T.channelTarget('https://x.io/v.mp4').kind, 'video');
-assert.equal(T.channelTarget('http://x.io/live.m3u8'), null);
+assert.equal(T.channelTarget('http://x.io/live.m3u8').proxy, true); assert.equal(T.channelTarget('https://x.io/live.m3u8').proxy, false); assert.equal(T.channelTarget('ftp://x.io/a.m3u8'), null);
 assert.equal(T.channelTarget('https://www.youtube.com/@name'), null);
-ok('live tv: link kinds (youtube, hls, audio, video), http refused');
+ok('live tv: link kinds (youtube, hls, audio, video), http goes through the relay');
 const ch = [{ off: false }, { off: true }, { off: false }];
 assert.equal(T.stepIndex(ch, 0, 1), 2); assert.equal(T.stepIndex(ch, 2, 1), 0); assert.equal(T.stepIndex(ch, 0, -1), 2); assert.equal(T.stepIndex([], 0, 1), -1);
 assert.equal(T.pickAd(['a', 'b'], 0), 'a'); assert.equal(T.pickAd(['a', 'b'], 3), 'b'); assert.equal(T.pickAd([], 1), null);

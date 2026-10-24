@@ -30,6 +30,11 @@ import { DEPARTMENTS } from '@/lib/departments';
 import JsonLd from '@/components/JsonLd';
 import ForYouShelf from '@/components/ForYouShelf';
 import HomeHub from '@/components/HomeHub';
+import MarketFeed from '@/components/MarketFeed';
+import { buildFeed } from '@/lib/marketFeed';
+import { ISLAMIC_ITEMS } from '@/lib/islamic';
+import { TOOLS } from '@/lib/tools';
+import { channelSlugs } from '@/lib/liveTv';
 import { getTvConfig } from '@/lib/liveTvServer';
 import { SOCIAL_ICONS } from '@/components/Icons';
 
@@ -90,6 +95,10 @@ export default async function Home() {
   const season = seasonFor(new Date(), themeMode);
   const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 10) : [];
   const posts = getPosts().slice(0, 4);
+  // The mixed feed: products + Islamic posts + live channels + tools (changes every day, same all day)
+  const tvSlugs = tv && tv.enabled ? channelSlugs(tv.channels) : [];
+  const tvItems = tv && tv.enabled ? tv.channels.map((c, i) => ({ ...c, slug: tvSlugs[i] })).filter((c) => !c.off) : [];
+  const feed = buildFeed({ products: all.slice(0, 120), islamic: [...feedPosts, ...ISLAMIC_ITEMS], channels: tvItems, tools: TOOLS, day: Math.floor((Date.now() + 5 * 3600000) / 86400000), max: 36 });
   const socials = SITE.social.filter((s) => s.url);
   const delivery = SITE.shippingFee > 0 ? `Delivery ${formatPKR(SITE.shippingFee)}` : 'Free delivery';
 
@@ -182,6 +191,8 @@ export default async function Home() {
           <ReelsRail reels={reels.slice(0, 12)} music={reelMusic} />
         </section></Reveal>
       )}
+
+      <MarketFeed feed={feed} />
 
       <Reveal><IslamicFeed extra={feedPosts} winter={season ? season.id === 'winter' : false} /></Reveal>
 

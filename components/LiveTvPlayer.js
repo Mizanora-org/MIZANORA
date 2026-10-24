@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Expand, Heart, PictureInPicture2, Share2, Shuffle, X, Search, Tv } from 'lucide-react';
-import { channelGroups, channelSlugs, channelTarget, pickAd, stepIndex } from '@/lib/liveTv';
+import { preconnect, preload } from 'react-dom';
+import { channelGroups, channelSlugs, channelTarget, pickAd, relayHref, stepIndex } from '@/lib/liveTv';
 
 // The Live TV player (v25: a cinematic dark design). One channel at a time. Next / Previous / Random / pick from the grid; favourites and "recent" are
 // kept on this device; a channel that does not play is skipped by itself after a few seconds (switch it off with "Auto-skip"). Every time the channel
@@ -10,6 +11,8 @@ import { channelGroups, channelSlugs, channelTarget, pickAd, stepIndex } from '@
 // HLS (.m3u8): Safari plays it itself; other browsers get hls.js (loaded once, pinned version, from cdnjs).
 const HLS_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js';
 let hlsPromise = null;
+// v26 SPEED: hls.js is fetched as soon as the page opens (not when a channel is pressed), the connection to cdnjs is opened early, and
+// a stream that fails directly is retried at once through the shop's relay (/api/tv/p), which also plays http:// streams.
 const loadHls = () => {
   if (typeof window === 'undefined') return Promise.resolve(null);
   if (window.Hls) return Promise.resolve(window.Hls);
@@ -19,7 +22,8 @@ const loadHls = () => {
 const pkr = (n) => `Rs ${Number(n).toLocaleString('en-PK')}`;
 const readList = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v.slice(0, 200) : []; } catch (_) { return []; } };
 const writeList = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { /* blocked */ } };
-const SKIP_SECONDS = 4;
+const SKIP_SECONDS = 3;
+const STALL_MS = 10000; // a channel that has not started in 10 seconds is treated as failed (was 20)
 const MAX_AUTO_SKIPS = 6;
 
 export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
@@ -36,6 +40,8 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const [recent, setRecent] = useState([]);
   const [autoSkip, setAutoSkip] = useState(true);
   const [skipIn, setSkipIn] = useState(0);
+  const [viaRelay, setViaRelay] = useState(false);
+  const [buffering, setBuffering] = useState(false);
   const [toast, setToast] = useState('');
   const frame = useRef(null);
   const video = useRef(null);
@@ -44,11 +50,15 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const fails = useRef(0);
   const first = useRef(true);
   const cur = chans[idx];
-  const target = useMemo(() => (cur ? channelTarget(cur.url) : null), [cur]);
+  const base = useMemo(() => (cur ? channelTarget(cur.url) : null), [cur]);
+  // http streams and streams the browser could not open directly are played through the relay
+  const target = useMemo(() => (base && base.kind !== 'youtube' && (base.proxy || viaRelay) ? { ...base, src: relayHref(cur.url), relayed: true } : base), [base, viaRelay, cur]);
+  preconnect('https://cdnjs.cloudflare.com'); preload(HLS_SRC, { as: 'script' });
   const groups = useMemo(() => channelGroups(chans), [chans]);
   const activeCount = useMemo(() => chans.filter((c) => !c.off).length, [chans]);
 
-  useEffect(() => { setFavs(readList('mz_tv_fav')); setRecent(readList('mz_tv_recent')); }, []);
+  useEffect(() => { setFavs(readList('mz_tv_fav')); setRecent(readList('mz_tv_recent')); loadHls(); }, []);
+  useEffect(() => { setViaRelay(false); }, [idx]);
   const say = (m) => { setToast(m); setTimeout(() => setToast(''), 2200); };
 
   const go = useCallback((to, auto = false) => {
@@ -83,20 +93,32 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     if (hls.current) { try { hls.current.destroy(); } catch (_) { /* gone */ } hls.current = null; }
     if (!v || !target || target.kind === 'youtube') return undefined;
     let dead = false;
-    const fail = () => { if (!dead) setStatus('failed'); };
-    const ok = () => { if (!dead) { fails.current = 0; setStatus('playing'); } };
-    const start = () => { const p = v.play(); if (p && p.catch) p.catch((e) => { if (!dead) setStatus(e && e.name === 'NotAllowedError' ? 'blocked' : 'failed'); }); };
-    v.onplaying = ok; v.onerror = fail;
+    const canRelay = !target.relayed; // not yet tried through the relay
+    // first failure of a direct stream: try the relay before giving up
+    const fail = () => { if (dead) return; if (canRelay) { setViaRelay(true); return; } setStatus('failed'); };
+    const ok = () => { if (!dead) { fails.current = 0; setBuffering(false); setStatus('playing'); } };
+    const start = () => { const p = v.play(); if (p && p.catch) p.catch((e) => { if (!dead) { if (e && e.name === 'NotAllowedError') setStatus('blocked'); else if (e && e.name !== 'AbortError') fail(); } }); };
+    v.onplaying = ok; v.onerror = fail; v.onwaiting = () => { if (!dead) setBuffering(true); }; v.oncanplay = () => { if (!dead) setBuffering(false); };
     v.removeAttribute('src'); v.load();
-    const stall = setTimeout(() => { if (!dead && v.paused && v.readyState < 2) setStatus((s) => (s === 'loading' ? 'failed' : s)); }, 20000);
+    const stall = setTimeout(() => { if (!dead && v.paused && v.readyState < 3) setStatus((st) => { if (st !== 'loading') return st; if (canRelay) { setViaRelay(true); return 'loading'; } return 'failed'; }); }, STALL_MS);
     (async () => {
       if (target.kind === 'hls' && !v.canPlayType('application/vnd.apple.mpegurl')) {
         const Hls = await loadHls();
         if (dead) return;
         if (Hls && Hls.isSupported()) {
-          const h = new Hls({ lowLatencyMode: true, maxBufferLength: 20 });
-          hls.current = h;
-          h.on(Hls.Events.ERROR, (_e, d) => { if (d && d.fatal) { if (d.type === 'networkError') { try { h.startLoad(); } catch (_) { fail(); } } else fail(); } });
+          // tuned for a quick first picture: short timeouts, small first buffer, quality chosen for the player size, no endless retries
+          const h = new Hls({
+            enableWorker: true, lowLatencyMode: false, startFragPrefetch: true, capLevelToPlayerSize: true,
+            abrEwmaDefaultEstimate: 1200000, maxBufferLength: 14, maxMaxBufferLength: 40, backBufferLength: 15, liveSyncDurationCount: 3,
+            manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 1, levelLoadingTimeOut: 8000, levelLoadingMaxRetry: 2, fragLoadingTimeOut: 12000, fragLoadingMaxRetry: 3,
+          });
+          hls.current = h; let netTries = 0; let mediaTries = 0;
+          h.on(Hls.Events.ERROR, (_e, d) => {
+            if (dead || !d || !d.fatal) return;
+            if (d.type === 'networkError' && netTries < 2) { netTries += 1; try { h.startLoad(); } catch (_) { fail(); } }
+            else if (d.type === 'mediaError' && mediaTries < 1) { mediaTries += 1; try { h.recoverMediaError(); } catch (_) { fail(); } }
+            else fail();
+          });
           h.loadSource(target.src); h.attachMedia(v);
           if (cfg.autoplay) start();
           return;
@@ -104,7 +126,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       }
       v.src = target.src; if (cfg.autoplay) start();
     })();
-    return () => { dead = true; clearTimeout(stall); v.onplaying = null; v.onerror = null; try { v.pause(); } catch (_) { /* gone */ } };
+    return () => { dead = true; clearTimeout(stall); v.onplaying = null; v.onerror = null; v.onwaiting = null; v.oncanplay = null; try { v.pause(); } catch (_) { /* gone */ } };
   }, [target, cfg.autoplay]);
   useEffect(() => () => { if (hls.current) { try { hls.current.destroy(); } catch (_) { /* gone */ } } }, []);
 
@@ -169,11 +191,12 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
 
       <div ref={frame} className="relative overflow-hidden rounded-2xl bg-black ring-1 ring-white/10" style={{ aspectRatio: '16 / 9' }}>
         {target && target.kind === 'youtube' && <iframe key={target.src} src={target.src} title={cur.name} className="absolute inset-0 h-full w-full" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />}
-        {target && target.kind !== 'youtube' && <video ref={video} className="absolute inset-0 h-full w-full bg-black" controls playsInline preload="none" poster={cur.logo || undefined} />}
+        {target && target.kind !== 'youtube' && <video ref={video} className="absolute inset-0 h-full w-full bg-black" controls playsInline preload="auto" poster={cur.logo || undefined} />}
         {!target && <p className="absolute inset-0 grid place-items-center p-4 text-center text-white/80">Is channel ka link theek nahi hai.</p>}
         {target && target.kind !== 'youtube' && status === 'loading' && !ad && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center bg-black/40"><div className="text-center">{cur.logo ? <img src={cur.logo} alt="" className="mx-auto mb-2 h-14 w-14 rounded-xl bg-white/90 object-contain p-1" /> : null}<div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-[#F5B83D]" /><p className="mt-2 text-sm text-white/80">Channel load ho raha hai...</p></div></div>
         )}
+        {target && target.kind !== 'youtube' && status === 'playing' && buffering && !ad && <div className="pointer-events-none absolute right-3 top-3 h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-[#F5B83D]" aria-label="Buffering" />}
         {status === 'blocked' && !ad && <p className="pointer-events-none absolute inset-0 grid place-items-center bg-black/50 p-4 text-center font-bold text-white">Chalane ke liye screen ko chhoo dein</p>}
         {status === 'failed' && !ad && (
           <div className="absolute inset-0 grid place-items-center bg-black/85 p-4 text-center text-white"><div>

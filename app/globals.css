@@ -418,3 +418,12 @@ html[data-fx~="smooth"] a, html[data-fx~="smooth"] button { touch-action: manipu
 .mzq-set-note { font-size: .7rem; opacity: .7; }
 .mzq-stream-frame { position: relative; z-index: 2; margin: auto; width: min(92%, 40rem); aspect-ratio: 16 / 9; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 50px -18px rgba(0, 0, 0, .8), 0 0 0 1px rgba(242, 199, 102, .4); background: #000; }
 .mzq-stream-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+/* v26 home feed: cards in columns (like a social feed); the tab bar sets data-filter and the other kinds are hidden */
+.mz-feed { columns: 2; column-gap: .625rem; }
+@media (min-width: 640px) { .mz-feed { columns: 3; column-gap: .75rem; } }
+@media (min-width: 1024px) { .mz-feed { columns: 4; } }
+.mz-feed[data-filter="product"] > :not([data-kind="product"]),
+.mz-feed[data-filter="islamic"] > :not([data-kind="islamic"]),
+.mz-feed[data-filter="tv"] > :not([data-kind="tv"]),
+.mz-feed[data-filter="tool"] > :not([data-kind="tool"]) { display: none; }
