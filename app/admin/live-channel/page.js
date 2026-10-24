@@ -151,8 +151,8 @@ export default function AdminLiveChannel() {
   const last = (ytRes || cfg.youtube.last) || null;
   const m3u8Url = typeof window !== 'undefined' ? `${window.location.origin}/api/live/channel.m3u8` : '/api/live/channel.m3u8';
   const castCmd = last
-    ? `node scripts/live-cast.mjs --minutes 60 --base ${typeof window !== 'undefined' ? window.location.origin : 'https://mizanora.vercel.app'}\n# (YOUTUBE_STREAM_KEY=${last.streamKey ? last.streamKey.slice(0, 6) + '...' : '<GitHub secret>'} ke sath)`
-    : 'node scripts/live-cast.mjs --minutes 60';
+    ? `# 24/7 apne PC/VPS par (zero gap):\nnode scripts/live-cast.mjs --loop --base ${typeof window !== 'undefined' ? window.location.origin : 'https://mizanora.vercel.app'}\n# ya ek one-shot push (GitHub Action yehi karta hai):\nnode scripts/live-cast.mjs --minutes 330\n# YOUTUBE_STREAM_KEY=${last.streamKey ? last.streamKey.slice(0, 6) + '...' : '<GitHub secret>'}`
+    : 'npm run cast:live -- --loop   # 24/7 (zero gap)';
 
   return (
     <div className="min-w-0 space-y-6">
@@ -372,14 +372,20 @@ export default function AdminLiveChannel() {
             )}
           </div>
           <div className="card space-y-4">
-            <h2 className="section-title !text-xl flex items-center gap-2"><Tv size={20} /> Cast action (GitHub)</h2>
+            <h2 className="section-title !text-xl flex items-center gap-2"><Tv size={20} /> Cast action (GitHub) — 24/7</h2>
             <p className="text-sm text-dim">
-              Repo ka <b>Live Channel</b> action (Actions tab → &quot;Live Channel (Quran &amp; Hadith on YouTube)&quot; → Run workflow)
-              m3u8 playlist banata hai, ffmpeg se usko jorta hai aur YouTube RTMPS par bhejta hai. Cron har ghante chalta hai
-              aur band schedule mein khud hi bahar nikal jata hai.
+              Repo ka <b>Live Channel</b> action channel ko <b>24/7</b> chalata hai: ek run <b>5.5 ghante</b> tak ek hi
+              ffmpeg ke sath non-stop push karta hai (beech mein ek second ka restart nahi), phir agla run queued hota
+              hai aur foran接力 le leta hai. Har 30 minute ka cron safety net hai. Chal raha run jab khatam hone lagta
+              hai to khud agla run dispatch kar deta hai (baton). Band schedule mein khud hi ruk jata hai.
             </p>
             <pre className="overflow-x-auto rounded-xl bg-[#0B1A13] p-3 text-xs text-[#D9F3E4]">{castCmd}</pre>
             <p className="text-sm text-dim">Secrets (repo → Settings → Secrets → Actions): <b>YOUTUBE_STREAM_KEY</b> (zaroori), <b>LIVE_CHANNEL_API</b> (site ka origin, maslan https://mizanora.vercel.app).</p>
+            <p className="text-sm text-dim">
+              <b>Zero-gap 24/7:</b> apne PC ya VPS par <span className="font-mono text-xs">npm run cast:live -- --loop</span> chalayein —
+              ek hi process hafteon chalta hai, sirf asli network failure par reconnect. GitHub runners ki 6-hour limit
+              ki wajah se wahan din mein 2 baar ~1 minute ka handover hota hai (broadcast live rehta hai).
+            </p>
             <button type="button" className="btn-ghost !px-4 !py-2 text-sm" onClick={() => { navigator.clipboard.writeText(castCmd); setMsg('Command copy ho gaya.'); }}>
               <Copy size={15} /> Copy command
             </button>

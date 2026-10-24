@@ -144,6 +144,33 @@ assert.equal(np.seg.kind, 'hadith');
 assert.equal(np.next.length, 2);
 assert.ok(np.progress >= 0 && np.progress <= 1);
 
+// ---- cast budget: the "master timing" of the 24/7 action -----------------------------------------------------------
+// always-on: the full request, no cut
+let b = L.castBudget(L.cleanChannel({ mode: 'always' }), Date.UTC(2026, 9, 21, 4, 10), 330);
+assert.deepEqual([b.ok, b.minutes, b.why], [true, 330, 'always']);
+// a 5:00-12:00 window at 09:10 PKT: 2h50m left, minus the 2-minute safety margin -> 168 minutes cut
+b = L.castBudget(win, Date.UTC(2026, 9, 21, 4, 10), 330);
+assert.deepEqual([b.ok, b.minutes], [true, 168]);
+assert.equal(b.endsAtMs > Date.UTC(2026, 9, 21, 4, 10), true);
+// a short request is never lengthened
+b = L.castBudget(win, Date.UTC(2026, 9, 21, 4, 10), 45);
+assert.equal(b.minutes, 45);
+// 2 minutes before the window ends: do not start (the next baton catches the next window)
+b = L.castBudget(win, Date.UTC(2026, 9, 21, 6, 58, 30), 330);   // 11:58:30 PKT
+assert.deepEqual([b.ok, b.why], [false, 'window-ending']);
+// off air: only --force starts, with the full budget
+b = L.castBudget(win, Date.UTC(2026, 9, 21, 14, 0), 330);
+assert.equal(b.ok, false);
+b = L.castBudget(win, Date.UTC(2026, 9, 21, 14, 0), 330, { force: true });
+assert.deepEqual([b.ok, b.minutes, b.why], [true, 330, 'forced']);
+// the budget is capped at the GitHub job limit
+b = L.castBudget(L.cleanChannel({ mode: 'always' }), Date.UTC(2026, 9, 21, 4, 10), 10000);
+assert.equal(b.minutes, L.CAST_MAX_MIN);
+assert.equal(L.CAST_MAX_MIN <= 350, true);
+// a manual "go live now" is honored with its own end
+b = L.castBudget(L.cleanChannel({ mode: 'always', liveUntil: Date.UTC(2026, 9, 21, 5, 0) }), Date.UTC(2026, 9, 21, 4, 10), 330);
+assert.deepEqual([b.ok, b.minutes], [true, 48]);   // 50 min left minus 2
+
 // ---- WAV helper (the AI voiceover files) ---------------------------------------------------------------------
 const wav = L.pcmToWav(Buffer.alloc(100, 7), 24000);
 assert.equal(wav.length, 144);

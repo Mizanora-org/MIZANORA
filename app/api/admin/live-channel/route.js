@@ -96,7 +96,9 @@ export async function POST(req) {
         body: JSON.stringify({
           snippet: { title, scheduledStartTime: new Date(Date.now() - 60000).toISOString(), description: 'Live Quran tilawat, ahadees aur Mizanora products — mizanora.com/live-channel' },
           status: { privacyStatus: privacy, selfDeclaredMadeForKids: false },
-          contentDetails: { enableAutoStart: true, enableAutoStop: true, enableDvr: true, recordFromStart: true },
+          // enableAutoStop:false is the 24/7 key: when the encoder hands over to the next runner (or reconnects after
+          // a network blip), YouTube must NOT complete the broadcast - the watch page stays live through the handover.
+          contentDetails: { enableAutoStart: true, enableAutoStop: false, enableDvr: true, recordFromStart: true },
         }),
       });
       const bc = await bcRes.json().catch(() => ({}));
