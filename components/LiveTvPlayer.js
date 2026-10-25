@@ -27,6 +27,16 @@ const loadHls = () => {
   return hlsPromise;
 };
 
+// v29: a stream host that refused a direct connection once (CORS / mixed content / blocked) starts on the relay next time,
+// so the visitor does not wait for a failed direct try on every channel switch.
+const RELAY_KEY = 'mz_tv_relay_hosts';
+const relayHosts = new Set();
+const hostOf = (u) => { try { return new URL(String(u || '')).host; } catch (_) { return ''; } };
+(() => { try { if (typeof sessionStorage !== 'undefined') JSON.parse(sessionStorage.getItem(RELAY_KEY) || '[]').slice(0, 200).forEach((h) => relayHosts.add(String(h))); } catch (_) { /* blocked */ } })();
+const rememberRelay = (u) => { const h = hostOf(u); if (!h || relayHosts.has(h)) return; relayHosts.add(h); try { sessionStorage.setItem(RELAY_KEY, JSON.stringify([...relayHosts].slice(-200))); } catch (_) { /* blocked */ } };
+// Logos: https only on an https page. An http:// logo is tried as https first; if that fails the Tv icon stays.
+const logoSrc = (u) => { const v = String(u || ''); return /^http:\/\//i.test(v) ? v.replace(/^http:/i, 'https:') : v; };
+
 const pkr = (n) => `Rs ${Math.max(0, Number(n) || 0).toLocaleString('en-PK')}`;
 const readList = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v.slice(0, 200) : []; } catch (_) { return []; } };
 const writeList = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { /* blocked */ } };
@@ -34,6 +44,7 @@ const readPref = (k, fallback) => { try { const v = localStorage.getItem(k); ret
 const writePref = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { /* blocked */ } };
 const SKIP_SECONDS = 3;
 const STALL_MS = 10000;
+const BUFFER_STUCK_MS = 12000; // playing, but frozen on the spinner this long -> recover, then relay, then give up
 const MAX_AUTO_SKIPS = 6;
 const PAGE_SIZE = 36;
 
@@ -49,8 +60,11 @@ function TvClock() {
 }
 
 function ChannelLogo({ channel, large = false }) {
-  if (!channel?.logo) return <span className={`mztv-logo ${large ? 'is-large' : ''}`} aria-hidden="true"><Tv size={large ? 30 : 17} /></span>;
-  return <img src={channel.logo} alt="" className={`mztv-logo ${large ? 'is-large' : ''}`} loading="lazy" decoding="async" referrerPolicy="no-referrer" />;
+  const [bad, setBad] = useState(false);
+  const src = channel?.logo ? logoSrc(channel.logo) : '';
+  useEffect(() => { setBad(false); }, [src]);
+  if (!src || bad) return <span className={`mztv-logo ${large ? 'is-large' : ''}`} aria-hidden="true"><Tv size={large ? 30 : 17} /></span>;
+  return <img src={src} alt="" width={large ? 62 : 36} height={large ? 62 : 36} className={`mztv-logo has-img ${large ? 'is-large' : ''}`} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setBad(true)} />;
 }
 
 export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
@@ -101,6 +115,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const qualityRef = useRef(quality);
   const statusRef = useRef(status);
   const prefsLoaded = useRef(false);
+  const stuckStep = useRef(0);
 
   const cur = chans[idx] || null;
   const curSlug = slugs[idx] || '';
@@ -108,7 +123,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const activeCount = pool.length;
   const activeNo = Math.max(1, pool.findIndex((c) => c.i === idx) + 1);
   const base = useMemo(() => (cur ? channelTarget(cur.url) : null), [cur]);
-  const viaRelay = relayIndex === idx;
+  const viaRelay = relayIndex === idx || Boolean(cur && relayHosts.has(hostOf(cur.url)));
   const target = useMemo(() => {
     if (!base || !cur) return null;
     if (base.kind !== 'youtube' && (base.proxy || viaRelay)) return { ...base, src: relayHref(cur.url), relayed: true };
@@ -140,6 +155,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setSkipIn(0);
     setLevelCount(0);
     setRelayIndex(-1);
+    stuckStep.current = 0;
     setIdx(to);
   }, [idx, chans, adsEnabled, adProducts, adSeconds]);
 
@@ -152,14 +168,16 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
 
   const retry = useCallback(() => {
     fails.current = 0;
+    stuckStep.current = 0;
     setRelayIndex(-1);
     setStatus('loading');
     setBuffering(false);
     setSkipIn(0);
     setLevelCount(0);
     setRetryKey((n) => n + 1);
+    if (cur) relayHosts.delete(hostOf(cur.url)); // Retry tries the direct way again first
     say('Channel dobara load ho raha hai');
-  }, [say]);
+  }, [say, cur]);
 
   const playNow = useCallback(() => {
     const v = video.current;
@@ -324,6 +342,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       if (!canRelay) return false;
       if (fallbackStarted) return true; // another error arrived before React switched the target
       fallbackStarted = true;
+      rememberRelay(cur && cur.url);
       setRelayIndex(idx);
       setStatus('loading');
       return true;
@@ -353,11 +372,17 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
         if (dead) return;
         if (Hls && Hls.isSupported()) {
           // Short buffers and bounded retries = first picture quickly, no runaway requests.
+          // v29: a LIVE stream needs a real cushion. The old 12 s buffer rebuffered on every network wobble. Now: 30 s ahead
+          // (60 s max), a conservative bandwidth estimate for mobile data, a start at a low rung that climbs up, and a stalled-fragment nudge.
           const h = new Hls({
             enableWorker: true, lowLatencyMode: false, startFragPrefetch: true, capLevelToPlayerSize: true,
-            abrEwmaDefaultEstimate: 1200000, maxBufferLength: 12, maxMaxBufferLength: 30, backBufferLength: 12,
-            liveSyncDurationCount: 3, manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 1,
-            levelLoadingTimeOut: 8000, levelLoadingMaxRetry: 2, fragLoadingTimeOut: 12000, fragLoadingMaxRetry: 3,
+            abrEwmaDefaultEstimate: 900000, abrBandWidthFactor: 0.8, abrBandWidthUpFactor: 0.6, startLevel: -1,
+            maxBufferLength: 30, maxMaxBufferLength: 60, backBufferLength: 20, maxBufferHole: 0.5,
+            liveSyncDurationCount: 4, liveMaxLatencyDurationCount: 12, maxLiveSyncPlaybackRate: 1.05,
+            nudgeOffset: 0.2, nudgeMaxRetry: 6,
+            manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 600,
+            levelLoadingTimeOut: 8000, levelLoadingMaxRetry: 3, levelLoadingRetryDelay: 600,
+            fragLoadingTimeOut: 15000, fragLoadingMaxRetry: 4, fragLoadingRetryDelay: 500, fragLoadingMaxRetryTimeout: 6000,
           });
           hls.current = h;
           let netTries = 0;
@@ -369,6 +394,9 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
           });
           h.on(Hls.Events.ERROR, (_event, data) => {
             if (dead || !data || !data.fatal) return;
+            // v29: the very first playlist could not be loaded directly (CORS / http / blocked host): go straight to the relay,
+            // no pointless retries of something the browser has already refused.
+            if (canRelay && /manifestLoadError|manifestLoadTimeOut|manifestParsingError/.test(String(data.details || ''))) { fail(); return; }
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR && netTries < 2) {
               netTries += 1;
               try { h.stopLoad(); h.startLoad(); } catch (_) { fail(); }
@@ -396,7 +424,25 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       v.onplaying = null; v.onerror = null; v.onwaiting = null; v.onstalled = null; v.oncanplay = null;
       try { v.pause(); } catch (_) { /* gone */ }
     };
-  }, [target, autoplay, retryKey, idx, playNow]);
+  }, [target, autoplay, retryKey, idx, playNow]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // v29: BUFFER WATCHDOG. A stream can be "playing" yet frozen on the spinner with no fatal error (a dead segment, a stalled relay).
+  // Step 1: reload the playlist and jump to the live edge. Step 2: switch to the relay. Step 3: show NO SIGNAL (auto-skip then moves on).
+  useEffect(() => {
+    if (status !== 'playing' || !buffering || !target || target.kind === 'youtube' || ad) return undefined;
+    const t = setTimeout(() => {
+      const step = stuckStep.current; stuckStep.current += 1;
+      const h = hls.current; const v = video.current;
+      if (step === 0) {
+        try { if (h) { h.stopLoad(); h.startLoad(-1); } if (v && h && Number.isFinite(h.liveSyncPosition)) v.currentTime = Math.max(0, h.liveSyncPosition - 0.4); if (v) v.play().catch(() => {}); } catch (_) { /* gone */ }
+        say('Stream atak gayi thi — dobara jod rahe hain');
+      } else if (step === 1 && !target.relayed) {
+        rememberRelay(cur && cur.url); setRelayIndex(idx); setStatus('loading'); setBuffering(false);
+      } else { setBuffering(false); setStatus('failed'); }
+    }, BUFFER_STUCK_MS);
+    return () => clearTimeout(t);
+  }, [status, buffering, target, ad, idx, cur, say]);
+  useEffect(() => { if (status === 'playing' && !buffering) stuckStep.current = 0; }, [status, buffering]);
 
   // A browser that blocked autoplay waits for one real interaction.
   useEffect(() => {

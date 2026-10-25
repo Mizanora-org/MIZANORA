@@ -54,8 +54,19 @@ const force = flag('--force');
 const noChain = flag('--no-chain');
 const base = String(val('--base', process.env.LIVE_CHANNEL_API || 'https://mizanora.vercel.app')).replace(/\/+$/, '');
 const servePort = Math.min(65000, Math.max(1024, Number(val('--serve-port', 8722)) || 8722));
-const key = String(process.env.YOUTUBE_STREAM_KEY || '').trim();
-const rtmpBase = String(process.env.YOUTUBE_RTMP_URL || 'rtmp://a.rtmp.youtube.com/live2').replace(/\/+$/, '');
+let key = String(process.env.YOUTUBE_STREAM_KEY || '').trim();
+let rtmpBase = String(process.env.YOUTUBE_RTMP_URL || 'rtmp://a.rtmp.youtube.com/live2').replace(/\/+$/, '');
+// v29: no YOUTUBE_STREAM_KEY? Ask the shop for the key saved in Admin > Live Channel > YouTube (needs CAST_TOKEN, same value on Vercel and here).
+async function resolveKey() {
+  if (key || !process.env.CAST_TOKEN) return;
+  try {
+    const r = await fetch(`${base}/api/live/cast-key`, { headers: { Authorization: `Bearer ${process.env.CAST_TOKEN}` }, signal: AbortSignal.timeout(20000) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok && j.key) { key = String(j.key).trim(); if (!process.env.YOUTUBE_RTMP_URL && j.rtmpUrl) rtmpBase = String(j.rtmpUrl).replace(/\/+$/, ''); console.log('[live-cast] stream key loaded from the admin panel.'); }
+    else console.log('[live-cast] admin panel has no usable stream key:', j.error || `http ${r.status}`);
+  } catch (e) { console.log('[live-cast] could not load the key from the admin panel:', e.message); }
+}
+await resolveKey();
 const wantMinutes = Math.min(L.CAST_MAX_MIN, Math.max(1, Math.floor(Number(val('--minutes', process.env.CAST_MINUTES || 45)) || 45)));
 
 const say = (...m) => console.log('[live-cast]', new Date().toISOString().slice(11, 19), ...m);

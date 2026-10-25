@@ -23,6 +23,7 @@ export default function LiveChannel() {
   const [surahs, setSurahs] = useState({}); // surah -> { name, ayahs:[{ n, ar, tr }] }
   const [copied, setCopied] = useState(false);
   const audio = useRef(null);
+  const warm = useRef(null);  // v29: a silent second player that downloads the NEXT ayah while this one is playing (no gap between ayat)
   const spoken = useRef(0); // the startMs of the last part we spoke with the browser voice (never speak it twice)
 
   const load = useCallback(async () => {
@@ -78,6 +79,9 @@ export default function LiveChannel() {
         a.dataset.src = ayahSrc;
         a.src = ayahSrc;
         a.onloadedmetadata = () => { try { a.currentTime = Math.min(skip, Math.max(0, (a.duration || AYAH_SEC) - 0.3)); } catch (_) { /* ignore */ } };
+        // v29: one automatic retry if the audio file did not load (a blip must not leave the channel silent for 8 seconds)
+        let retried = false;
+        a.onerror = () => { if (retried) return; retried = true; setTimeout(() => { try { a.src = ayahSrc; a.play().catch(() => { /* ignore */ }); } catch (_) { /* ignore */ } }, 800); };
         a.play().catch(() => { /* the gate already asked the browser for sound */ });
       }
       return;
@@ -108,7 +112,14 @@ export default function LiveChannel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, onAir, seg && seg.startMs, ayahIdx, ayahSrc, muted, state]);
 
-  useEffect(() => () => { try { window.speechSynthesis.cancel(); } catch (_) { /* ignore */ } }, []);
+  // v29: warm up the next ayah so it starts instantly when the clock moves on.
+  const nextAu = seg && seg.kind === 'quran' && seg.ayat[ayahIdx + 1] ? seg.ayat[ayahIdx + 1].au : '';
+  useEffect(() => {
+    if (!started || !onAir || !nextAu || typeof Audio === 'undefined') return;
+    if (!warm.current) { warm.current = new Audio(); warm.current.preload = 'auto'; warm.current.muted = true; }
+    if (warm.current.dataset.src !== nextAu) { warm.current.dataset.src = nextAu; warm.current.src = nextAu; try { warm.current.load(); } catch (_) { /* ignore */ } }
+  }, [started, onAir, nextAu]);
+  useEffect(() => () => { try { window.speechSynthesis.cancel(); } catch (_) { /* ignore */ } if (warm.current) { warm.current.removeAttribute('src'); warm.current = null; } }, []);
   useEffect(() => {
     const a = audio.current;
     if (a) { a.volume = 0.9; a.muted = muted; }

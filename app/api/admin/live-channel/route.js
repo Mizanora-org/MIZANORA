@@ -5,6 +5,7 @@ import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { TTS_MODELS, geminiCall } from '@/lib/gemini';
 import { CHANNEL_DEFAULT, CHANNEL_DOC, TTS_VOICES, cleanChannel, pcmToWav, channelStatus, nowPlaying, pktClock, voiceIdOk } from '@/lib/liveChannel';
 import { deleteVoice, listVoices, saveVoice } from '@/lib/liveChannelServer';
+import { getYtSecret, setYtSecret } from '@/lib/ytSecret';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,7 @@ const json = (b, s = 200) => NextResponse.json(b, { status: s });
 //  ytStatus                                   -> is the YouTube API set up? (env only, never returns secrets)
 //  ytCreate { title, privacy }                -> create + bind a YouTube live broadcast, return RTMPS + stream key
 //  ytEnd { broadcastId }                      -> complete the broadcast
+//  ytSetKey { key, rtmpUrl } | ytKey | ytClearKey -> v29: keep the YouTube stream key in the PRIVATE store (adminSecrets)
 export async function POST(req) {
   const a = await verifyAdmin(req);
   if (!a.ok) return json({ ok: false, error: a.error }, a.status);
@@ -30,9 +32,19 @@ export async function POST(req) {
   try {
     if (act === 'get') {
       const d = await adminDb().collection(CHANNEL_DOC.collection).doc(CHANNEL_DOC.id).get();
-      const cfg = cleanChannel({ ...CHANNEL_DEFAULT, ...(d.exists ? d.data() : {}) });
+      const raw = d.exists ? d.data() : {};
+      // v29 migration: an old version stored the stream key in this PUBLIC document. Move it to the private store and wipe it here.
+      const oldKey = raw && raw.youtube && raw.youtube.last && raw.youtube.last.streamKey;
+      if (oldKey) {
+        const have = await getYtSecret();
+        if (!have.key) await setYtSecret({ key: String(oldKey), rtmpUrl: raw.youtube.last.rtmpUrl });
+        await adminDb().collection(CHANNEL_DOC.collection).doc(CHANNEL_DOC.id).set({ youtube: { last: { streamKey: '', hasKey: true } } }, { merge: true });
+        raw.youtube.last.streamKey = ''; raw.youtube.last.hasKey = true;
+      }
+      const cfg = cleanChannel({ ...CHANNEL_DEFAULT, ...raw });
+      const sec = await getYtSecret();
       const voices = await listVoices();
-      return json({ ok: true, cfg, voices, onAir: channelStatus(cfg), now: nowPlaying(cfg), pkt: pktClock() });
+      return json({ ok: true, cfg, voices, keySet: Boolean(sec.key), keyHint: sec.key ? `${sec.key.slice(0, 4)}${'•'.repeat(10)}${sec.key.slice(-2)}` : '', rtmpUrl: sec.rtmpUrl || '', castTokenSet: Boolean(process.env.CAST_TOKEN), onAir: channelStatus(cfg), now: nowPlaying(cfg), pkt: pktClock() });
     }
 
     if (act === 'save') {
@@ -123,9 +135,34 @@ export async function POST(req) {
         createdAt: Date.now(),
       };
       const ref = adminDb().collection(CHANNEL_DOC.collection).doc(CHANNEL_DOC.id);
-      await ref.set({ youtube: { privacy, title: '', last } }, { merge: true });
+      // v29: the key goes to the PRIVATE store; the public document only learns that a key exists.
+      await setYtSecret({ key: last.streamKey, rtmpUrl: last.rtmpUrl });
+      await ref.set({ youtube: { privacy, title: '', last: { ...last, streamKey: '', hasKey: true } } }, { merge: true });
       try { revalidateTag('livechannel'); } catch { /* ignore */ }
       return json({ ok: true, ...last, rtmp: `${last.rtmpUrl}/${last.streamKey}` });
+    }
+
+    // v29: the admin pastes the RTMP address + stream key from YouTube Studio (Go Live > Stream). No YouTube API needed.
+    if (act === 'ytSetKey') {
+      const key = String(b.key || '').trim();
+      const rtmpUrl = String(b.rtmpUrl || '').trim() || 'rtmp://a.rtmp.youtube.com/live2';
+      if (!/^[A-Za-z0-9_-]{8,100}$/.test(key.replace(/\s+/g, ''))) return json({ ok: false, error: 'Stream key theek nahi lag rahi. YouTube Studio > Go Live > Stream se poori key copy karein.' }, 400);
+      if (!/^rtmps?:\/\/[^\s]+$/i.test(rtmpUrl)) return json({ ok: false, error: 'RTMP URL rtmp:// ya rtmps:// se shuru hona chahiye.' }, 400);
+      const clean = key.replace(/\s+/g, '');
+      await setYtSecret({ key: clean, rtmpUrl });
+      await adminDb().collection(CHANNEL_DOC.collection).doc(CHANNEL_DOC.id).set({ youtube: { last: { broadcastId: 'manual', rtmpUrl, streamKey: '', hasKey: true, createdAt: Date.now() } } }, { merge: true });
+      try { revalidateTag('livechannel'); } catch { /* ignore */ }
+      return json({ ok: true, keyHint: `${clean.slice(0, 4)}${'•'.repeat(10)}${clean.slice(-2)}` });
+    }
+    if (act === 'ytKey') { // show / copy the saved key (admin only)
+      const sec = await getYtSecret();
+      return json({ ok: Boolean(sec.key), key: sec.key || '', rtmpUrl: sec.rtmpUrl || '' });
+    }
+    if (act === 'ytClearKey') {
+      await setYtSecret({ key: '', rtmpUrl: '' });
+      await adminDb().collection(CHANNEL_DOC.collection).doc(CHANNEL_DOC.id).set({ youtube: { last: null } }, { merge: true });
+      try { revalidateTag('livechannel'); } catch { /* ignore */ }
+      return json({ ok: true });
     }
 
     return json({ ok: false, error: 'Unknown action.' }, 400);

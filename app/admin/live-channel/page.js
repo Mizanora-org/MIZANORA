@@ -51,6 +51,9 @@ export default function AdminLiveChannel() {
   const [hadVoice, setHadVoice] = useState({ book: 'bukhari', section: 1 });
   const [yt, setYt] = useState({ configured: false, hint: '' });
   const [ytRes, setYtRes] = useState(null);
+  const [keyInfo, setKeyInfo] = useState({ set: false, hint: '', castToken: false });
+  const [keyIn, setKeyIn] = useState('');
+  const [rtmpIn, setRtmpIn] = useState('rtmp://a.rtmp.youtube.com/live2');
   const [live, setLive] = useState(30);
 
   const call = async (body) => {
@@ -65,6 +68,8 @@ export default function AdminLiveChannel() {
       if (!j.ok) throw new Error(j.error || 'Could not read the setting.');
       setCfg(cleanChannel(j.cfg));
       setVoices(j.voices || []);
+      setKeyInfo({ set: Boolean(j.keySet), hint: j.keyHint || '', castToken: Boolean(j.castTokenSet) });
+      if (j.rtmpUrl) setRtmpIn(j.rtmpUrl);
       const s = await call({ action: 'ytStatus' });
       if (s.ok) setYt(s);
     } catch (e) {
@@ -134,11 +139,29 @@ export default function AdminLiveChannel() {
     try {
       const j = await call({ action: 'ytCreate', title: cfg.youtube.title || cfg.title, privacy: cfg.youtube.privacy });
       if (!j.ok) throw new Error(j.error || 'YouTube broadcast could not be created.');
-      setYtRes(j);
-      setCfg((c) => ({ ...c, youtube: { ...c.youtube, last: { broadcastId: j.broadcastId, streamId: j.streamId, rtmpUrl: j.rtmpUrl, streamKey: j.streamKey, watchUrl: j.watchUrl, createdAt: j.createdAt } } }));
-      setMsg('YouTube live broadcast ban gaya. Stream key neeche diya gaya hai.');
+      setYtRes({ ...j, streamKey: '' }); // the full key is not kept on screen; it is saved privately on the server
+      setKeyInfo((k) => ({ ...k, set: true, hint: `${String(j.streamKey || '').slice(0, 4)}${'•'.repeat(10)}${String(j.streamKey || '').slice(-2)}` }));
+      setCfg((c) => ({ ...c, youtube: { ...c.youtube, last: { broadcastId: j.broadcastId, streamId: j.streamId, rtmpUrl: j.rtmpUrl, streamKey: '', hasKey: true, watchUrl: j.watchUrl, createdAt: j.createdAt } } }));
+      setMsg('YouTube live broadcast ban gaya. Stream key server par private save ho gayi hai.');
     } catch (e) { setMsg(e.message); }
     setBusy('');
+  }
+  async function keySave() {
+    setBusy('key'); setMsg('');
+    try {
+      const j = await call({ action: 'ytSetKey', key: keyIn, rtmpUrl: rtmpIn });
+      if (!j.ok) throw new Error(j.error || 'Key save nahi hui.');
+      setKeyInfo((k) => ({ ...k, set: true, hint: j.keyHint })); setKeyIn('');
+      setMsg('Stream key private save ho gayi. Ab cast action live chala sakta hai.');
+    } catch (e) { setMsg(e.message); }
+    setBusy('');
+  }
+  async function keyCopy() {
+    try { const j = await call({ action: 'ytKey' }); if (!j.ok) throw new Error('Koi key saved nahi.'); await navigator.clipboard.writeText(j.key); setMsg('Stream key copy ho gayi (kisi ko share na karein).'); } catch (e) { setMsg(e.message); }
+  }
+  async function keyClear() {
+    if (!window.confirm('Saved stream key hata dein?')) return;
+    try { const j = await call({ action: 'ytClearKey' }); if (!j.ok) throw new Error(j.error); setKeyInfo((k) => ({ ...k, set: false, hint: '' })); setMsg('Stream key hata di gayi.'); } catch (e) { setMsg(e.message); }
   }
   async function ytEnd() {
     const id = (ytRes && ytRes.broadcastId) || (cfg.youtube.last && cfg.youtube.last.broadcastId);
@@ -151,7 +174,7 @@ export default function AdminLiveChannel() {
   const last = (ytRes || cfg.youtube.last) || null;
   const m3u8Url = typeof window !== 'undefined' ? `${window.location.origin}/api/live/channel.m3u8` : '/api/live/channel.m3u8';
   const castCmd = last
-    ? `# 24/7 apne PC/VPS par (zero gap):\nnode scripts/live-cast.mjs --loop --base ${typeof window !== 'undefined' ? window.location.origin : 'https://mizanora.vercel.app'}\n# ya ek one-shot push (GitHub Action yehi karta hai):\nnode scripts/live-cast.mjs --minutes 330\n# YOUTUBE_STREAM_KEY=${last.streamKey ? last.streamKey.slice(0, 6) + '...' : '<GitHub secret>'}`
+    ? `# 24/7 apne PC/VPS par (zero gap):\nnode scripts/live-cast.mjs --loop --base ${typeof window !== 'undefined' ? window.location.origin : 'https://mizanora.vercel.app'}\n# ya ek one-shot push (GitHub Action yehi karta hai):\nnode scripts/live-cast.mjs --minutes 330\n# key: admin panel (CAST_TOKEN) ya GitHub secret YOUTUBE_STREAM_KEY`
     : 'npm run cast:live -- --loop   # 24/7 (zero gap)';
 
   return (
@@ -366,10 +389,24 @@ export default function AdminLiveChannel() {
               <div className="space-y-2 rounded-xl border border-line bg-raised p-3 text-sm">
                 <p><b>Watch URL:</b> <a className="text-gold underline" href={last.watchUrl} target="_blank" rel="noreferrer">{last.watchUrl}</a></p>
                 <p className="break-all"><b>RTMPS:</b> <span className="font-mono text-xs">{last.rtmpUrl}</span></p>
-                <p className="break-all"><b>Stream key:</b> <span className="font-mono text-xs">{last.streamKey ? `${last.streamKey.slice(0, 8)}${'•'.repeat(12)}` : '—'}</span></p>
-                <p className="text-dim">Yeh key GitHub secret <b>YOUTUBE_STREAM_KEY</b> mein rakhein — phir neeche wala action YouTube par live chalayega.</p>
+                <p className="break-all"><b>Stream key:</b> <span className="font-mono text-xs">{keyInfo.set ? keyInfo.hint : '—'}</span></p>
+                <p className="text-dim">Key server par private save hai (public Firestore mein nahi). Cast action usko <b>CAST_TOKEN</b> se khud utha leta hai.</p>
               </div>
             )}
+          </div>
+          <div className="card space-y-3 lg:col-span-2">
+            <h2 className="section-title !text-xl flex items-center gap-2"><Youtube className="text-red-600" /> YouTube RTMP key (admin panel se)</h2>
+            <p className="text-sm text-dim">YouTube Studio → <b>Go Live</b> → <b>Stream</b> se <b>Stream URL</b> aur <b>Stream key</b> copy karke yahan save karein. Key private jagah save hoti hai — website par ya Firestore ke public hisse mein nahi.</p>
+            <p className={`rounded-xl p-3 text-sm ${keyInfo.set ? 'bg-gold/10 text-gold' : 'bg-raised text-dim'}`}>{keyInfo.set ? `Key saved hai: ${keyInfo.hint}` : 'Abhi koi stream key saved nahi.'}{keyInfo.castToken ? ' · CAST_TOKEN set hai (cast action key khud utha lega).' : ' · CAST_TOKEN Vercel mein set nahi: GitHub secret YOUTUBE_STREAM_KEY use hoga.'}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm"><span className="label">Stream URL</span><input className="input font-mono text-xs" value={rtmpIn} onChange={(e) => setRtmpIn(e.target.value)} placeholder="rtmp://a.rtmp.youtube.com/live2" /></label>
+              <label className="block text-sm"><span className="label">Stream key</span><input className="input font-mono text-xs" type="password" autoComplete="off" value={keyIn} onChange={(e) => setKeyIn(e.target.value)} placeholder="xxxx-xxxx-xxxx-xxxx-xxxx" /></label>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn-gold !px-5 !py-2.5 text-sm" disabled={busy === 'key' || !keyIn.trim()} onClick={keySave}>{busy === 'key' ? 'Save ho rahi hai...' : 'Save stream key'}</button>
+              {keyInfo.set && <button type="button" className="btn-ghost !px-4 !py-2.5 text-sm" onClick={keyCopy}><Copy size={15} /> Copy key</button>}
+              {keyInfo.set && <button type="button" className="btn-ghost !px-4 !py-2.5 text-sm" onClick={keyClear}><Trash2 size={15} /> Remove key</button>}
+            </div>
           </div>
           <div className="card space-y-4">
             <h2 className="section-title !text-xl flex items-center gap-2"><Tv size={20} /> Cast action (GitHub) — 24/7</h2>
@@ -380,7 +417,7 @@ export default function AdminLiveChannel() {
               hai to khud agla run dispatch kar deta hai (baton). Band schedule mein khud hi ruk jata hai.
             </p>
             <pre className="overflow-x-auto rounded-xl bg-[#0B1A13] p-3 text-xs text-[#D9F3E4]">{castCmd}</pre>
-            <p className="text-sm text-dim">Secrets (repo → Settings → Secrets → Actions): <b>YOUTUBE_STREAM_KEY</b> (zaroori), <b>LIVE_CHANNEL_API</b> (site ka origin, maslan https://mizanora.vercel.app).</p>
+            <p className="text-sm text-dim">Secrets (repo → Settings → Secrets → Actions): <b>CAST_TOKEN</b> (Vercel wale CAST_TOKEN jaisi hi lambi random value — phir key admin panel se khud aati hai) ya purane tareeqe se <b>YOUTUBE_STREAM_KEY</b>; aur <b>LIVE_CHANNEL_API</b> (site ka origin, maslan https://mizanora.vercel.app).</p>
             <p className="text-sm text-dim">
               <b>Zero-gap 24/7:</b> apne PC ya VPS par <span className="font-mono text-xs">npm run cast:live -- --loop</span> chalayein —
               ek hi process hafteon chalta hai, sirf asli network failure par reconnect. GitHub runners ki 6-hour limit
