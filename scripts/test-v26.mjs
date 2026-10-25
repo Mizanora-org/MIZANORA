@@ -38,8 +38,9 @@ assert.ok(/http:\/\/x/.test('http://x') && T.cleanTv({ channels: [{ name: 'A', u
 assert.equal(T.channelTarget('http://x.example/a.m3u8').proxy, true); assert.equal(T.relayHref('http://a/b?c=1'), '/api/tv/p?u=http%3A%2F%2Fa%2Fb%3Fc%3D1');
 ok('live tv: http channels are kept and relayed; relay route and admin check are guarded');
 const pl2 = read('components/LiveTvPlayer.js');
-assert.ok(/STALL_MS = 10000/.test(pl2) && /setViaRelay\(true\)/.test(pl2) && /loadHls\(\); \}, \[\]\)/.test(pl2) && /fragLoadingMaxRetry/.test(pl2) && /netTries < 2/.test(pl2), 'player: hls preloaded, relay fallback, limited retries');
-ok('player: hls.js preloaded, direct first then relay, no endless retries, 10 s stall limit');
+assert.ok(/STALL_MS = 10000/.test(pl2) && /setRelayIndex\(idx\)/.test(pl2) && /import\('hls\.js\/light'\)/.test(pl2) && /loadHls\(\);/.test(pl2) && /loadHls\(\);[\s\S]*?\}, \[\]\)/.test(pl2) && /fragLoadingMaxRetry/.test(pl2) && /netTries < 2/.test(pl2), 'player: hls preloaded, relay fallback, limited retries');
+assert.ok(!/cdnjs\.cloudflare\.com/.test(pl2) && !/setViaRelay\(true\)/.test(pl2), 'player: no third-party CDN HLS loader');
+ok('player: local hls.js preloaded, direct first then relay, no endless retries, 10 s stall limit');
 const adm = read('app/admin/tv/page.js'); assert.ok(/tv-check/.test(adm) && /Switch off dead/.test(adm));
 ok('admin: check all channels, switch off dead ones');
 

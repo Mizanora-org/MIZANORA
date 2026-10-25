@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { pageMeta } from '@/lib/seo';
 import { absUrl } from '@/lib/config';
@@ -10,7 +11,7 @@ import { channelGroups, channelSlugs } from '@/lib/liveTv';
 
 export const revalidate = 600;
 export const metadata = {
-  ...pageMeta({ title: 'Live TV: Watch Channels Online Free', description: 'Mizanora Live TV: watch live channels online, switch with Next, Previous or Random, search by name, save favourites, and find products while you watch. News, Islamic, Pakistan and more.', path: '/live' }),
+  ...pageMeta({ title: 'Live TV: Watch Channels Online Free', description: 'Mizanora Live TV: watch live channels online, switch with Next, Previous or Random, search by name, save favourites, choose stream quality, and find products while you watch. News, Islamic, Pakistan and more.', path: '/live' }),
   keywords: ['live tv', 'live tv pakistan', 'watch live tv online', 'pakistani live tv channels', 'islamic live tv', 'live news channels', 'mizanora live tv'],
 };
 
@@ -25,19 +26,21 @@ export default async function LivePage() {
   return (
     <>
       {ld && <JsonLd data={ld} />}
-      <PageHead title={cfg.title} intro={on ? (cfg.note || 'Channel badalne ke liye Pichla / Agla dabayein, ya list mein se chunein.') : 'Live TV abhi available nahi hai.'} crumbs={[['/', 'Home'], [null, 'Live TV']]} />
-      <section className="mx-auto max-w-5xl px-3 py-6 sm:px-4">
+      <PageHead title={cfg.title} intro={on ? (cfg.note || 'Channel badalne ke liye Pichla / Agla dabayein, ya guide mein se chunein.') : 'Live TV abhi available nahi hai.'} crumbs={[['/', 'Home'], [null, 'Live TV']]} />
+      <section className="mx-auto max-w-7xl px-3 py-6 sm:px-4">
         {on ? <LiveTvPlayer cfg={cfg} ads={ads} /> : <p className="rounded-2xl bg-raised p-5 text-dim">Live TV jaldi shuru hoga. Tab tak <Link className="font-bold text-gold underline" href="/quran">Quran</Link> aur <Link className="font-bold text-gold underline" href="/hadith">Hadees</Link> padhein.</p>}
       </section>
       {on && (
-        <section className="mx-auto max-w-5xl px-4 pb-4" aria-label="All channels">
+        <section className="mx-auto max-w-7xl px-4 pb-4" aria-label="All channels">
           <h2 className="section-title">All live TV channels</h2>
-          <p className="mt-1 text-sm text-dim">{list.length} channels{groups.length ? `: ${groups.map((g) => `${g.name} (${g.count})`).join(', ')}` : ''}.</p>
-          <ul className="mt-3 flex flex-wrap gap-2 text-sm">{list.slice(0, 400).map((x) => <li key={x.s}><Link href={`/live/${x.s}`} prefetch={false} className="inline-block rounded-full border border-line bg-surface px-3 py-1 hover:border-gold hover:text-gold">{x.c.name}</Link></li>)}</ul>
+          <p className="mt-1 text-sm text-dim">{list.length} channels{groups.length ? `: ${groups.map((g) => `${g.name} (${g.count})`).join(', ')}` : ''}. The player guide has the full searchable list.</p>
+          {/* A compact SEO list: the heavy, interactive list is inside the player and streams separately. */}
+          <ul className="mt-3 flex flex-wrap gap-2 text-sm">{list.slice(0, 120).map((x) => <li key={x.s}><Link href={`/live/${x.s}`} prefetch={false} className="inline-block rounded-full border border-line bg-surface px-3 py-1 hover:border-gold hover:text-gold">{x.c.name}</Link></li>)}</ul>
         </section>
       )}
-      <section className="mx-auto max-w-3xl px-4 pb-4 text-sm text-dim"><p>Mizanora Live TV shows only the channels the shop owner has added. Streams belong to their owners. If a channel does not play, press Next or switch on auto-skip. More free <Link className="font-bold text-gold underline" href="/tools">online tools</Link> and <Link className="font-bold text-gold underline" href="/blog">guides</Link> are on Mizanora.</p></section>
-      <ProductAds seed="live-tv" title="Shop while you watch" />
+      <section className="mx-auto max-w-3xl px-4 pb-4 text-sm text-dim"><p>Mizanora Live TV shows only the channels the shop owner has added. Streams belong to their owners. If a channel does not play, press Retry or Next, or switch on auto-skip. More free <Link className="font-bold text-gold underline" href="/tools">online tools</Link> and <Link className="font-bold text-gold underline" href="/blog">guides</Link> are on Mizanora.</p></section>
+      {/* Product photos no longer hold up the player: this strip streams in afterwards. */}
+      <Suspense fallback={null}><ProductAds seed="live-tv" title="Shop while you watch" /></Suspense>
     </>
   );
 }

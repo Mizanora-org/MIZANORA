@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 
 // Small building blocks shared by every tool (v25).
-export function Field({ label, children, hint }) {
+export function Field({ label, children = null, hint = '' }) {
   return <label className="block text-sm"><span className="label">{label}</span>{children}{hint ? <span className="mt-1 block text-xs text-faint">{hint}</span> : null}</label>;
 }
 export function NumIn({ label, value, onChange, hint, placeholder = '0' }) {

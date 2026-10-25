@@ -46,11 +46,21 @@ export default function AdminTv() {
   if (!cfg) return <p className="p-6 text-dim">Loading...</p>;
 
   const merge = (incoming, skipped = 0, what = 'playlist') => {
+    // v28: deduplicate BOTH against the saved list and inside the incoming playlist, and never
+    // promise more channels than the remaining MAX_CHANNELS room allows.
     const have = new Set(cfg.channels.map((c) => c.url));
-    const fresh = incoming.filter((c) => !have.has(c.url));
-    const all = [...cfg.channels, ...fresh].slice(0, MAX_CHANNELS);
+    const unique = [];
+    for (const c of incoming) {
+      if (!c || !c.url || have.has(c.url)) continue;
+      have.add(c.url);
+      unique.push(c);
+    }
+    const room = Math.max(0, MAX_CHANNELS - cfg.channels.length);
+    const fresh = unique.slice(0, room);
+    const ignored = incoming.length - fresh.length;
+    const all = [...cfg.channels, ...fresh];
     set('channels', all);
-    setMsg(`${fresh.length} new channel${fresh.length === 1 ? '' : 's'} added from the ${what}${incoming.length - fresh.length ? `, ${incoming.length - fresh.length} already there` : ''}${skipped ? `, ${skipped} skipped (not a stream link)` : ''}. ${all.length >= MAX_CHANNELS ? `Limit ${MAX_CHANNELS} reached. ` : ''}Press Save to publish.`);
+    setMsg(`${fresh.length} new channel${fresh.length === 1 ? '' : 's'} added from the ${what}${ignored ? `, ${ignored} duplicate or over the limit` : ''}${skipped ? `, ${skipped} skipped (not a stream link)` : ''}. ${all.length >= MAX_CHANNELS ? `Limit ${MAX_CHANNELS} reached. ` : ''}Press Save to publish.`);
   };
   const fromFile = async (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = '';
@@ -58,7 +68,7 @@ export default function AdminTv() {
     if (f.size > 2 * 1024 * 1024) { setMsg('File is bigger than 2 MB.'); return; }
     const t = await f.text();
     const r = parseM3U(t);
-    if (!r.channels.length) { setMsg(`No usable channel found. Only https:// streams work on this website${r.skipped ? ` (${r.skipped} lines were skipped)` : ''}.`); return; }
+    if (!r.channels.length) { setMsg(`No usable channel found. Stream links must start with http:// or https:// (http streams play through the secure relay)${r.skipped ? ` (${r.skipped} lines were skipped)` : ''}.`); return; }
     merge(r.channels, r.skipped, 'file');
   };
   const fromText = () => { const r = parseM3U(paste); if (!r.channels.length) { setMsg('No usable channel found in the pasted text.'); return; } merge(r.channels, r.skipped, 'pasted text'); setPaste(''); };

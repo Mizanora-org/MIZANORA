@@ -1,6 +1,6 @@
 // Syntax + import sanity check (no install needed except typescript). Usage: node scripts/check.js
 const fs = require('fs'), path = require('path');
-let ts; try { ts = require('typescript'); } catch { ts = require('/home/claude/.npm-global/lib/node_modules/typescript'); }
+let ts; try { ts = require('typescript'); } catch { console.error('TypeScript not found. Run `npm ci` before `npm run check`.'); process.exit(1); }
 const root = path.join(__dirname, '..');
 const files = [];
 (function walk(d) { for (const f of fs.readdirSync(d)) { if (['node_modules', '.next', 'scripts', 'public'].includes(f)) continue; const p = path.join(d, f); fs.statSync(p).isDirectory() ? walk(p) : /\.js$/.test(f) && files.push(p); } })(root);

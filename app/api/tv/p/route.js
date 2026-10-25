@@ -21,7 +21,7 @@ export async function GET(req) {
   }
   try {
     const fwd = {}; const range = req.headers.get('range'); if (range) fwd.Range = range;
-    const { res, finalUrl } = await fetchPublic(target, { headers: fwd, timeout: 12000 });
+    const { res, finalUrl } = await fetchPublic(target, { headers: fwd, timeout: 12000, signal: req.signal });
     if (!res.ok && res.status !== 206) { try { res.body && res.body.cancel(); } catch { /* ignore */ } return bad(`Stream server answered ${res.status}`, res.status === 404 ? 404 : 502); }
     const type = res.headers.get('content-type') || '';
     if (!mediaTypeOk(type)) { try { res.body && res.body.cancel(); } catch { /* ignore */ } return bad('Not a media stream', 415); }
