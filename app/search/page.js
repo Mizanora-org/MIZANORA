@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { pageMeta } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
@@ -21,8 +22,9 @@ export default async function SearchPage({ searchParams }) {
   const q = String((sp && sp.q) || '').slice(0, 80).trim();
   let cfg = { channels: [], enabled: false };
   try { cfg = await getTvConfig(); } catch { /* no TV */ }
-  const surahs = SURAHS.map(([name], i) => ({ name, n: i + 1 }));
-  const r = siteSearch(q, { channels: cfg.enabled ? cfg.channels : [], posts: getPosts(), surahs, books: BOOKS });
+  // v28: SURAHS is an array of { n, name, ayat } objects, not [name, ayat] tuples.
+  // Destructuring it as a tuple used to throw "object is not iterable" on this dynamic page.
+  const r = siteSearch(q, { channels: cfg.enabled ? cfg.channels : [], posts: getPosts(), surahs: SURAHS, books: BOOKS });
   const total = r.tools.length + r.channels.length + r.posts.length + r.quran.length + r.hadith.length + r.pages.length;
   return (
     <>
@@ -39,7 +41,7 @@ export default async function SearchPage({ searchParams }) {
         <Group title="Pages" n={r.pages.length}>{r.pages.map((p) => <Item key={p[0]} href={p[0]} title={p[1]} />)}</Group>
         {!q && <div className="pt-8"><h2 className="font-display text-xl font-extrabold">Popular tools</h2><ul className="mt-2 grid gap-2 sm:grid-cols-2">{TOOLS.slice(0, 8).map((t) => <Item key={t.slug} href={`/tools/${t.slug}`} title={t.title} sub={t.short} />)}</ul></div>}
       </section>
-      <ProductAds seed={`search-${q}`} title="Popular on Mizanora" />
+      <Suspense fallback={null}><ProductAds seed={`search-${q}`} title="Popular on Mizanora" /></Suspense>
     </>
   );
 }

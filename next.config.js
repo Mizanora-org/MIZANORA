@@ -21,8 +21,10 @@ const nextConfig = {
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
   async redirects() {
-    // Old store URLs -> new pages (keeps Google rankings and old links alive)
-    const toProducts = ['shop', 'categories', 'new-arrivals', 'best-sellers', 'offers', 'search'];
+    // Old store URLs -> new pages (keeps Google rankings and old links alive).
+    // v28: /search is NO LONGER here. It is the real site-wide search page (tools, TV, Quran, guides);
+    // this redirect used to make that page and its links unreachable.
+    const toProducts = ['shop', 'categories', 'new-arrivals', 'best-sellers', 'offers'];
     return [
       ...toProducts.map((s) => ({ source: `/${s}`, destination: '/products', permanent: true })),
       { source: '/order-success', destination: '/thank-you', permanent: true },

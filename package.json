@@ -1,6 +1,6 @@
 {
   "name": "mizanora-store",
-  "version": "26.0.0",
+  "version": "28.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,11 +9,12 @@
     "start": "next start",
     "cast:live": "node scripts/live-cast.mjs",
     "check": "node scripts/check.js && node scripts/typecheck.js",
-    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs && node scripts/test-v20.mjs && node scripts/test-v21.mjs && node scripts/test-v23.mjs && node scripts/test-v24.mjs && node scripts/test-v25.mjs && node scripts/test-v26.mjs && node scripts/test-v27.mjs"
+    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs && node scripts/test-v20.mjs && node scripts/test-v21.mjs && node scripts/test-v23.mjs && node scripts/test-v24.mjs && node scripts/test-v25.mjs && node scripts/test-v26.mjs && node scripts/test-v27.mjs && node scripts/test-v28.mjs"
   },
   "dependencies": {
     "firebase": "^11.0.0",
     "firebase-admin": "^13.0.0",
+    "hls.js": "^1.7.3",
     "lucide-react": "^0.468.0",
     "next": "^15.5.0",
     "react": "^19.0.0",

@@ -192,7 +192,7 @@ export default function LiveChannel() {
         </button>
       </header>
 
-      <main className="mzc-stage">
+      <section className="mzc-stage" aria-label="Live broadcast stage">
         <section className="mzc-screen">
           <div className="mzc-body">
             {err && !state && (
@@ -297,7 +297,7 @@ export default function LiveChannel() {
             <span className={`mzc-eq ${started && !muted && onAir ? '' : 'is-still'}`} aria-hidden="true"><i /><i /><i /><i /><i /></span>
           </footer>
         </section>
-      </main>
+      </section>
 
       <section className="mzc-epg" aria-label="Program schedule">
         <div className="mzc-slot" data-now="1">

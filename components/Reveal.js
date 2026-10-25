@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 
 // Fades a section in as it scrolls into view. Content is always visible without JavaScript:
 // it is hidden only if it starts below the screen, and revealed the moment it comes into view.
-export default function Reveal({ children, className = '', delay = 0 }) {
+export default function Reveal({ children = null, className = '', delay = 0 }) {
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
