@@ -59,3 +59,7 @@ fewer on weak phones, none when Data Saver is on, and they pause when the tab is
 - `npm run check` — both checks in one go.
 - `npm test` — import, voice, music, app music and search tests.
 - `npm run build:offline` — a build that does not need the internet (the fonts are mocked). Use the normal `npm run build` for the real deploy, so the real fonts are downloaded.
+
+## v30 upgrade
+
+See [UPGRADE-v30.md](UPGRADE-v30.md) for Live TV themes and backup sources, Noor's limited/AI modes, richer product details, date-range archive export/deletion and safety notes. Archive range operations affect repository files only, not Firebase copies.

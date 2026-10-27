@@ -73,7 +73,7 @@ export default async function ProductPage({ params }) {
     image: p.images.length ? p.images : [absUrl('/img/hero-banner.jpg')],
     sku: p.slug,
     category: p.categories.length ? p.categories.join(' > ') : undefined,
-    brand: { '@type': 'Brand', name: SITE.name },
+    brand: { '@type': 'Brand', name: p.brand || SITE.name },
     ...(p.specs.length ? { additionalProperty: p.specs.slice(0, 20).map((x) => ({ '@type': 'PropertyValue', name: x.k, value: x.v })) } : {}),
     ...(p.options.find((o) => /colou?r/i.test(o.name)) ? { color: p.options.find((o) => /colou?r/i.test(o.name)).values.join(', ') } : {}),
     ...(p.options.find((o) => /size/i.test(o.name)) ? { size: p.options.find((o) => /size/i.test(o.name)).values.join(', ') } : {}),
@@ -120,6 +120,19 @@ export default async function ProductPage({ params }) {
             </ul>
           </div>
         </div>
+
+        {(p.brand || p.highlights.length > 0 || p.boxContents || p.careInstructions || p.warranty) && (
+          <section className="mt-10 max-w-3xl" aria-labelledby="more-details">
+            <h2 id="more-details" className="section-title mb-3">About this product</h2>
+            <div className="card space-y-4 text-sm leading-7">
+              {p.brand && <p><b>Brand:</b> {p.brand}</p>}
+              {p.highlights.length > 0 && <div><h3 className="font-bold">Highlights</h3><ul className="list-disc pl-5 text-dim">{p.highlights.map((h, i) => <li key={i}>{h}</li>)}</ul></div>}
+              {p.boxContents && <div><h3 className="font-bold">In the box</h3><p className="whitespace-pre-line text-dim">{p.boxContents}</p></div>}
+              {p.careInstructions && <div><h3 className="font-bold">Care and usage</h3><p className="whitespace-pre-line text-dim">{p.careInstructions}</p></div>}
+              {p.warranty && <div><h3 className="font-bold">Warranty</h3><p className="whitespace-pre-line text-dim">{p.warranty}</p></div>}
+            </div>
+          </section>
+        )}
 
         {p.specs.length > 0 && (
           <section className="mt-10" aria-labelledby="specs">

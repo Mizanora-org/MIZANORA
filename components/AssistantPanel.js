@@ -146,7 +146,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     try {
       const r = await fetch('/api/assistant', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, text: m.text })), slug: slugRef.current, neg: neg.current, did: didRef.current }),
+        body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, text: m.text })), slug: slugRef.current, neg: neg.current, did: didRef.current, shownSlugs: next.flatMap((m) => [...(m.products || []), ...(m.deals || [])].map((p) => p.slug)).filter(Boolean).slice(-6) }),
       });
       const j = await r.json().catch(() => ({}));
       if (j.neg) neg.current = j.neg;
@@ -279,7 +279,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     if (!open || greeted.current) return;
     greeted.current = true;
     voice.unlock();
-    const hello = cfg.greeting || `Assalam o Alaikum! Main ${cfg.name} hoon, Mizanora ki assistant. Main aapko deals ya cheezein dikha sakti hoon. Aap bol kar ya likh kar bataiye, kya dekhna hai?`;
+    const hello = cfg.greeting || `Assalam o Alaikum! Main ${cfg.name} hoon, Mizanora ki assistant. Main shopping, website aur aam sawalat mein madad kar sakti hoon. Bol kar ya likh kar poochiye.`;
     setMsgs([{ role: 'assistant', text: hello }]);
     msgsRef.current = [{ role: 'assistant', text: hello }];
     if (initialQuery) { setTimeout(() => sendRef.current(initialQuery), 150); return; }
@@ -323,7 +323,7 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
     setAdded((a) => ({ ...a, [`deal:${d.slug}`]: true }));
   };
 
-  const chips = [slug ? 'Is ka rate kam karo' : 'Sab se sasti deals dikhao', 'Rs 1000 se kam cheezein', 'Quran kab chalega?', 'Koi mazedar paheli sunao', 'Delivery kaise hoti hai?'];
+  const chips = [slug ? 'Is ka rate kam karo' : 'Sab se sasti deals dikhao', 'Rs 1000 se kam cheezein', 'Asaan Lang kya hai?', 'Live TV kaise dekhein?', 'Koi mazedar paheli sunao', 'Delivery kaise hoti hai?'];
   if (!open) return null;
 
   const status = listening ? 'Sun rahi hoon... boliye'
@@ -435,8 +435,10 @@ export default function AssistantPanel({ cfg, open, initialQuery, onClose }) {
               )}
               {(m.links || []).length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {m.links.filter((l) => typeof l.href === 'string' && l.href.startsWith('/')).map((l) => (
-                    <Link key={l.href} href={l.href} onClick={onClose} className="rounded-full border border-gold bg-gold/10 px-3.5 py-1.5 text-xs font-bold text-gold active:scale-95">{l.label}</Link>
+                  {m.links.filter((l) => typeof l.href === 'string' && (/^\/(?!\/)/.test(l.href) || /^https:\/\//i.test(l.href))).map((l) => (
+                    /^https:\/\//i.test(l.href)
+                      ? <a key={l.href} href={l.href} target="_blank" rel="noopener noreferrer" className="rounded-full border border-gold bg-gold/10 px-3.5 py-1.5 text-xs font-bold text-gold active:scale-95">Source: {l.label}</a>
+                      : <Link key={l.href} href={l.href} onClick={onClose} className="rounded-full border border-gold bg-gold/10 px-3.5 py-1.5 text-xs font-bold text-gold active:scale-95">{l.label}</Link>
                   ))}
                 </div>
               )}

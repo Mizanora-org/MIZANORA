@@ -40,7 +40,7 @@ export default function AdminAssistant() {
     <div className="space-y-8">
       <section>
         <h2 className="font-display text-xl font-bold text-cream">AI shopping assistant ({cfg.name || 'Noor'})</h2>
-        <p className="mt-1 text-sm text-dim">A round assistant button appears above the WhatsApp button. Customers talk or type; she shows products and deals, and can lower a price a little when a customer really insists. Powered by Google Gemini.</p>
+        <p className="mt-1 text-sm text-dim">Customers can ask about products, Mizanora pages and general topics by text or voice. General answers need a working Gemini key; basic product and page help remains available in limited mode.</p>
         {msg && <p role="status" className="mt-3 rounded-lg bg-raised p-3 text-sm text-cream">{msg}</p>}
       </section>
 
@@ -60,7 +60,7 @@ export default function AdminAssistant() {
               {test[k.id] && <p className={`w-full text-xs ${test[k.id].works ? 'font-semibold text-gold' : 'text-red-600'}`}>{test[k.id].detail}</p>}
             </li>
           ))}
-          {!data.keys.length && <li className="text-sm text-red-600">No key yet. The assistant button stays hidden until you add one.</li>}
+          {!data.keys.length && <li className="text-sm text-red-600">No key yet. Noor can offer basic product search and page links, but general AI answers need a working Gemini key.</li>}
         </ul>
         <form onSubmit={addKey} className="mt-4 grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
           <input className="input" placeholder="Name (e.g. Key 2)" value={label} onChange={(e) => setLabel(e.target.value)} />

@@ -17,7 +17,8 @@
 # GitHub-hosted runners cap a job at 6 hours, so a twice-a-day handover there is by design.
 #
 # Secrets (repo -> Settings -> Secrets and variables -> Actions):
-#   YOUTUBE_STREAM_KEY   (required to actually go live) the stream key from Admin > Live Channel > YouTube
+#   CAST_TOKEN           (optional) same secret as Vercel CAST_TOKEN, loads the private key from the admin panel
+#   YOUTUBE_STREAM_KEY   (alternative) the stream key from Admin > Live Channel > YouTube
 #   LIVE_CHANNEL_API     (optional) the site origin, default https://mizanora.vercel.app
 #
 # Run it by hand: Actions tab -> "Live Channel (Quran & Hadith on YouTube)" -> Run workflow
@@ -84,6 +85,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
+          CAST_TOKEN: ${{ secrets.CAST_TOKEN }}
           LIVE_CHANNEL_API: ${{ secrets.LIVE_CHANNEL_API }}
           CAST_MINUTES: ${{ github.event.inputs.duration || '330' }}
         run: |

@@ -102,7 +102,7 @@ assert.ok(!/\/home\/claude\/\.npm-global/.test(read('scripts/check.js')) && !/\/
 assert.ok(/requestIdleCallback/.test(read('components/PwaRegister.js')) && /cancelIdleCallback/.test(read('components/PwaRegister.js')));
 assert.ok(/const VERSION = 'mz-v5';/.test(read('public/sw.js')));
 const packageJson = JSON.parse(read('package.json'));
-assert.ok(['28.0.0', '29.0.0'].includes(packageJson.version));
+assert.ok(['28.0.0', '29.0.0', '30.0.0'].includes(packageJson.version));
 assert.ok(packageJson.dependencies['hls.js']);
 assert.ok(packageJson.scripts.test.includes('scripts/test-v28.mjs'));
 ok('cleanup: portable TypeScript check, service-worker timer cleanup, v28 package wiring');

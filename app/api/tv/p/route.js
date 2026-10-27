@@ -1,4 +1,5 @@
 import { getTvConfig } from '@/lib/liveTvServer';
+import { isChannelSourceAllowed } from '@/lib/liveTv';
 import { checkSig, fetchPublic, looksLikePlaylist, mediaTypeOk, rewriteM3U } from '@/lib/tvProxy';
 
 export const runtime = 'nodejs';
@@ -17,7 +18,7 @@ export async function GET(req) {
   const sig = q.get('s');
   if (sig) { if (!checkSig(target, sig)) return bad('Bad signature', 403); } else {
     const cfg = await getTvConfig();
-    if (!cfg.enabled || !cfg.channels.some((c) => !c.off && c.url === target)) return bad('This channel is not on the shop', 403);
+    if (!isChannelSourceAllowed(cfg, target)) return bad('This channel is not on the shop', 403);
   }
   try {
     const fwd = {}; const range = req.headers.get('range'); if (range) fwd.Range = range;
