@@ -124,7 +124,7 @@ export default function AdminCatalogue() {
     setBusy(r.id); setMsg('');
     try {
       // The full product (description, all photos) - deployed archive first, then the repository.
-      const j = await api('/api/admin/archive', { action: 'get', slug: r.id });
+      const j = await api('/api/admin/archive-edit', { action: 'get', id: r.id });
       const d = j.data || {};
       setEdit({
         id: r.id,
@@ -148,7 +148,7 @@ export default function AdminCatalogue() {
           name: f.name, price: Number(f.price), comparePrice: Number(f.comparePrice) || 0,
           categories: String(f.categories || '').split(',').map((s) => s.trim()).filter(Boolean),
           description: f.description, images: String(f.images || '').split('\n').map((s) => s.trim()).filter(Boolean),
-          inStock: f.inStock, featured: f.featured, active: f.active, createdAt: Date.now(),
+          inStock: f.inStock, featured: f.featured, active: f.active,
         },
       });
       setMsg(`Saved "${f.name}" as part ${j.n} (commit ${String(j.commit || '').slice(0, 7)}). Live on the shop after the deploy (1 to 3 minutes). Zero Firebase writes.`);

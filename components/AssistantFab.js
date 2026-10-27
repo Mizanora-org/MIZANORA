@@ -35,8 +35,8 @@ export default function AssistantFab({ cfg }) {
     <>
       {!open && (
         <div className="fixed bottom-[8.4rem] right-3 z-30 flex items-center gap-2 md:bottom-[5.2rem] md:right-5">
-          {hint && <span className="mz-rise rounded-2xl rounded-br-sm bg-white px-3 py-2 text-xs font-semibold text-cream shadow-lg ring-1 ring-line">{cfg.name} se deals poochein</span>}
-          <button type="button" onClick={() => show('')} aria-label={`Talk to ${cfg.name}, the shopping assistant`}
+          {hint && <span className="mz-rise rounded-2xl rounded-br-sm bg-white px-3 py-2 text-xs font-semibold text-cream shadow-lg ring-1 ring-line">{cfg.name} se sawal poochein</span>}
+          <button type="button" onClick={() => show('')} aria-label={`Talk to ${cfg.name}, the Mizanora assistant`}
             className="relative grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-[#0E8556] to-[#0B6B45] text-white shadow-xl ring-2 ring-gold/70 active:scale-95">
             <span className="absolute inset-0 animate-ping rounded-full bg-gold/30 [animation-duration:2.6s]" aria-hidden="true" />
             <Sparkles size={22} className="relative" />

@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Trash2, Tv, Activity } from 'lucide-react';
 import { authClient, dbClient } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
-import { MAX_CHANNELS, TV_DEFAULT, TV_DOC, cleanChannel, cleanTv, parseM3U, TV_PRESETS } from '@/lib/liveTv';
+import { MAX_CHANNELS, MAX_TV_SOURCES, TV_DEFAULT, TV_DOC, TV_THEMES, channelSources, cleanChannel, cleanTv, parseM3U, TV_PRESETS } from '@/lib/liveTv';
 
 // Admin > Live TV: load channels (M3U file, M3U link, pasted text or one by one) and choose the PRODUCTS whose ad plays while a visitor
 // switches channel. Saved in Firestore siteMeta/liveTv; the /live page refreshes within seconds of pressing Save.
@@ -98,7 +98,7 @@ export default function AdminTv() {
 
   // Check every channel (12 at a time, from the server) and show a red / green dot. Dead ones can be switched off in one tap.
   async function checkAll() {
-    const urls = cfg.channels.filter((c) => !c.off).map((c) => c.url);
+    const urls = [...new Set(cfg.channels.filter((c) => !c.off).flatMap(channelSources))];
     if (!urls.length) return;
     setBusy('check'); setMsg(''); const h = {}; let dead = 0;
     setProg({ done: 0, total: urls.length, dead: 0 });
@@ -111,18 +111,30 @@ export default function AdminTv() {
         for (const x of j.results) { h[x.url] = x; if (!x.ok) dead += 1; }
         setHealth({ ...h }); setProg({ done: Math.min(urls.length, i + 12), total: urls.length, dead });
       }
-      setMsg(`Checked ${urls.length} channels: ${urls.length - dead} answer, ${dead} do not. Press "Switch off dead" then Save.`);
+      setMsg(`Checked ${urls.length} stream links: ${urls.length - dead} answer, ${dead} do not. A channel is only marked dead when all its links fail. Press Save after changes.`);
     } catch (e) { setMsg(`Check stopped: ${e.message}`); }
     setBusy('');
   }
-  const deadCount = cfg.channels.filter((c) => !c.off && health[c.url] && !health[c.url].ok).length;
-  const switchOffDead = () => { set('channels', cfg.channels.map((c) => (health[c.url] && !health[c.url].ok ? { ...c, off: true } : c))); setMsg(`${deadCount} dead channels switched off. Press Save to publish.`); };
-  // fastest first: channels that answered quickly go to the top of the list (the visitor's first channel loads sooner)
-  const sortFast = () => { const rank = (c) => (c.off ? 3 : health[c.url] ? (health[c.url].ok ? 0 : 2) : 1); set('channels', cfg.channels.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || ((health[a.c.url] && health[a.c.url].ms) || 0) - ((health[b.c.url] && health[b.c.url].ms) || 0) || a.i - b.i).map((x) => x.c)); setMsg('Working channels moved to the top. Press Save.'); };
+  const allSourcesDead = (c) => { const urls = channelSources(c); return urls.length > 0 && urls.every((url) => health[url] && !health[url].ok); };
+  const deadCount = cfg.channels.filter((c) => !c.off && allSourcesDead(c)).length;
+  const switchOffDead = () => { set('channels', cfg.channels.map((c) => (allSourcesDead(c) ? { ...c, off: true } : c))); setMsg(`${deadCount} channels with no working source switched off. Press Save to publish.`); };
+  // A backup that works keeps the channel usable even if its primary source is down.
+  const bestResult = (c) => channelSources(c).map((url) => health[url]).filter((h) => h && h.ok).sort((a, b) => (a.ms || 0) - (b.ms || 0))[0];
+  const sortFast = () => { const rank = (c) => (c.off ? 3 : bestResult(c) ? 0 : allSourcesDead(c) ? 2 : 1); set('channels', cfg.channels.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || ((bestResult(a.c) || {}).ms || 0) - ((bestResult(b.c) || {}).ms || 0) || a.i - b.i).map((x) => x.c)); setMsg('Working channels moved to the top. Press Save.'); };
 
   async function save() {
     setBusy('save'); setMsg('');
     try {
+      const validUrl = (value) => { try { const text = String(value).trim(); const u = new URL(text); return text.length <= 600 && ['http:', 'https:'].includes(u.protocol) && !u.username && !u.password && !/\s/.test(text); } catch { return false; } };
+      const primary = new Set();
+      for (const c of cfg.channels) {
+        if (!String(c.name || '').trim() || !validUrl(c.url)) throw new Error(`Check the name and primary link for ${c.name || 'a channel'}.`);
+        const url = c.url.trim();
+        if (primary.has(url)) throw new Error(`Duplicate primary link on ${c.name}. Give each channel a different primary link.`);
+        primary.add(url);
+        const backups = (c.sources || []).map((x) => String(x).trim()).filter(Boolean);
+        if (backups.length > MAX_TV_SOURCES - 1 || backups.some((x) => !validUrl(x))) throw new Error(`${c.name}: use up to ${MAX_TV_SOURCES - 1} valid http(s) backup links, one per line.`);
+      }
       const clean = cleanTv(cfg);
       await setDoc(doc(dbClient(), TV_DOC.collection, TV_DOC.id), { ...clean, updatedAtMs: Date.now() });
       setCfg(clean);
@@ -145,6 +157,7 @@ export default function AdminTv() {
         <div className="grid gap-3 sm:grid-cols-2">
           <Switch label="Live TV is ON" hint="Off: the /live page says it is not available." checked={cfg.enabled} onChange={(v) => set('enabled', v)} />
           <Switch label="Start playing by itself" hint="The browser still needs one touch before sound." checked={cfg.autoplay} onChange={(v) => set('autoplay', v)} />
+          <label className="block text-sm"><span className="label">Default TV theme (visitors may change it)</span><select className="input" value={cfg.theme || 'cinema'} onChange={(e) => set('theme', e.target.value)}>{TV_THEMES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
           <label className="block text-sm"><span className="label">Title</span><input className="input" maxLength={60} value={cfg.title} onChange={(e) => set('title', e.target.value)} /></label>
           <label className="block text-sm"><span className="label">Short note under the player (optional)</span><input className="input" maxLength={160} value={cfg.note} onChange={(e) => set('note', e.target.value)} /></label>
         </div>
@@ -185,9 +198,10 @@ export default function AdminTv() {
 
       <section className="card space-y-3">
         <h2 className="text-lg font-extrabold">4. Channels</h2>
+        <p className="text-xs text-dim">Open Edit links to change the primary stream, group, logo and up to {MAX_TV_SOURCES - 1} backup streams for the same channel. The player tries backups if a link fails. Stream URLs are public to viewers: never put private credentials in them.</p>
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-raised p-3 text-sm">
           <button type="button" className="btn-gold !py-2" disabled={busy === 'check' || !cfg.channels.length} onClick={checkAll}><Activity size={16} className="mr-1 inline" />{busy === 'check' ? 'Checking...' : 'Check all channels'}</button>
-          {prog && <span className="font-semibold">{prog.done}/{prog.total} checked, <span className="text-red-600">{prog.dead} dead</span></span>}
+          {prog && <span className="font-semibold">{prog.done}/{prog.total} links checked, <span className="text-red-600">{prog.dead} unavailable</span></span>}
           {deadCount > 0 && <button type="button" className="btn-ghost !py-2" onClick={switchOffDead}>Switch off dead ({deadCount})</button>}
           {prog && prog.done >= prog.total && <button type="button" className="btn-ghost !py-2" onClick={sortFast}>Working first</button>}
           <span className="basis-full text-xs text-dim">The check runs from the server. A channel that works only inside Pakistan can show as dead here: that is why it is switched off, not deleted. You can switch it on again.</span>
@@ -195,7 +209,7 @@ export default function AdminTv() {
         <input className="input" placeholder="Search channels" value={find} onChange={(e) => { setFind(e.target.value); setShown(40); }} />
         <ul className="space-y-1.5">
           {list.slice(0, shown).map((c) => (
-            <li key={c.url} className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-2 text-sm">
+            <li key={c.i} className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-2 text-sm">
               <span className="w-8 text-xs text-dim">{c.i + 1}</span>
               {health[c.url] && <span title={health[c.url].ok ? `answers${health[c.url].ms ? ` in ${health[c.url].ms} ms` : ''}` : health[c.url].reason} className={`h-2.5 w-2.5 shrink-0 rounded-full ${health[c.url].ok ? 'bg-emerald-500' : 'bg-red-500'}`} />}
               <input className="input !py-1 min-w-[8rem] flex-1" value={c.name} maxLength={70} onChange={(e) => patch(c.i, { name: e.target.value })} />
@@ -203,7 +217,17 @@ export default function AdminTv() {
               <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="accent-[#0B6B45]" checked={!c.off} onChange={(e) => patch(c.i, { off: !e.target.checked })} /> on</label>
               <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => move(c.i, -1)} aria-label="Move up">↑</button>
               <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => move(c.i, 1)} aria-label="Move down">↓</button>
-              <button type="button" className="text-red-600" onClick={() => drop(c.i)} aria-label="Delete"><Trash2 size={16} /></button>
+              <button type="button" className="text-red-600" onClick={() => drop(c.i)} aria-label={`Delete ${c.name}`}><Trash2 size={16} /></button>
+              <details className="basis-full rounded-lg bg-raised p-2">
+                <summary className="cursor-pointer font-semibold text-gold">Edit links & details · {channelSources(c).length} source(s)</summary>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <label className="text-xs"><span className="label">Primary stream URL</span><input className="input" type="url" value={c.url} onChange={(e) => patch(c.i, { url: e.target.value })} placeholder="https://.../live.m3u8" /></label>
+                  <label className="text-xs"><span className="label">Group</span><input className="input" value={c.group || ''} maxLength={40} onChange={(e) => patch(c.i, { group: e.target.value })} /></label>
+                  <label className="text-xs"><span className="label">Logo URL (optional)</span><input className="input" type="url" value={c.logo || ''} onChange={(e) => patch(c.i, { logo: e.target.value })} /></label>
+                  <label className="text-xs sm:col-span-2"><span className="label">Backup streams (one URL per line; max {MAX_TV_SOURCES - 1})</span><textarea className="input font-mono text-xs" rows={3} value={(c.sources || []).join('\n')} onChange={(e) => patch(c.i, { sources: e.target.value.split('\n') })} placeholder={'https://example.com/backup-1.m3u8\nhttps://example.com/backup-2.m3u8'} /></label>
+                </div>
+                {channelSources(c).map((url, i) => health[url] && <p key={url} className={`mt-1 text-xs ${health[url].ok ? 'text-emerald-700' : 'text-red-600'}`}>Source {i + 1}: {health[url].ok ? `answers${health[url].ms ? ` in ${health[url].ms} ms` : ''}` : health[url].reason}</p>)}
+              </details>
             </li>
           ))}
         </ul>

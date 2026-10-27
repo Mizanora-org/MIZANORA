@@ -18,6 +18,7 @@ import { siteSearch } from '@/lib/siteSearch';
 import { getTvConfig } from '@/lib/liveTvServer';
 import { getPosts } from '@/lib/blog';
 import { FOUNDER_LINKS } from '@/lib/team';
+import { assistantIntent, localAssistantHelp } from '@/lib/assistantIntent';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -123,11 +124,9 @@ async function runSearch(a, liked = []) {
 
 // A plain "show me X" message is answered here, without calling Gemini at all (saves free-limit requests and is instant).
 // Anything else (bargaining, questions, greetings, chit-chat) goes to Gemini.
-const NOT_PLAIN = /(quran|qur'an|surah|surat|ayat|ayah|tilawat|namaz|dua|joke|lateefa|paheli|kahani|story|quiz|shayari|kaun|kya\s+hai|kyun|kaise|kab\s|weather|mausam|news|translate|tarjuma|kam\s*kar|kam\s*karo|discount|rate\s*kam|bargain|last price|final price|best price|offer|qeemat|price\s*kam|sasta\s*kar|mehnga\s*hai|delivery|deliver|return|exchange|refund|order|track|payment|cash|advance|easypaisa|jazzcash|kitne\s*din|kab\s*tak|kahan|kaise|kyun|kyon|why|how|when|policy|status|warranty|complaint|shikayat|address|number|whatsapp|thanks|shukriya|salam|hello|\bhi\b)/i;
-function plainSearch(text, hasCurrent) {
+function plainSearch(text, intent) {
+  if (intent !== 'shopping') return null;
   const t = String(text || '');
-  if (NOT_PLAIN.test(t) || t.split(/\s+/).length > 9) return null;
-  if (hasCurrent && /\b(is|iss|yeh|ye|isko|isse|this|it)\b/i.test(t)) return null;
   const i = parseQuery(t);
   if (!(i.words.length || i.colors.length || i.max || i.min)) return null;
   return { query: t, sort: i.sort === 'low' ? 'cheapest' : i.sort === 'high' ? 'expensive' : i.sort === 'new' ? 'newest' : '', max_price: i.max, min_price: i.min };
@@ -165,14 +164,14 @@ function surahFrom(v) {
   return SURAHS.find((s) => key(s.name) === k) || SURAHS.find((s) => key(s.name).startsWith(k) && k.length >= 3) || null;
 }
 
-function systemPrompt(cfg, total, catList, cur, liked = [], hoursText = '') {
+function systemPrompt(cfg, total, catList, cur, liked = [], hoursText = '', previousSlugs = []) {
   return `You are ${cfg.name}, the friendly young female shop assistant of MIZANORA, a Pakistani online store (cash on delivery all over Pakistan). You speak with customers (by voice and text) in the SAME language they use: Roman Urdu by default (English if they write English, Urdu script if they write Urdu). You are a woman: use feminine forms ("main dikha sakti hoon", "karti hoon"). Warm, polite, a little playful, never pushy.
 STYLE: very short, 1 to 3 sentences, easy words, no markdown, no emojis, no bullet lists (your words are read aloud). Do not read long lists of products aloud: say how many you found and mention the best one or two; the app shows product cards under your message.
 SHOP FACTS: ${total} products. Categories: ${catList || 'various'}. Payment: cash on delivery (some prepaid options may exist at checkout). Delivery fee Rs ${SITE.shippingFee}${SITE.freeShippingOver ? `, free over Rs ${SITE.freeShippingOver}` : ''}. Support on WhatsApp ${SITE.whatsapp}.${hoursText ? ` Shop hours: ${hoursText} Outside the hours the website shows a closed screen with the live Quran.` : ''} Orders are placed on the website (cart, then checkout).
 ${liked.length ? `THIS SHOPPER'S TASTE (from earlier chats on this device): ${liked.map((c) => `${c.name} (${c.count})`).join(', ')}. When the message is general ("kuch acha", "deals", "naya kya hai"), show products from these first and say it in a friendly way (for example: "aap ko pehle X pasand aaya tha, ye dekhein").` : ''}
 RULES:
 1. Never invent products, prices, stock or policies. Use search_products / get_product for anything about products. If the tools find nothing, say so and suggest a different search.
-2. When the shopper wants to see or buy something, ALWAYS call search_products (cheapest first when they ask for cheap / sasta / budget). Any message that names a thing that could be sold (shoes, watch, cover, perfume, toy, suit, etc.) is a shopping message: call search_products even if the sentence is a question. Translate Roman Urdu / Urdu words to English product words. If the first search finds nothing, try ONE simpler search (one key word, no colour or price) before you say nothing was found. When the shopper is choosing between products call compare_products. Never say a product is in stock or cheap unless the tool result says so.
+2. Only when the customer actually wants to shop, buy, find or compare a product, call search_products (cheapest first when asked). A general question, greeting, programming, founder, TV, religious, school or informational question is NOT a product request just because it contains a noun. Translate Roman Urdu / Urdu words to English product words. If the first search finds nothing, try ONE simpler search (one key word, no colour or price) before you say nothing was found. When the shopper is choosing between products call compare_products. Never say a product is in stock or cheap unless the tool result says so.
 2b. SITE HELP: the website also has free tools (/tools), Live TV (/live), Quran, hadith and guides. When the shopper wants a calculator, converter, zakat, a channel, a guide or anything like that call site_search, then say in one sentence what you found. Do not pretend a tool or channel exists if site_search finds none.
 2c. FOUNDER: Mizanora was built by Muaaz Iqbal from Kasur, Punjab, Pakistan, a developer who also made Asaan Lang, an Urdu / Roman-Urdu programming language (asaan-lang.vercel.app, MIT licence, code on GitHub muaaziqbalvip/asaan-lang). Official links: ${FOUNDER_LINKS.map(([l, u]) => `${l} ${u}`).join('; ')}. Profile page: /muaaz-iqbal. Give only these facts, never his date of birth, home address or other personal details.
 3. DISCOUNTS: whenever the shopper asks for a lower price or bargains on a product, call request_discount for that product (use the slug of the product being discussed). Then say exactly what the tool result allows. If granted, announce the new price warmly and tell them to tap the deal button to add it to the cart at that price. If not granted (too_early), politely say this is already a very honest price but that you will see what you can do if they really want it; do not mention numbers or rules. If no_room, say this product is already at its lowest price. If the result says final, say this is the very best price. Never offer any discount, coupon or free item on your own.
@@ -183,7 +182,8 @@ RULES:
 8. QURAN AND THE SITE: the website has a live Quran recitation (admin sets the times) and Quran reading pages. For ANY Quran question call quran_info (live time, surah info, an exact ayah). Never quote an ayah from your own memory: only the text quran_info returns. To point to a page (deals, blog, order tracking, returns...) call shop_pages.
 9. ENTERTAINMENT: you may also chat, tell clean jokes, paheliyan (riddles), short true Islamic stories (only well-known ones, never invented), fun facts, quiz questions, motivation and shayari. Keep it halal and polite: no music/gossip/vulgar or hurtful humour, no mockery of religion. Stories and jokes may be up to 6 short sentences; everything else stays short.
 11. HADITH: the website has a hadith reader (/hadith). When someone asks for a hadith or a hadith number call hadith_info and give only its exact text with book and number and the grade it returns. Never quote a hadith from your own memory and never grade one yourself.\n12. LONGER ANSWERS: the 1 to 3 sentence rule is for shopping. When the person clearly asks you to explain, research, compare, tell a story or chat about something, you may answer in up to 6 short sentences. You can talk about anything halal: studies, ideas, advice, general knowledge, the website itself and its features (Quran live, hadith, deals, reviews, wishlist, worker programme). If you do not know something about the website, say so and point to the right page with shop_pages.\n10. TASKS: you can help with small tasks too (draft a message, translate, calculate, plan a gift or a budget, explain something simply, compare options). Use web_answer for anything that needs fresh facts. If something is beyond you, say so honestly.
-${cur ? `The shopper is looking at this product right now: ${JSON.stringify(brief(cur))}. "Is", "yeh", "isko" mean this product.` : ''}`;
+${cur ? `The shopper is looking at this product right now: ${JSON.stringify(brief(cur))}. "Is", "yeh", "isko" mean this product.` : ''}
+${previousSlugs.length ? `Previously displayed product identifiers: ${previousSlugs.join(', ')}. Use get_product to verify details before answering a follow-up; these identifiers are not proof of price or stock.` : ''}`;
 }
 
 export async function POST(req) {
@@ -203,7 +203,7 @@ export async function POST(req) {
   let prefs = did ? await readPrefs(did) : null;
 
   const { cfg, keys } = await loadAssistant();
-  if (!cfg.enabled || !keys.length) return NextResponse.json({ ok: false, text: 'Assistant abhi band hai.' }, { status: 501 });
+  if (!cfg.enabled) return NextResponse.json({ ok: false, text: 'Assistant abhi band hai.' }, { status: 501 });
 
   const [total, categories] = await Promise.all([getTotalCount().catch(() => 0), getCategories().catch(() => [])]);
   const catList = categories.slice(0, 30).map((c) => `${c.name} (${c.count})`).join(', ');
@@ -227,10 +227,13 @@ export async function POST(req) {
   const deals = [];
   const links = [];
   const lastText = history[history.length - 1].text;
+  const intent = assistantIntent(lastText, { hasCurrent: Boolean(cur), hasHistory: history.slice(0, -1).some((m) => m.role === 'user') });
+  const previousSlugs = [...new Set((Array.isArray(body.shownSlugs) ? body.shownSlugs : []).map((x) => String(x || '')).filter((x) => /^[a-z0-9][a-z0-9._~-]{0,119}$/i.test(x)))].slice(-6);
+  const deadline = Date.now() + 26000;
   let webUsed = 0;
 
   // Plain product searches never need Gemini.
-  const plain = plainSearch(lastText, Boolean(cur));
+  const plain = plainSearch(lastText, intent);
   if (plain) {
     try {
       const list = await runSearch(plain, liked);
@@ -244,6 +247,7 @@ export async function POST(req) {
   const contents = history.slice(-8).map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
 
   const exec = async (name, a = {}) => {
+    if (['site', 'general', 'greeting'].includes(intent) && ['search_products', 'get_product', 'compare_products', 'request_discount'].includes(name)) return { error: 'This is not a shopping request. Answer the question or use the relevant site tool instead.' };
     if (name === 'search_products') {
       const list = await runSearch(a, liked);
       list.forEach((p) => shown.set(p.id, p));
@@ -327,36 +331,44 @@ export async function POST(req) {
     if (name === 'web_answer') {
       if (webUsed >= 1) return { error: 'already searched once for this message' };
       webUsed += 1;
-      const r = await webAnswer(cfg, a.question || lastText);
+      const remaining = Math.max(1000, deadline - Date.now() - 1500);
+      const r = await webAnswer(cfg, a.question || lastText, { timeoutMs: Math.min(9000, remaining), deadlineMs: remaining });
+      if (r.ok) for (const source of r.sources || []) { try { const u = new URL(source.url); if (u.protocol === 'https:') links.push({ label: source.title || 'Source', href: u.href }); } catch { /* not a safe URL */ } }
       return r.ok ? { answer: r.answer, sources: (r.sources || []).map((x) => x.title).filter(Boolean) } : { error: r.error, hint: 'say you could not check it right now and suggest asking again or an aalim for religious questions' };
     }
     return { error: 'unknown tool' };
   };
 
-  // When Gemini is resting (free limit) or fails, a search is still answered from the shop itself.
+  // Limited mode is honest: only an explicit shopping request may trigger a product search.
   const fallback = async (why) => {
-    const i = parseQuery(lastText);
-    if (i.words.length || i.colors.length || i.max) {
+    if (intent === 'shopping') {
       try {
+        const i = parseQuery(lastText);
         const a = { query: lastText, sort: i.sort === 'low' ? 'cheapest' : '', max_price: i.max, min_price: i.min };
         const list = await runSearch(a, liked);
         if (list.length) {
           await learn([lastText], list);
-          return NextResponse.json({ ok: true, text: localReply(list, a), products: list.map(card), deals: [], neg: makeNeg(asks), prefs: prefsOut() });
+          return NextResponse.json({ ok: true, mode: 'limited', text: localReply(list, a), products: list.map(card), deals: [], neg: makeNeg(asks), prefs: prefsOut() });
         }
+        return NextResponse.json({ ok: true, mode: 'limited', text: 'Is talash mein mujhe koi matching product nahi mila. Doosra naam ya budget likh kar dobara koshish karein.', products: [], links: [{ label: 'Products', href: '/products' }] });
       } catch (e) { console.error('fallback search failed', e.message); }
     }
-    return NextResponse.json({ ok: false, text: why === 429 ? 'Abhi bohat log mujh se baat kar rahe hain. Thori der baad dobara poochein, ya seedha kisi cheez ka naam likhein, main foran dikha dungi.' : 'Abhi mera connection thora kamzor hai, dobara koshish karein ya WhatsApp support par likhein.' }, { status: why === 429 ? 429 : 502 });
+    const local = localAssistantHelp(lastText, intent, why === 429 ? 'limited' : 'unavailable');
+    return NextResponse.json({ ok: true, mode: 'limited', ...local, products: [], deals: [], neg: makeNeg(asks), prefs: prefsOut() });
   };
+
+  if (!keys.length || intent === 'greeting') return fallback(keys.length ? 0 : 501);
 
   let text = '';
   try {
     for (let step = 0; step < 4; step++) {
+      const remaining = deadline - Date.now();
+      if (remaining < 1500) return await fallback(504);
       const r = await geminiCall(ladderFor(cfg, 'chat'), {
-        systemInstruction: { parts: [{ text: systemPrompt(cfg, total, catList, cur, liked, hoursText) }] },
+        systemInstruction: { parts: [{ text: systemPrompt(cfg, total, catList, cur, liked, hoursText, previousSlugs) }] },
         contents, tools: TOOLS,
         generationConfig: { temperature: 0.5, maxOutputTokens: 900 },
-      }, { timeoutMs: 9000, deadlineMs: 26000, maxTries: 4 });
+      }, { timeoutMs: Math.min(9000, remaining), deadlineMs: remaining, maxTries: 4 });
       if (!r.ok) { console.error('assistant Gemini failed', r.status, String(r.error || '').slice(0, 160)); return await fallback(r.status); }
       const content = r.json.candidates && r.json.candidates[0] && r.json.candidates[0].content;
       const parts = (content && content.parts) || [];
@@ -372,9 +384,10 @@ export async function POST(req) {
     return await fallback(500);
   }
 
-  text = text.replace(/[*_#`]+/g, '').trim() || 'Ji, bataiye main aapki kya madad kar sakti hoon?';
+  text = text.replace(/[*_#`]+/g, '').trim();
+  if (!text) return await fallback(502);
   // SAFETY NET: the shopper clearly asked for a product but the model did not search (or found nothing). Search here so cards always appear.
-  if (!shown.size && !deals.length) {
+  if (intent === 'shopping' && !shown.size && !deals.length) {
     try {
       const i = parseQuery(lastText);
       if (i.words.length || i.colors.length || i.max) {

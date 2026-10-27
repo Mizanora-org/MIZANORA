@@ -14,8 +14,9 @@ import { DEPARTMENTS } from '@/lib/departments';
 import { parseVideo } from '@/lib/video';
 import { readCache, writeCache, revalidateSite } from '@/lib/admin-cache';
 import { optionsOf, optionsToText, templateFor, textToOptions, textToSpecs } from '@/lib/options';
+import { cleanProductDetails } from '@/lib/productDetails';
 
-const EMPTY = { name: '', slug: '', price: '', comparePrice: '', category: '', description: '', images: '', videos: '', options: '', specs: '', inStock: true, featured: false, active: true, affOn: true, affRate: '' };
+const EMPTY = { name: '', slug: '', price: '', comparePrice: '', category: '', description: '', images: '', videos: '', options: '', specs: '', brand: '', highlights: '', boxContents: '', careInstructions: '', warranty: '', inStock: true, featured: false, active: true, affOn: true, affRate: '' };
 const SAMPLE = {
   name: 'Tactical Boots', slug: 'tactical-boots', price: 3500, comparePrice: 0, category: 'Footwear',
   description: 'Lace-up, side-zip tactical boots in sand colour for work, hiking and everyday wear.\n\nEdit this text, the price and the photos in the admin panel.',
@@ -84,7 +85,8 @@ export default function AdminProducts() {
         description: (data.description || '').trim(), images: toArr(data.images), videos: toArr(data.videos), options: textToOptions(data.options), sizes: [], specs: textToSpecs(data.specs),
         inStock: Boolean(data.inStock), featured: Boolean(data.featured), active: Boolean(data.active),
         affOn: data.affOn !== false, affRate: Math.min(50, Math.max(0, Number(data.affRate) || 0)),
-        createdAt: existing ? existing.createdAt || now : now, updatedAt: now,
+        ...cleanProductDetails(data),
+        createdAt: isNew ? now : (existing ? existing.createdAt ?? 0 : data.createdAt ?? 0), updatedAt: now,
       };
       if (editArch) {
         await authFetch('/api/admin/archive-edit', { action: 'save', id: slug, data: payload });
@@ -92,7 +94,7 @@ export default function AdminProducts() {
         setForm(EMPTY); setEditing(false); setEditArch(false); setShowForm(false); setBusy(false);
         return;
       }
-      await setDoc(doc(dbClient(), 'products', slug), payload);
+      await setDoc(doc(dbClient(), 'products', slug), payload, { merge: true });
       patchList((cur) => [...cur.filter((x) => x.id !== slug), { id: slug, ...payload }]);
       await revalidate(slug);
       setMsg(`Saved "${data.name}". It is live on the shop now.`);
@@ -115,14 +117,14 @@ export default function AdminProducts() {
   // Start a new product from an existing one (same photos, options, details). Change the name and save.
   const duplicate = (p) => {
     setEditing(false); setEditArch(false);
-    setForm({ ...EMPTY, ...p, name: `${p.name} (copy)`, slug: slugify(`${p.name} copy`), category: catsOf(p).join(', '), price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n') });
+    setForm({ ...EMPTY, ...p, name: `${p.name} (copy)`, slug: slugify(`${p.name} copy`), category: catsOf(p).join(', '), price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n'), highlights: (p.highlights || []).join('\n') });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const edit = (p) => {
     setEditing(true); setEditArch(false);
-    setForm({ ...EMPTY, ...p, category: catsOf(p).join(', '), slug: p.id, price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n') });
+    setForm({ ...EMPTY, ...p, category: catsOf(p).join(', '), slug: p.id, price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: (p.specs || []).join('\n'), highlights: (p.highlights || []).join('\n') });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -168,10 +170,10 @@ export default function AdminProducts() {
   async function editArchived(item) {
     setBusy(true); setMsg('');
     try {
-      const j = await authFetch('/api/admin/archive', { action: 'get', slug: item.id });
+      const j = await authFetch('/api/admin/archive-edit', { action: 'get', id: item.id });
       const p = { id: item.id, ...j.data };
       setEditing(true); setEditArch(true);
-      setForm({ ...EMPTY, ...p, category: catsOf(p).join(', '), slug: item.id, price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: Array.isArray(p.specs) ? p.specs.join('\n') : (p.specs || ''), affRate: p.affRate || '' });
+      setForm({ ...EMPTY, ...p, category: catsOf(p).join(', '), slug: item.id, price: p.price, comparePrice: p.comparePrice || '', images: (p.images || []).join('\n'), videos: (p.videos || []).join('\n'), options: optionsToText(optionsOf(p)), specs: Array.isArray(p.specs) ? p.specs.join('\n') : (p.specs || ''), highlights: Array.isArray(p.highlights) ? p.highlights.join('\n') : (p.highlights || ''), affRate: p.affRate || '' });
       setShowForm(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) { setMsg((e && e.message) || 'Could not open this product.'); }
@@ -407,6 +409,17 @@ export default function AdminProducts() {
             </>
           );
         })()}
+        <details className="rounded-xl border border-line p-3">
+          <summary className="cursor-pointer font-semibold">More product details (optional)</summary>
+          <p className="mt-2 text-xs text-dim">Only add facts you can verify. These details appear on the product page and are included in archive exports.</p>
+          <div className="mt-3 space-y-3">
+            <label className="block text-sm"><span className="label">Brand</span><input className="input" maxLength={100} value={form.brand || ''} onChange={set('brand')} /></label>
+            <label className="block text-sm"><span className="label">Key highlights (one per line)</span><textarea className="input" rows={3} value={form.highlights || ''} onChange={set('highlights')} placeholder={'Lightweight design\nIncludes charging cable'} /></label>
+            <label className="block text-sm"><span className="label">What is in the box?</span><textarea className="input" rows={2} value={form.boxContents || ''} onChange={set('boxContents')} maxLength={1000} /></label>
+            <label className="block text-sm"><span className="label">Care and usage instructions</span><textarea className="input" rows={2} value={form.careInstructions || ''} onChange={set('careInstructions')} maxLength={1000} /></label>
+            <label className="block text-sm"><span className="label">Warranty details</span><textarea className="input" rows={2} value={form.warranty || ''} onChange={set('warranty')} maxLength={500} /></label>
+          </div>
+        </details>
         <div className="flex flex-wrap gap-4 text-sm">
           {[['inStock', 'In stock'], ['featured', 'Featured on home'], ['active', 'Visible']].map(([k, l]) => (
             <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={Boolean(form[k])} onChange={set(k)} className="h-4 w-4 accent-[#0B6B45]" /> {l}</label>

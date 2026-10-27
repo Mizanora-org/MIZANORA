@@ -8,7 +8,7 @@ import {
 import {
   TV_QUALITY, filterChannels, qualityLevel, streamOrigin, tvClock, tvStatusLabel,
 } from '@/lib/liveTvUi';
-import { channelGroups, channelSlugs, channelTarget, pickAd, relayHref, stepIndex } from '@/lib/liveTv';
+import { TV_THEMES, channelGroups, channelSlugs, channelSources, channelTarget, pickAd, relayHref, stepIndex, tvTheme } from '@/lib/liveTv';
 
 // v28 LIVE TV: a broadcast-style player and guide. hls.js is a local, dynamically imported chunk (no
 // third-party CDN), channel switching starts each stream exactly once, and the guide is filtered with
@@ -34,6 +34,10 @@ const relayHosts = new Set();
 const hostOf = (u) => { try { return new URL(String(u || '')).host; } catch (_) { return ''; } };
 (() => { try { if (typeof sessionStorage !== 'undefined') JSON.parse(sessionStorage.getItem(RELAY_KEY) || '[]').slice(0, 200).forEach((h) => relayHosts.add(String(h))); } catch (_) { /* blocked */ } })();
 const rememberRelay = (u) => { const h = hostOf(u); if (!h || relayHosts.has(h)) return; relayHosts.add(h); try { sessionStorage.setItem(RELAY_KEY, JSON.stringify([...relayHosts].slice(-200))); } catch (_) { /* blocked */ } };
+const forgetRelays = (urls) => {
+  urls.forEach((url) => relayHosts.delete(hostOf(url)));
+  try { sessionStorage.setItem(RELAY_KEY, JSON.stringify([...relayHosts].slice(-200))); } catch (_) { /* blocked */ }
+};
 // Logos: https only on an https page. An http:// logo is tried as https first; if that fails the Tv icon stays.
 const logoSrc = (u) => { const v = String(u || ''); return /^http:\/\//i.test(v) ? v.replace(/^http:/i, 'https:') : v; };
 
@@ -95,6 +99,10 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   // The INDEX of the channel using the relay. Changing channel resets it in the same batch as idx,
   // so the next channel never starts on the previous channel's relay and then restarts.
   const [relayIndex, setRelayIndex] = useState(-1);
+  // Session storage exists only in the browser. Wait until hydration before using its remembered hosts.
+  const [relayReady, setRelayReady] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [theme, setTheme] = useState(() => tvTheme(cfg?.theme));
   const [retryKey, setRetryKey] = useState(0);
   const [buffering, setBuffering] = useState(false);
   const [toast, setToast] = useState('');
@@ -122,13 +130,15 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const pool = useMemo(() => chans.map((c, i) => ({ ...c, i, slug: slugs[i] })).filter((c) => !c.off), [chans, slugs]);
   const activeCount = pool.length;
   const activeNo = Math.max(1, pool.findIndex((c) => c.i === idx) + 1);
-  const base = useMemo(() => (cur ? channelTarget(cur.url) : null), [cur]);
-  const viaRelay = relayIndex === idx || Boolean(cur && relayHosts.has(hostOf(cur.url)));
+  const sources = useMemo(() => channelSources(cur), [cur]);
+  const sourceUrl = sources[sourceIndex] || sources[0] || '';
+  const base = useMemo(() => channelTarget(sourceUrl), [sourceUrl]);
+  const viaRelay = relayIndex === idx || Boolean(relayReady && sourceUrl && relayHosts.has(hostOf(sourceUrl)));
   const target = useMemo(() => {
-    if (!base || !cur) return null;
-    if (base.kind !== 'youtube' && (base.proxy || viaRelay)) return { ...base, src: relayHref(cur.url), relayed: true };
+    if (!base || !sourceUrl) return null;
+    if (base.kind !== 'youtube' && (base.proxy || viaRelay)) return { ...base, src: relayHref(sourceUrl), relayed: true };
     return base;
-  }, [base, cur, viaRelay]);
+  }, [base, sourceUrl, viaRelay]);
   const youtubeSrc = target?.kind === 'youtube' ? `${target.src}&mute=1` : '';
   const statusLabel = tvStatusLabel(status, buffering, target?.kind);
   const filtered = useMemo(() => filterChannels(pool, { group, query: deferredQ, favs, recent }), [pool, group, deferredQ, favs, recent]);
@@ -155,6 +165,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setSkipIn(0);
     setLevelCount(0);
     setRelayIndex(-1);
+    setSourceIndex(0);
     stuckStep.current = 0;
     setIdx(to);
   }, [idx, chans, adsEnabled, adProducts, adSeconds]);
@@ -170,14 +181,34 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     fails.current = 0;
     stuckStep.current = 0;
     setRelayIndex(-1);
+    setSourceIndex(0);
     setStatus('loading');
     setBuffering(false);
     setSkipIn(0);
     setLevelCount(0);
     setRetryKey((n) => n + 1);
-    if (cur) relayHosts.delete(hostOf(cur.url)); // Retry tries the direct way again first
+    if (cur) forgetRelays(channelSources(cur)); // Retry tries the primary directly, including after a reload
     say('Channel dobara load ho raha hai');
   }, [say, cur]);
+
+  // Try each backup on the same channel before declaring it dead or auto-skipping.
+  const advanceSource = useCallback(() => {
+    if (sourceIndex + 1 >= sources.length) return false;
+    setRelayIndex(-1);
+    setSourceIndex(sourceIndex + 1);
+    setStatus('loading');
+    setBuffering(false);
+    setLevelCount(0);
+    stuckStep.current = 0;
+    say(`Backup stream ${sourceIndex + 1} connect ho rahi hai`);
+    return true;
+  }, [sourceIndex, sources.length, say]);
+
+  const chooseSource = useCallback((n) => {
+    if (n < 0 || n >= sources.length || n === sourceIndex) return;
+    setRelayIndex(-1); setSourceIndex(n); setStatus('loading'); setBuffering(false);
+    setSkipIn(0); setLevelCount(0); fails.current = 0; stuckStep.current = 0;
+  }, [sourceIndex, sources.length]);
 
   const playNow = useCallback(() => {
     const v = video.current;
@@ -259,7 +290,10 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setAutoSkip(readPref('mz_tv_autoskip', true) !== false);
     const savedQuality = readPref('mz_tv_quality', 'auto');
     if (TV_QUALITY.some(([v]) => v === savedQuality)) setQuality(savedQuality);
+    const savedTheme = readPref('mz_tv_theme', '');
+    if (TV_THEMES.some(([v]) => v === savedTheme)) setTheme(savedTheme);
     prefsLoaded.current = true;
+    setRelayReady(true);
     loadHls();
   }, []);
 
@@ -280,8 +314,8 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   // Open the connection to the current AND next stream host early. No CDN script connection is needed now.
   const preconnectOrigins = useMemo(() => {
     const nextIndex = stepIndex(chans, idx, 1);
-    return [...new Set([cur?.url, chans[nextIndex]?.url].map(streamOrigin).filter(Boolean))].join('|');
-  }, [chans, idx, cur]);
+    return [...new Set([sourceUrl, sources[sourceIndex + 1], chans[nextIndex]?.url].map(streamOrigin).filter(Boolean))].join('|');
+  }, [chans, idx, sourceUrl, sources, sourceIndex]);
   useEffect(() => {
     if (!preconnectOrigins || typeof document === 'undefined') return undefined;
     const secure = window.location.protocol === 'https:';
@@ -327,30 +361,32 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
 
   useEffect(() => {
     if (target?.kind === 'youtube') { setStatus('playing'); setBuffering(false); setLevelCount(0); }
-    else if (!target && cur) setStatus('failed');
-  }, [target, cur]);
+    else if (!target && cur && !advanceSource()) setStatus('failed');
+  }, [target, cur, advanceSource]);
 
   // Load one stream. A direct failure switches to the signed relay once; a relay failure shows retry.
   useEffect(() => {
     const v = video.current;
     if (hls.current) { try { hls.current.destroy(); } catch (_) { /* gone */ } hls.current = null; }
-    if (!v || !target || target.kind === 'youtube') return undefined;
+    if (!relayReady || !v || !target || target.kind === 'youtube') return undefined;
     let dead = false;
     let fallbackStarted = false;
+    let failureHandled = false;
     const canRelay = !target.relayed;
     const useRelay = () => {
       if (!canRelay) return false;
       if (fallbackStarted) return true; // another error arrived before React switched the target
       fallbackStarted = true;
-      rememberRelay(cur && cur.url);
+      rememberRelay(sourceUrl);
       setRelayIndex(idx);
       setStatus('loading');
       return true;
     };
     const fail = () => {
-      if (dead) return;
+      if (dead || failureHandled) return;
+      failureHandled = true;
       setBuffering(false);
-      if (!useRelay()) setStatus('failed');
+      if (!useRelay() && !advanceSource()) setStatus('failed');
     };
     const ok = () => { if (!dead) { fails.current = 0; setBuffering(false); setStatus('playing'); } };
     v.onplaying = ok;
@@ -362,8 +398,8 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     v.load();
     setLevelCount(0);
     const stall = setTimeout(() => {
-      if (dead || statusRef.current !== 'loading' || !v.paused || v.readyState >= 3) return;
-      if (!useRelay()) setStatus('failed');
+      if (dead || statusRef.current !== 'loading' || v.readyState >= 3) return;
+      fail();
     }, STALL_MS);
 
     (async () => {
@@ -424,24 +460,23 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       v.onplaying = null; v.onerror = null; v.onwaiting = null; v.onstalled = null; v.oncanplay = null;
       try { v.pause(); } catch (_) { /* gone */ }
     };
-  }, [target, autoplay, retryKey, idx, playNow]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [target, autoplay, retryKey, idx, playNow, advanceSource, sourceUrl, relayReady]);
 
-  // v29: BUFFER WATCHDOG. A stream can be "playing" yet frozen on the spinner with no fatal error (a dead segment, a stalled relay).
-  // Step 1: reload the playlist and jump to the live edge. Step 2: switch to the relay. Step 3: show NO SIGNAL (auto-skip then moves on).
+  // A persistent spinner must be checked repeatedly: the old one-shot timer never reached its later recovery steps.
   useEffect(() => {
     if (status !== 'playing' || !buffering || !target || target.kind === 'youtube' || ad) return undefined;
-    const t = setTimeout(() => {
+    const t = setInterval(() => {
       const step = stuckStep.current; stuckStep.current += 1;
       const h = hls.current; const v = video.current;
       if (step === 0) {
         try { if (h) { h.stopLoad(); h.startLoad(-1); } if (v && h && Number.isFinite(h.liveSyncPosition)) v.currentTime = Math.max(0, h.liveSyncPosition - 0.4); if (v) v.play().catch(() => {}); } catch (_) { /* gone */ }
         say('Stream atak gayi thi — dobara jod rahe hain');
       } else if (step === 1 && !target.relayed) {
-        rememberRelay(cur && cur.url); setRelayIndex(idx); setStatus('loading'); setBuffering(false);
-      } else { setBuffering(false); setStatus('failed'); }
+        rememberRelay(sourceUrl); setRelayIndex(idx); setStatus('loading'); setBuffering(false);
+      } else { setBuffering(false); if (!advanceSource()) setStatus('failed'); }
     }, BUFFER_STUCK_MS);
-    return () => clearTimeout(t);
-  }, [status, buffering, target, ad, idx, cur, say]);
+    return () => clearInterval(t);
+  }, [status, buffering, target, ad, idx, sourceUrl, say, advanceSource]);
   useEffect(() => { if (status === 'playing' && !buffering) stuckStep.current = 0; }, [status, buffering]);
 
   // A browser that blocked autoplay waits for one real interaction.
@@ -504,7 +539,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const ctl = 'mztv-control';
 
   return (
-    <div className="mztv-shell">
+    <div className="mztv-shell" data-theme={theme}>
       <div className="mztv-aurora" aria-hidden="true" />
       <header className="mztv-topbar">
         <div className="mztv-brand">
@@ -518,6 +553,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
         <div className="mztv-badges">
           {cfg?.demo && <span className="mztv-badge is-demo">DEMO</span>}
           {target?.relayed && <span className="mztv-badge">RELAY</span>}
+          {sources.length > 1 && <span className="mztv-badge">SOURCE {sourceIndex + 1}/{sources.length}</span>}
           <span className={`mztv-badge is-status is-${status}`}><i aria-hidden="true" />{statusLabel}</span>
           <span className="mztv-badge is-quiet"><Activity size={12} aria-hidden="true" />{levelCount ? `${levelCount} LEVELS` : 'ADAPTIVE'}</span>
           <TvClock />
@@ -596,6 +632,8 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
 
           <div className="mztv-options">
             <button type="button" onClick={toggleAutoSkip} className={`mztv-toggle ${autoSkip ? 'is-on' : ''}`} aria-pressed={autoSkip}><span aria-hidden="true" />Auto-skip dead channels</button>
+            {sources.length > 1 && <label className="mztv-quality"><span>Stream</span><select aria-label="Channel stream source" value={sourceIndex} onChange={(e) => chooseSource(Number(e.target.value))}>{sources.map((url, i) => <option key={url} value={i}>{i === 0 ? 'Primary' : `Backup ${i}`}</option>)}</select></label>}
+            <label className="mztv-quality"><span>Theme</span><select aria-label="Live TV theme" value={theme} onChange={(e) => { const v = tvTheme(e.target.value); setTheme(v); writePref('mz_tv_theme', v); }}>{TV_THEMES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>
             {levelCount > 0 ? (
               <label className="mztv-quality"><span>Quality</span><select value={quality} onChange={(e) => setQuality(e.target.value)} aria-label="Stream quality">{TV_QUALITY.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>
             ) : <span className="mztv-adaptive"><Zap size={13} /> Adaptive playback</span>}

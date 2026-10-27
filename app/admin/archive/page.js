@@ -6,6 +6,7 @@ import { formatDate, formatPKR } from '@/lib/format';
 import { revalidateSite } from '@/lib/admin-cache';
 import { makeZip } from '@/lib/zip';
 import { buildPartFiles } from '@/lib/archiveFormat';
+import ArchiveRangeManager from '@/components/ArchiveRangeManager';
 
 // Admin > Archive. Old products leave Firebase and live as JSON files in your repository (data/catalog): no reads, no writes, no quota.
 // New products stay in Firebase. When Firebase gets full, move the oldest ones here, wait for the deployment, then clear them from Firebase.
@@ -144,6 +145,8 @@ export default function ArchiveAdmin() {
             </div>
           )}
           {github && github.error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">GitHub problem: {github.error}</p>}
+
+          <ArchiveRangeManager onChanged={load} />
 
           <section className="card space-y-3">
             <h2 className="text-lg font-extrabold">1. Move the oldest products to the archive</h2>
