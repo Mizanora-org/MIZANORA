@@ -10,10 +10,12 @@ import {
 } from '@/lib/liveTvUi';
 import { TV_THEMES, channelGroups, channelSlugs, channelSources, channelTarget, pickAd, relayHref, stepIndex, tvTheme } from '@/lib/liveTv';
 
-// v28 LIVE TV: a broadcast-style player and guide. hls.js is a local, dynamically imported chunk (no
-// third-party CDN), channel switching starts each stream exactly once, and the guide is filtered with
-// useDeferredValue so typing stays smooth even with 800 channels. Favourites, recents, auto-skip, the
-// signed relay, product ads and shareable /live/<channel> links all remain.
+// v30 LIVE TV: broadcast-style player and guide. hls.js (m3u8) and dash.js (mpd / MPEG-DASH) are local,
+// dynamically imported chunks — no third-party CDN. Every stream type plays in one player:
+// .m3u8 (HLS), .mpd (DASH), .mp4/.webm (plain video), .mp3/.aac (audio), and YouTube live.
+// Each channel keeps its own audio tracks, video qualities and subtitle-like quality menu, so the
+// visitor can pick the best audio language and the best video quality for every channel. Favourites,
+// recents, auto-skip, the signed relay, product ads and shareable /live/<channel> links all remain.
 let hlsPromise = null;
 let HlsCtor = null;
 const loadHls = () => {
@@ -25,6 +27,19 @@ const loadHls = () => {
       .catch(() => { hlsPromise = null; return null; }); // a later channel can retry the chunk
   }
   return hlsPromise;
+};
+
+let dashPromise = null;
+let DashCtor = null;
+const loadDash = () => {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  if (DashCtor) return Promise.resolve(DashCtor);
+  if (!dashPromise) {
+    dashPromise = import('dashjs')
+      .then((m) => { DashCtor = m.default || m.dashjs || null; if (!DashCtor) dashPromise = null; return DashCtor; })
+      .catch(() => { dashPromise = null; return null; });
+  }
+  return dashPromise;
 };
 
 // v29: a stream host that refused a direct connection once (CORS / mixed content / blocked) starts on the relay next time,
@@ -114,6 +129,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const frame = useRef(null);
   const video = useRef(null);
   const hls = useRef(null);
+  const dash = useRef(null); // dash.js player instance for .mpd streams
   const searchInput = useRef(null);
   const counter = useRef(1);
   const fails = useRef(0);
@@ -124,6 +140,9 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const statusRef = useRef(status);
   const prefsLoaded = useRef(false);
   const stuckStep = useRef(0);
+  const [dashLevels, setDashLevels] = useState([]);
+  const [dashAudioLangs, setDashAudioLangs] = useState([]);
+  const [audioTrack, setAudioTrack] = useState(0);
 
   const cur = chans[idx] || null;
   const curSlug = slugs[idx] || '';
@@ -208,7 +227,33 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     if (n < 0 || n >= sources.length || n === sourceIndex) return;
     setRelayIndex(-1); setSourceIndex(n); setStatus('loading'); setBuffering(false);
     setSkipIn(0); setLevelCount(0); fails.current = 0; stuckStep.current = 0;
+    setDashLevels([]); setDashAudioLangs([]); setAudioTrack(0);
   }, [sourceIndex, sources.length]);
+
+  const setDashQuality = useCallback((level) => {
+    const p = dash.current;
+    const abr = p && p.getAbrController ? p.getAbrController() : null;
+    if (!abr) return;
+    const reps = abr.getAvailableBitrateListFor('video');
+    const r = reps[level];
+    if (!r) return;
+    p.setCurrentQualityFor('video', level);
+    setBuffering(false);
+    say(`Video quality: ${r.height || 0}p`);
+  }, [say]);
+
+  const selectAudioTrack = useCallback((lang) => {
+    const p = dash.current;
+    const abr = p && p.getAbrController ? p.getAbrController() : null;
+    if (!abr) return;
+    const reps = abr.getAvailableBitrateListFor('audio');
+    const idx2 = reps.findIndex((r) => String(r.lang || r.language || '').toUpperCase() === lang);
+    if (idx2 < 0) return;
+    p.setCurrentQualityFor('audio', idx2);
+    setAudioTrack(idx2);
+    say(`Awaaz: ${lang}`);
+  }, [say]);
+
 
   const playNow = useCallback(() => {
     const v = video.current;
@@ -403,6 +448,52 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     }, STALL_MS);
 
     (async () => {
+      if (target.kind === 'dash') {
+        const Dash = await loadDash();
+        if (dead) return;
+        if (Dash && Dash.MediaPlayer && typeof Dash.MediaPlayer.create === 'function') {
+          const player = Dash.MediaPlayer.create();
+          dash.current = player;
+          player.autoPlay(false);
+          player.setAutoSwitchQuality(false); // visitor picks the quality
+          player.setDebug(false);
+
+          // Wire up dash.js events -> our status / buffering UI.
+          player.on(Dash.MediaPlayer.events.MANIFEST_LOADED, (ev) => {
+            if (dead) return;
+            const abr = player.getAbrController ? player.getAbrController() : null;
+            const videoReps = abr ? abr.getAvailableBitrateListFor('video') : [];
+            const levels = (videoReps || []).map((b) => ({ height: b ? (b.height || 0) : 0, bitrate: b ? b.bitrate || 0 : 0 }));
+            setDashLevels(levels);
+            const audioReps = abr ? abr.getAvailableBitrateListFor('audio') : [];
+            const langs = [];
+            for (const r of audioReps || []) {
+              const l = (r.lang || r.language || 'audio').toUpperCase();
+              if (!langs.includes(l)) langs.push(l);
+            }
+            setDashAudioLangs(langs.length ? langs : []);
+            setLevelCount(levels.length || 0);
+            setBuffering(false);
+            setStatus('playing');
+            ok();
+          });
+          player.on(Dash.MediaPlayer.events.ERROR, (ev) => {
+            if (dead) return;
+            console.error('dash error', ev);
+            fail();
+          });
+          player.on(Dash.MediaPlayer.events.BUFFER_EMPTY, () => { if (!dead) setBuffering(true); });
+          player.on(Dash.MediaPlayer.events.BUFFER_LOADED, () => { if (!dead) setBuffering(false); });
+          player.on(Dash.MediaPlayer.events.PLAYBACK_PLAYING, () => { if (!dead) { fails.current = 0; setBuffering(false); setStatus('playing'); } });
+
+          player.initialize(v, target.src, autoplay);
+          setDashLevels([]); setDashAudioLangs([]); setAudioTracks([]);
+          setAudioTrack(0);
+          return;
+        }
+        fail(); return;
+      }
+
       if (target.kind === 'hls' && !v.canPlayType('application/vnd.apple.mpegurl')) {
         const Hls = await loadHls();
         if (dead) return;
@@ -457,6 +548,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     return () => {
       dead = true;
       clearTimeout(stall);
+      if (dash.current) { try { dash.current.reset(); dash.current.dispose(); } catch (_) { /* gone */ } dash.current = null; dashPlayerEl.current = null; }
       v.onplaying = null; v.onerror = null; v.onwaiting = null; v.onstalled = null; v.oncanplay = null;
       try { v.pause(); } catch (_) { /* gone */ }
     };
@@ -525,11 +617,13 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     if (hls.current) { try { hls.current.destroy(); } catch (_) { /* gone */ } }
+    if (dash.current) { try { dash.current.reset(); dash.current.dispose(); } catch (_) { /* gone */ } dash.current = null; }
   }, []);
 
   if (!cur) return <div className="mztv-empty">Abhi koi active channel nahi hai.</div>;
 
   const isFav = favs.includes(cur.url);
+
   const visible = filtered.slice(0, shown);
   const chip = (name, label, count) => (
     <button key={name} type="button" onClick={() => { setGroup(name); setShown(PAGE_SIZE); }} aria-pressed={group === name} className={`mztv-chip ${group === name ? 'is-on' : ''}`}>
@@ -634,9 +728,14 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
             <button type="button" onClick={toggleAutoSkip} className={`mztv-toggle ${autoSkip ? 'is-on' : ''}`} aria-pressed={autoSkip}><span aria-hidden="true" />Auto-skip dead channels</button>
             {sources.length > 1 && <label className="mztv-quality"><span>Stream</span><select aria-label="Channel stream source" value={sourceIndex} onChange={(e) => chooseSource(Number(e.target.value))}>{sources.map((url, i) => <option key={url} value={i}>{i === 0 ? 'Primary' : `Backup ${i}`}</option>)}</select></label>}
             <label className="mztv-quality"><span>Theme</span><select aria-label="Live TV theme" value={theme} onChange={(e) => { const v = tvTheme(e.target.value); setTheme(v); writePref('mz_tv_theme', v); }}>{TV_THEMES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>
-            {levelCount > 0 ? (
+            {target && target.kind === 'dash' && dashLevels.length > 0 ? (
+              <label className="mztv-quality"><span>Video quality</span><select value={quality} onChange={(e) => { setQuality(e.target.value); setDashQuality(Number(e.target.value)); }} aria-label="Stream quality">{dashLevels.map((l, i) => { const h = l.height ? l.height + 'p' : 'Auto'; const b = Math.round(l.bitrate / 1000); return <option key={i} value={i}>{h + ' (' + b + ' kbps)'}</option>; })}</select></label>
+            ) : levelCount > 0 ? (
               <label className="mztv-quality"><span>Quality</span><select value={quality} onChange={(e) => setQuality(e.target.value)} aria-label="Stream quality">{TV_QUALITY.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>
             ) : <span className="mztv-adaptive"><Zap size={13} /> Adaptive playback</span>}
+            {target && target.kind === 'dash' && dashAudioLangs.length > 1 && (
+              <label className="mztv-quality"><span>Audio language</span><select value={audioTrack} onChange={(e) => selectAudioTrack(dashAudioLangs[Number(e.target.value)])} aria-label="Audio track">{dashAudioLangs.map((l, i) => <option key={l} value={i}>{l}</option>)}</select></label>
+            )}
             <span className="mztv-keys">← → channel · / search · M sound · F full screen · R random · ? help</span>
           </div>
         </section>
