@@ -31,6 +31,7 @@ import JsonLd from '@/components/JsonLd';
 import ForYouShelf from '@/components/ForYouShelf';
 import HomeHub from '@/components/HomeHub';
 import MarketFeed from '@/components/MarketFeed';
+import AdsInject from '@/components/AdsInject';
 import { buildFeed } from '@/lib/marketFeed';
 import { ISLAMIC_ITEMS } from '@/lib/islamic';
 import { TOOLS } from '@/lib/tools';
@@ -118,6 +119,8 @@ export default async function Home() {
       <SeasonHero hasPicks={seasonPicks.length > 0} mode={themeMode} />
       <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-4 sm:pt-4">
         <BannerCarousel banners={banners.length > 0 ? banners : DEFAULT_SLIDES} />
+        {/* v31: the shop can run its own ads (key=self). Nothing shows unless the admin switches it on. */}
+        <AdsInject slots={['auto']} />
         <h1 className="sr-only">Mizanora: online shopping market in Pakistan with cash on delivery</h1>
       </div>
 

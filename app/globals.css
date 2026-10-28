@@ -752,3 +752,76 @@ html[data-fx~="smooth"] a, html[data-fx~="smooth"] button { touch-action: manipu
   border-color: rgba(224, 196, 255, .3);
   background: radial-gradient(circle at 12% 0%, #48346e, transparent 48%), linear-gradient(145deg, #201932, #090814);
 }
+
+/* =====================================================================================================
+   v31 — MIZANORA ADS API: embed styles (identical to public/ads/embed.js, so the admin preview
+   looks exactly like what visitors of other websites see). Animations stop for reduced-motion.
+   ===================================================================================================== */
+[data-mz-ads] { min-height: 1px; }
+.mza-slot { position: relative; border-radius: 16px; overflow: hidden; min-height: 90px; }
+.mza-badge { position: absolute; top: 8px; left: 8px; z-index: 3; font: 600 9px/1.4 -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #fff; background: rgba(11,107,69,.85); padding: 3px 7px; border-radius: 8px; }
+.mza-close { position: absolute; top: 6px; right: 6px; z-index: 4; width: 22px; height: 22px; border: 0; border-radius: 50%; background: rgba(0,0,0,.45); color: #fff; font: 700 12px/22px sans-serif; cursor: pointer; display: grid; place-items: center; }
+.mza-close:hover { background: rgba(0,0,0,.7); }
+.mza-creative { position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 16px; min-height: 90px; box-sizing: border-box; color: #fff; cursor: pointer; text-decoration: none; background: linear-gradient(135deg,#0B6B45,#0E8556); transition: transform .25s ease, box-shadow .25s ease; }
+.mza-creative:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -14px rgba(11,107,69,.8); }
+.mza-creative .mza-txt { min-width: 0; flex: 1; }
+.mza-creative .mza-h { font: 700 14px/1.35 -apple-system, Segoe UI, Roboto, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mza-creative .mza-s { font: 500 12px/1.4 -apple-system, Segoe UI, Roboto, sans-serif; opacity: .88; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mza-creative .mza-btn { flex: none; font: 700 12px/1 -apple-system, Segoe UI, Roboto, sans-serif; color: #073D28; background: #F2C766; border-radius: 999px; padding: 9px 14px; white-space: nowrap; box-shadow: 0 4px 12px -4px rgba(0,0,0,.4); }
+.mza-creative .mza-price { font: 800 13px/1 -apple-system, Segoe UI, Roboto, sans-serif; color: #F2C766; margin-top: 3px; }
+.mza-pic { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.mza-shade { position: absolute; inset: 0; background: linear-gradient(120deg, rgba(4,30,20,.88), rgba(4,30,20,.45) 55%, rgba(4,30,20,.2)); }
+.mza-creative, .mza-creative * { position: relative; }
+.mza-video { position: relative; border-radius: 16px; overflow: hidden; min-height: 180px; background: #000; cursor: pointer; }
+.mza-video video, .mza-vposter { display: block; width: 100%; object-fit: cover; }
+.mza-vplay { position: absolute; inset: 0; display: grid; place-items: center; }
+.mza-vbtn { width: 56px; height: 56px; border-radius: 50%; border: 0; background: rgba(11,107,69,.92); color: #fff; display: grid; place-items: center; box-shadow: 0 8px 24px -6px rgba(0,0,0,.6); cursor: pointer; }
+.mza-vlabel { position: absolute; left: 12px; bottom: 10px; color: #fff; font: 700 13px/1.3 -apple-system, Segoe UI, Roboto, sans-serif; text-shadow: 0 1px 6px rgba(0,0,0,.7); max-width: 70%; }
+.mza-vskip { position: absolute; right: 10px; bottom: 10px; color: #fff; font: 600 11px/1 -apple-system, Segoe UI, Roboto, sans-serif; background: rgba(0,0,0,.55); padding: 6px 9px; border-radius: 8px; cursor: pointer; }
+.mza-vshade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.65)); }
+.mza-card { position: relative; border-radius: 16px; overflow: hidden; min-height: 150px; display: flex; flex-direction: column; background: #0B6B45; color: #fff; cursor: pointer; }
+.mza-card .mza-pimg { height: 120px; background-size: cover; background-position: center; }
+.mza-card .mza-pbody { padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+.mza-card .mza-pname { font: 700 13px/1.3 -apple-system, Segoe UI, Roboto, sans-serif; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mza-card .mza-prow { display: flex; align-items: baseline; gap: 8px; }
+.mza-card .mza-pprice { font: 800 15px/1 -apple-system, Segoe UI, Roboto, sans-serif; color: #F2C766; }
+.mza-card .mza-pcmp { font: 500 11px/1 -apple-system, Segoe UI, Roboto, sans-serif; opacity: .65; text-decoration: line-through; }
+.mza-card .mza-pcta { margin-top: 2px; align-self: flex-start; font: 700 11px/1 -apple-system, Segoe UI, Roboto, sans-serif; background: #F2C766; color: #073D28; border-radius: 999px; padding: 7px 12px; }
+.mza-anim-float { animation: mza-float 4.5s ease-in-out infinite; }
+@keyframes mza-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.mza-anim-shine { overflow: hidden; }
+.mza-anim-shine::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.45) 50%, transparent 65%); transform: translateX(-130%); animation: mza-shine 3.2s ease-in-out infinite; }
+@keyframes mza-shine { 0%,60% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+.mza-anim-pulse { animation: mza-pulse 2.6s ease-in-out infinite; }
+@keyframes mza-pulse { 0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(242,199,102,.5); } 50% { transform: scale(1.025); box-shadow: 0 0 0 14px rgba(242,199,102,0); } }
+.mza-anim-wave::before { content: ''; position: absolute; inset: 0; background: radial-gradient(120% 80% at 10% 120%, rgba(255,255,255,.25), transparent 60%); animation: mza-wave 5s ease-in-out infinite; }
+@keyframes mza-wave { 0%,100% { background-position-x: 0; } 50% { background-position-x: 140%; } }
+.mza-anim-marquee .mza-h { display: inline-block; white-space: nowrap; animation: mza-mq 6s linear infinite; padding-left: 100%; }
+@keyframes mza-mq { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+.mza-anim-spin::after { content: ''; position: absolute; right: 14px; top: 50%; width: 26px; height: 26px; margin-top: -13px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); border-top-color: #F2C766; animation: mza-spin 2.4s linear infinite; }
+@keyframes mza-spin { to { transform: rotate(360deg); } }
+.mza-anim-pop { animation: mza-pop .7s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes mza-pop { 0% { transform: scale(.7); opacity: 0; } 70% { transform: scale(1.06); } 100% { transform: scale(1); opacity: 1; } }
+.mza-anim-gradient { background-size: 220% 220%; animation: mza-grad 8s ease infinite; }
+@keyframes mza-grad { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@media (prefers-reduced-motion: reduce) {
+  .mza-anim-float, .mza-anim-pulse, .mza-anim-pop, .mza-anim-gradient,
+  .mza-anim-shine::after, .mza-anim-wave::before, .mza-anim-marquee .mza-h, .mza-anim-spin::after {
+    animation: none !important; transform: none !important;
+  }
+}
+@media (max-width: 560px) {
+  .mza-creative { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .mza-creative .mza-btn { align-self: flex-start; }
+}
+
+/* =====================================================================================================
+   v31 — shopping smoothness: cart line items slide in/out, stepper buttons never jump
+   ===================================================================================================== */
+.mzcart-item { animation: mzcart-in .25s ease both; }
+@keyframes mzcart-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.mzcart-item.mzcart-out { animation: mzcart-out .22s ease both; }
+@keyframes mzcart-out { from { opacity: 1; } to { opacity: 0; transform: translateX(16px); } }
+.mzstepper button { transition: background .15s ease, transform .1s ease; touch-action: manipulation; }
+.mzstepper button:active { transform: scale(.9); }
+.mzstepper button:disabled { opacity: .35; cursor: not-allowed; }

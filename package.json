@@ -9,7 +9,7 @@
     "start": "next start",
     "cast:live": "node scripts/live-cast.mjs",
     "check": "node scripts/check.js && node scripts/typecheck.js",
-    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs && node scripts/test-v20.mjs && node scripts/test-v21.mjs && node scripts/test-v23.mjs && node scripts/test-v24.mjs && node scripts/test-v25.mjs && node scripts/test-v26.mjs && node scripts/test-v27.mjs && node scripts/test-v28.mjs && node scripts/test-v29.mjs && node scripts/test-v30.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v30-api.mjs"
+    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs && node scripts/test-v20.mjs && node scripts/test-v21.mjs && node scripts/test-v23.mjs && node scripts/test-v24.mjs && node scripts/test-v25.mjs && node scripts/test-v26.mjs && node scripts/test-v27.mjs && node scripts/test-v28.mjs && node scripts/test-v29.mjs && node scripts/test-v30.mjs && node scripts/test-ads.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v30-api.mjs"
   },
   "dependencies": {
     "dashjs": "^5.2.1",
