@@ -27,6 +27,17 @@ service cloud.firestore {
     match /banners/{id}  { allow read: if true; allow write: if isAdmin(); }
     match /reels/{id}    { allow read: if true; allow write: if isAdmin(); }
 
+    // v31: ADS API. Campaigns are public (the shop serves them to any website with a key;
+    // the Admin SDK does the writes anyway). Keys and stats are server-only - the browser
+    // never reads or writes them, only /api/admin/ads (admin) and the serve/track endpoints do.
+    match /ads/{id}      { allow read: if true; allow write: if isAdmin(); }
+    match /adKeys/{id}   { allow read, write: if false; }
+    match /adStats/{id}  { allow read, write: if false; }
+
+    // v31: site images (Admin > Images). Public read: the gallery, the feed and the
+    // image sitemap use them; only the admin adds or removes picture links.
+    match /siteImages/{id} { allow read: if true; allow write: if isAdmin(); }
+
     // Orders are created ONLY by the server (/api/orders uses the Admin SDK, which bypasses these rules).
     // A signed-in customer can read ONLY their own orders (orders carry the customer's uid). The admin reads all.
     match /orders/{id} {

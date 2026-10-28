@@ -50,6 +50,7 @@ export default function CardMedia({ img, alt, priority = false, sizes, video = '
       fill
       priority={priority}
       sizes={sizes}
+      decoding="async"
       className="object-cover"
       onError={() => setState('raw')}
     />

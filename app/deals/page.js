@@ -8,6 +8,7 @@ import DealsClient from '@/components/DealsClient';
 import Countdown from '@/components/Countdown';
 import ShareButtons from '@/components/ShareButtons';
 import CountUp from '@/components/CountUp';
+import AdsInject from '@/components/AdsInject';
 import { dealsRemote } from '@/lib/catalogQuery';
 import { getDealsConfig } from '@/lib/dealsServer';
 
@@ -57,6 +58,9 @@ export default async function DealsPage() {
         </section>
 
         <div className="mt-2"><ShareButtons url={absUrl('/deals')} title="Mizanora Deals" label="Share this deals link: one link, all deals" /></div>
+
+        {/* v31: a video ad slot on the deals page (shop's own ads, key=self) */}
+        <AdsInject slots={['video']} />
 
         <DealsClient initial={first} baseMin={cfg.minPct} />
       </div>
