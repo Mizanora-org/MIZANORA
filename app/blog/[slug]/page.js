@@ -36,7 +36,7 @@ export default async function BlogPost({ params }) {
   const ld = {
     '@context': 'https://schema.org', '@type': 'BlogPosting', headline: p.title, description: p.description,
     datePublished: p.date, dateModified: p.date, wordCount: p.words, inLanguage: 'en',
-    image: absUrl('/img/hero-banner.jpg'), mainEntityOfPage: absUrl(`/blog/${p.slug}`),
+    image: p.image || absUrl('/img/hero-banner.jpg'), mainEntityOfPage: absUrl(`/blog/${p.slug}`),
     author: { '@type': 'Person', name: p.author || 'Muaaz Iqbal', jobTitle: 'Founder & Developer', url: absUrl('/team'), worksFor: { '@type': 'Organization', name: SITE.name, url: absUrl('/') } },
     publisher: { '@type': 'Organization', name: SITE.name, logo: { '@type': 'ImageObject', url: absUrl('/icons/icon-512.png') } },
   };

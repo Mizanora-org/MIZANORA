@@ -18,6 +18,12 @@ export default function BlogIndex() {
       <div className="mx-auto grid max-w-6xl gap-4 px-4 py-8 sm:grid-cols-2 lg:grid-cols-3">
         {posts.map((p) => (
           <article key={p.slug} className="card">
+            {p.image ? (
+              <Link href={`/blog/${p.slug}`} className="mb-3 block overflow-hidden rounded-xl bg-raised">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-32 w-full object-cover" />
+              </Link>
+            ) : null}
             <h2 className="text-xl font-bold leading-snug"><Link href={`/blog/${p.slug}`}>{p.title}</Link></h2>
             <p className="mt-2 text-dim">{p.description}</p>
             <p className="mt-3 text-xs text-faint">{p.date} · {p.mins} min read</p>

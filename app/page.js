@@ -37,6 +37,7 @@ import { ISLAMIC_ITEMS } from '@/lib/islamic';
 import { TOOLS } from '@/lib/tools';
 import { channelSlugs } from '@/lib/liveTv';
 import { getTvConfig } from '@/lib/liveTvServer';
+import { getMuaazImages } from '@/lib/imagesServer';
 import { SOCIAL_ICONS } from '@/components/Icons';
 
 export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
@@ -79,6 +80,7 @@ export default async function Home() {
   // with no Firestore writes and no Firestore reads for visitors.
   const [all, banners, reels, categories, totalCount, reelMusic, feedPosts] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount(), getReelMusic(), getFeedPosts()]);
   const tv = await getTvConfig().catch(() => null);
+  const muaazImgs = await getMuaazImages().catch(() => []);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
@@ -99,7 +101,7 @@ export default async function Home() {
   // The mixed feed: products + Islamic posts + live channels + tools (changes every day, same all day)
   const tvSlugs = tv && tv.enabled ? channelSlugs(tv.channels) : [];
   const tvItems = tv && tv.enabled ? tv.channels.map((c, i) => ({ ...c, slug: tvSlugs[i] })).filter((c) => !c.off) : [];
-  const feed = buildFeed({ products: all.slice(0, 120), islamic: [...feedPosts, ...ISLAMIC_ITEMS], channels: tvItems, tools: TOOLS, day: Math.floor((Date.now() + 5 * 3600000) / 86400000), max: 36 });
+  const feed = buildFeed({ products: all.slice(0, 120), islamic: [...feedPosts, ...ISLAMIC_ITEMS], channels: tvItems, tools: TOOLS, images: muaazImgs, day: Math.floor((Date.now() + 5 * 3600000) / 86400000), max: 36 });
   const socials = SITE.social.filter((s) => s.url);
   const delivery = SITE.shippingFee > 0 ? `Delivery ${formatPKR(SITE.shippingFee)}` : 'Free delivery';
 

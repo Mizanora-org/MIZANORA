@@ -45,6 +45,21 @@ export default function MarketFeed({ feed }) {
                 <span className="mt-2 inline-block text-xs font-bold text-gold">Kholein</span>
               </Link>
             )}
+            {kind === 'muaaz' && (
+              <Link href="/muaaz-iqbal" prefetch={false} className="block overflow-hidden rounded-2xl border border-gold/25 bg-surface p-3 transition hover:-translate-y-0.5 hover:border-gold">
+                <div className="overflow-hidden rounded-xl bg-raised">
+                  {item.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.url} alt={item.title || 'Muaaz Iqbal'} loading="lazy" referrerPolicy="no-referrer" className="h-32 w-full object-cover sm:h-40" />
+                  ) : <div className="grid h-32 place-items-center font-display text-3xl text-bronze sm:h-40">MI</div>}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold/10 px-2 py-0.5 text-[0.62rem] font-extrabold text-gold">Muaaz Iqbal</span>
+                  <p className="line-clamp-1 text-sm font-bold">{item.title || 'Muaaz Iqbal ki photo'}</p>
+                </div>
+                {item.caption && <p className="mt-1 line-clamp-2 text-xs text-dim">{item.caption}</p>}
+              </Link>
+            )}
           </div>
         ))}
       </FeedFilter>

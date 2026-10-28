@@ -4,6 +4,7 @@ import { absUrl } from '@/lib/config';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import { FOUNDER, FOUNDER_LINKS } from '@/lib/team';
+import { getMuaazImages } from '@/lib/imagesServer';
 import FounderPhoto from '@/components/FounderPhoto';
 
 export const revalidate = 86400;
@@ -40,13 +41,15 @@ const FAQ = [
   ['What is Asaan Lang?', 'Asaan Lang is an Urdu and Roman-Urdu programming language made by Muaaz Iqbal. It is open source (MIT), runs on Python 3.8+, shows errors in Roman-Urdu and can compile a program into a website. Site: asaan-lang.vercel.app.'],
 ];
 
-export default function MuaazPage() {
+export default async function MuaazPage() {
+  const photos = await getMuaazImages().catch(() => []);
   const crumbs = [['/', 'Home'], ['/muaaz-iqbal', 'Muaaz Iqbal']];
   const profile = {
     '@context': 'https://schema.org', '@type': 'ProfilePage', url: absUrl('/muaaz-iqbal'), name: 'Muaaz Iqbal',
     mainEntity: {
       '@type': 'Person', '@id': absUrl('/muaaz-iqbal#person'), name: 'Muaaz Iqbal', alternateName: ['Muaaz Iqbal Kasur', 'Muaaz Iqbal Mizanora'],
       jobTitle: 'Founder and full-stack developer', url: absUrl('/muaaz-iqbal'), image: FOUNDER.photos[0],
+      birthDate: '2009-11-27',
       address: { '@type': 'PostalAddress', addressLocality: 'Kasur', addressRegion: 'Punjab', addressCountry: 'PK' },
       worksFor: { '@id': absUrl('/#org') },
       sameAs: ['https://pk.linkedin.com/in/muaaz-iqbal-744b25430', 'https://github.com/muaaziqbalvip', 'https://asaan-lang.vercel.app', 'https://www.youtube.com/@MuaazIqbalofficial', 'https://x.com/MizanoraApps', 'https://www.instagram.com/mizanora', 'https://www.instagram.com/mezanora.market'],
@@ -71,9 +74,27 @@ export default function MuaazPage() {
 
         <section className="prose-mz mt-8" aria-labelledby="about">
           <h2 id="about">About Muaaz Iqbal</h2>
-          <p><strong>Muaaz Iqbal</strong> is an independent software developer and digital entrepreneur from Kasur, Punjab, Pakistan. He designs, builds and ships complete products on his own: web platforms, a high-volume online store and a calendar app for phones. His way of working joins modern AI tools with honest business, privacy-first design and the idea behind the name Mizanora: <em>mizan</em>, balance and fair dealing.</p>
+          <p><strong>Muaaz Iqbal</strong> is an independent software developer and digital entrepreneur from Kasur, Punjab, Pakistan. He was born on <strong>27 November 2009</strong> and builds complete products on his own: web platforms, a high-volume online store and a calendar app for phones. His way of working joins modern AI tools with honest business, privacy-first design and the idea behind the name Mizanora: <em>mizan</em>, balance and fair dealing.</p>
           <p>He is the founder of <Link href="/">Mizanora</Link>, an online market for Pakistan with cash on delivery, and of <strong>HijriAnchor</strong>, an offline, ad-free dual calendar. More about the people behind the shop is on the <Link href="/team">team page</Link>, and his story is told in <Link href="/blog/who-is-muaaz-iqbal-founder-of-mizanora">this article</Link>.</p>
         </section>
+
+        {photos.length > 0 && (
+          <section className="mt-8" aria-labelledby="photos">
+            <h2 id="photos" className="section-title mb-3">Photos</h2>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {photos.map((ph) => (
+                <li key={ph.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
+                  {ph.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={ph.url} alt={ph.title || 'Muaaz Iqbal'} loading="lazy" referrerPolicy="no-referrer" className="h-28 w-full object-cover" />
+                  ) : <div className="grid h-28 place-items-center font-display text-2xl text-bronze">MI</div>}
+                  {(ph.title || ph.caption) && <p className="p-2 text-xs text-dim line-clamp-2">{ph.title || ph.caption}</p>}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-faint">Add more pictures from <b>Admin &gt; Images</b> (group: Muaaz Iqbal). They appear here and in the image sitemap automatically.</p>
+          </section>
+        )}
 
         <section className="prose-mz mt-8" aria-labelledby="asaan">
           <h2 id="asaan">Asaan Lang: a programming language in Urdu</h2>

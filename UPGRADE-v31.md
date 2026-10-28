@@ -91,3 +91,16 @@ immediately because every serve validates the key doc.
   origin matches `NEXT_PUBLIC_SITE_URL`, so other websites cannot use it.
 - Cache: campaign list revalidates every 45 s (tag `ads`); the admin panel refreshes
   instantly through `revalidateSite(undefined, ['ads'])`.
+
+## Blogs & images (v31b)
+
+- **New blog posts** about **Muaaz Iqbal**:
+  - `content/blog/muaaz-iqbal-birthday-27-november-2009-age.md` — born **27 November 2009**,
+    currently **16** (turns 17 on 27 November 2026), with an image (front matter `image:`).
+  - `muaaz-iqbal-biography-profile-projects-skills.md` updated with the birth date and an image.
+  - Blog cards on `/blog` and the BlogPosting JSON-LD now use each post's `image:`.
+- **Admin → Images** (new, Content group): add **image links** (no upload). Group `muaaz`
+  pictures appear on **/muaaz-iqbal** (gallery), in the **home feed** ("Muaaz Iqbal" photo
+  cards) and in the **image sitemap** (`sitemap.xml`), so Google Images / search find them.
+- `/muaaz-iqbal` also carries `birthDate: 2009-11-27` in its structured data.
+- Firestore rules: `/siteImages/{id}` public read, admin write.

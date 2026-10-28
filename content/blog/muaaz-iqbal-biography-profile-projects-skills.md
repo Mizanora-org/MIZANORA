@@ -3,12 +3,14 @@ title: Muaaz Iqbal Biography: Projects, Skills and the Story Behind Mizanora
 slug: muaaz-iqbal-biography-profile-projects-skills
 description: A clear profile of Muaaz Iqbal from Kasur, Pakistan: what he builds, which projects he runs (Mizanora, HijriAnchor, Muslim Islam Organization) and how to follow his work.
 date: 2026-10-23
+image: https://i.ibb.co/Kj0c67jy/file-0000000071bc8211be27cfb9f09fc98a.png
 ---
 **Muaaz Iqbal** is a young developer, AI builder and online-business founder from **Kasur, Punjab, Pakistan**. He is the person behind **Mizanora**, a Pakistani online shop with cash on delivery, and several other projects that he designs, codes and runs himself.
 
 ## At a glance
 
 - **Name:** Muaaz Iqbal
+- **Born:** 27 November 2009 (turns 17 on 27 November 2026)
 - **City:** Kasur, Punjab, Pakistan
 - **Work:** Full-stack developer (Next.js, React, Firebase), AI orchestration, digital marketing
 - **Main project:** Mizanora, "Shop Smart. Shop Halal"
@@ -36,7 +38,7 @@ Muaaz works the way many modern solo builders do: he writes the product idea in 
 
 ## Privacy note
 
-Muaaz keeps his personal details (home address, date of birth and similar) private, as every young person online should. The public profile contains only his work, his projects and his official links.
+Muaaz keeps his personal details (home address and similar) private, as every young person online should. His date of birth (27 November 2009) is shared at his own request - see the birthday article for his age and birthday story. The public profile contains only his work, his projects and his official links.
 
 ## Contact
 

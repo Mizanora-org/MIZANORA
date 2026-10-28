@@ -6,6 +6,8 @@ import { SURAHS, slugOfSurah } from '@/lib/quran';
 import { TOOLS } from '@/lib/tools';
 import { getTvConfig } from '@/lib/liveTvServer';
 import { channelSlugs } from '@/lib/liveTv';
+import { getMuaazImages } from '@/lib/imagesServer';
+import { FOUNDER } from '@/lib/team';
 
 export const revalidate = 3600;
 
@@ -16,6 +18,9 @@ export default async function sitemap() {
   try { archived = (await allCards()).archived; } catch { /* no archive */ }
   const posts = getPosts();
   const now = new Date();
+  // v31: Muaaz Iqbal's photos go into the image sitemap so Google Images / search can find them.
+  const muaazImgs = (await getMuaazImages().catch(() => [])).map((i) => i.url).filter(Boolean);
+  const muaazPageImgs = [...FOUNDER.photos, ...muaazImgs].filter(Boolean).slice(0, 12);
   let tv = [];
   try { const cfg = await getTvConfig(); if (cfg.enabled) { const sl = channelSlugs(cfg.channels); tv = cfg.channels.map((c, i) => ({ c, s: sl[i] })).filter((x) => !x.c.off).slice(0, 800); } } catch { /* no TV */ }
   const fixed = [
@@ -23,8 +28,12 @@ export default async function sitemap() {
     ['/about', 0.5, 'monthly'], ['/team', 0.7, 'weekly'], ['/contact', 0.5, 'monthly'], ['/faq', 0.6, 'monthly'], ['/connect', 0.4, 'monthly'],
     ['/returns', 0.3, 'yearly'], ['/shipping', 0.5, 'monthly'], ['/size-guide', 0.5, 'monthly'], ['/islamic', 0.6, 'weekly'], ['/deals', 0.9, 'daily'], ['/quran', 0.7, 'monthly'], ['/hadith', 0.7, 'monthly'], ['/live', 0.7, 'daily'], ['/tools', 0.9, 'weekly'], ['/reviews', 0.7, 'daily'], ['/muaaz-iqbal', 0.8, 'monthly'], ['/winter', 0.7, 'weekly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'],
   ].map(([p, priority, changeFrequency]) => ({ url: absUrl(p), lastModified: now, changeFrequency, priority }));
+  // v31: /muaaz-iqbal carries its images in the sitemap (Google Images / search)
+  const fixedWithImgs = muaazPageImgs.length
+    ? fixed.map((f) => (f.url === absUrl('/muaaz-iqbal') ? { ...f, images: muaazPageImgs } : f))
+    : fixed;
   return [
-    ...fixed,
+    ...fixedWithImgs,
     ...SURAHS.map((x) => ({ url: absUrl(`/quran/${slugOfSurah(x.n)}`), lastModified: now, changeFrequency: 'yearly', priority: 0.5 })),
     ...cats.map((c) => ({ url: absUrl(`/category/${c.slug}`), lastModified: now, changeFrequency: 'weekly', priority: 0.8 })),
     ...products.map((p) => ({ url: absUrl(`/product/${p.slug}`), lastModified: new Date(p.updatedAt || p.createdAt || now), changeFrequency: 'weekly', priority: 0.9, images: (p.images || []).slice(0, 3) })),
@@ -32,6 +41,7 @@ export default async function sitemap() {
     ...archived.slice(0, Math.max(0, 49000 - products.length - cats.length)).map((c) => ({ url: absUrl(`/product/${c.slug}`), lastModified: new Date(c.createdAt || now), changeFrequency: 'monthly', priority: 0.6 })),
     ...TOOLS.map((t) => ({ url: absUrl(`/tools/${t.slug}`), lastModified: now, changeFrequency: 'monthly', priority: 0.8 })),
     ...tv.map((x) => ({ url: absUrl(`/live/${x.s}`), lastModified: now, changeFrequency: 'weekly', priority: 0.5 })),
-    ...posts.map((p) => ({ url: absUrl(`/blog/${p.slug}`), lastModified: new Date(p.date), changeFrequency: 'monthly', priority: 0.7 })),
+    // v31: blog posts advertise their image (front matter "image: https://...")
+    ...posts.map((p) => ({ url: absUrl(`/blog/${p.slug}`), lastModified: new Date(p.date), changeFrequency: 'monthly', priority: 0.7, ...(p.image ? { images: [String(p.image)].filter(Boolean).slice(0, 3) } : {}) })),
   ];
 }

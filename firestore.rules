@@ -34,6 +34,10 @@ service cloud.firestore {
     match /adKeys/{id}   { allow read, write: if false; }
     match /adStats/{id}  { allow read, write: if false; }
 
+    // v31: site images (Admin > Images). Public read: the gallery, the feed and the
+    // image sitemap use them; only the admin adds or removes picture links.
+    match /siteImages/{id} { allow read: if true; allow write: if isAdmin(); }
+
     // Orders are created ONLY by the server (/api/orders uses the Admin SDK, which bypasses these rules).
     // A signed-in customer can read ONLY their own orders (orders carry the customer's uid). The admin reads all.
     match /orders/{id} {
