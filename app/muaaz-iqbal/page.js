@@ -15,6 +15,7 @@ export const metadata = pageMeta({
 });
 
 const PROJECTS = [
+  ['BarakatWave TV', 'https://github.com/muaaziqbalvip/BarakatWave-TV', 'A new live TV streaming web app for Pakistan and India: fast Vercel-hosted live channels, a modern phone-first UI and a cross-border (PAK + IND) channel line-up. MIT licence. Code on GitHub: muaaziqbalvip/BarakatWave-TV.'],
   ['Asaan Lang (آسان لینگ)', 'https://asaan-lang.vercel.app', 'Pakistan\'s Urdu and Roman-Urdu programming language: likho, agar, warna, har, kaam. Errors come in Roman-Urdu with the line number, it has a playground and a website compiler, and it needs only Python 3.8+. MIT licence. Code on GitHub: muaaziqbalvip/asaan-lang.'],
   ['Mizanora order tracking (MIZANORAOT)', 'https://github.com/muaaziqbalvip/MIZANORAOT', 'Order tracking with tracking IDs and a Vercel API.'],
   ['Mizanora Android', 'https://github.com/muaaziqbalvip/Mizanoraandroid', 'An Android panel and an APK build pipeline for the store.'],
@@ -132,7 +133,7 @@ bas`}</code></pre>
           <div className="space-y-3">{FAQ.map(([q, a]) => <details key={q} className="rounded-2xl border border-line bg-surface p-4"><summary className="cursor-pointer font-bold">{q}</summary><p className="mt-2 text-sm text-dim">{a}</p></details>)}</div>
         </section>
 
-        <p className="mt-8 text-sm text-dim">Contact for orders and support: WhatsApp {FOUNDER.phone}. Related reading: <Link className="text-gold underline" href="/blog/muaaz-iqbal-kasur-developer-ai-researcher-marketer">Muaaz Iqbal, Kasur developer</Link>, <Link className="text-gold underline" href="/blog/muaaz-iqbal-story-how-mizanora-was-built">how Mizanora was built</Link>.</p>
+        <p className="mt-8 text-sm text-dim">Contact for orders and support: WhatsApp {FOUNDER.phone}. Related reading: <Link className="text-gold underline" href="/blog/muaaz-iqbal-kasur-developer-ai-researcher-marketer">Muaaz Iqbal, Kasur developer</Link>, <Link className="text-gold underline" href="/blog/muaaz-iqbal-story-how-mizanora-was-built">how Mizanora was built</Link>, <Link className="text-gold underline" href="/blog/barakatwave-tv-live-streaming-app-muaaz-iqbal">BarakatWave TV</Link>.</p>
       </article>
       <JsonLd data={[breadcrumbJsonLd(crumbs), profile, faqJsonLd(FAQ)]} />
     </>

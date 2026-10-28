@@ -19,6 +19,16 @@ assert.ok(bday.image && /^https?:\/\//.test(bday.image), 'birthday post carries 
 assert.ok(posts.some((p) => p.slug === 'muaaz-iqbal-biography-profile-projects-skills'));
 assert.match(getPost('muaaz-iqbal-biography-profile-projects-skills').html, /27 November 2009/);
 
+// ---- blog: BarakatWave TV (Muaaz Iqbal's new live streaming app) ----------
+const bw = getPost('barakatwave-tv-live-streaming-app-muaaz-iqbal');
+assert.ok(bw, 'barakatwave-tv blog post exists');
+assert.match(bw.html, /BarakatWave TV/);
+assert.match(bw.html, /Pakistan and India/);
+assert.match(bw.html, /github\.com\/muaaziqbalvip\/BarakatWave-TV/);
+assert.ok(bw.image && /^https?:\/\//.test(bw.image), 'barakatwave post carries an image');
+assert.match(read('app/muaaz-iqbal/page.js'), /BarakatWave TV/);
+assert.match(read('app/muaaz-iqbal/page.js'), /\/blog\/barakatwave-tv-live-streaming-app-muaaz-iqbal/);
+
 // ---- images server + admin panel -------------------------------------------
 const { cleanImage } = await imp('lib/images.js');
 const img = cleanImage({ url: 'https://x.test/a.jpg', title: '<b>hi</b>', group: 'muaaz', atMs: 5 });
@@ -57,5 +67,6 @@ assert.match(read('app/blog/page.js'), /p\.image/);
 assert.match(read('app/blog/\[slug\]/page.js'), /p\.image/);
 
 console.log('ok    v31: Muaaz Iqbal birthday/age blogs (27 Nov 2009, age 16, turns 17)');
+console.log('ok    v31: BarakatWave TV blog (live streaming app for PAK & IND)');
 console.log('ok    v31: admin Images panel + sitemap images + feed photo cards');
 console.log('\nAll v31 blog/image tests passed.');
