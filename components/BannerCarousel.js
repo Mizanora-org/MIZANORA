@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import RemoteImg from './RemoteImg';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Swipeable, auto-moving banner slider (CSS scroll-snap, no library).
@@ -38,7 +38,7 @@ export default function BannerCarousel({ banners }) {
         className="no-sb flex snap-x snap-mandatory overflow-x-auto scroll-smooth rounded-2xl">
         {banners.map((b, n) => (
           <Link key={b.id} href={b.link} className={`relative block aspect-[16/9] w-full shrink-0 snap-center overflow-hidden text-white sm:aspect-[16/6] ${b.image ? 'bg-raised' : b.bg || 'bg-gold'}`} aria-label={b.title || 'Offer'}>
-            {b.image && <Image referrerPolicy="no-referrer" src={b.image} alt={b.title || 'Mizanora offer'} fill priority={n === 0} sizes="(max-width:1280px) 100vw, 1280px" className="object-cover" />}
+            {b.image && <RemoteImg src={b.image} alt={b.title || 'Mizanora offer'} fill priority={n === 0} sizes="(max-width:1280px) 100vw, 1280px" className="object-cover" />}
             {(b.title || b.subtitle) && (
               <span className={`absolute inset-0 flex flex-col justify-center p-5 sm:p-12 ${b.image ? 'bg-gradient-to-r from-black/70 via-black/30 to-transparent' : ''}`}>
                 {b.kicker && <span className="mb-1 w-fit rounded-full bg-saffron px-3 py-0.5 text-xs font-bold text-[#2B1B00]">{b.kicker}</span>}

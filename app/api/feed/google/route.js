@@ -1,6 +1,7 @@
 import { getProducts } from '@/lib/products';
 import { allCards } from '@/lib/catalogQuery';
 import { SITE, absUrl, shippingFor } from '@/lib/config';
+import { feedPage, feedHeaders, feedNote } from '@/lib/feedSplit';
 
 export const revalidate = 600;
 
@@ -32,20 +33,26 @@ const gender = (p) => (/\b(women|woman|ladies|girls?)\b|women's|womens/i.test(p.
 // Product feed for Google Merchant Center (free listings in Google Search, Shopping tab and Images).
 // Merchant Center > Products > Feeds > add a "scheduled fetch" feed and use  https://YOUR-DOMAIN/api/feed/google
 export async function GET(req) {
+  const sp = new URL(req.url).searchParams;
   let products = await getProducts();
   // Archived products: the feed uses their slim card (name, price, main photo, category, options). Add ?live=1 for live products only.
-  if (!new URL(req.url).searchParams.get('live')) { try { products = [...products, ...(await allCards()).archived.map((c) => ({ ...c, videos: [], description: c.description || c.name }))]; } catch { /* no archive */ } }
-  if (new URL(req.url).searchParams.get('skipped')) {
+  if (!sp.get('live')) { try { products = [...products, ...(await allCards()).archived.map((c) => ({ ...c, videos: [], description: c.description || c.name }))]; } catch { /* no archive */ } }
+  if (sp.get('skipped')) {
     const out = products.filter((p) => !p.images[0] || !(p.price > 0)).map((p) => ({ slug: p.slug, name: p.name, why: !p.images[0] ? 'no photo' : 'no price' }));
     return Response.json({ total: products.length, inFeed: products.length - out.length, skipped: out });
   }
-  const items = products.filter((p) => p.images[0] && p.price > 0).map((p) => `
+  // v32: split into numbered parts (a 16 MB file is refused by the platform, and
+  // then Merchant Center gets nothing at all).
+  // 2000 items keep one part around 3 MB: comfortably below the platform's ~4.5 MB
+  // response limit even after a future price/shipping field is added.
+  const pg = feedPage(products.filter((p) => p.images[0] && p.price > 0), { page: sp.get('part') || sp.get('page'), size: sp.get('size') || 2000 });
+  const items = pg.items.map((p) => `
     <item>
       <g:id>${esc(p.slug)}</g:id>
       <g:title>${esc(p.name.slice(0, 150))}</g:title>
-      <g:description>${esc((p.description || p.name).replace(/\s+/g, ' ').slice(0, 4900))}</g:description>
+      <g:description>${esc((p.description || p.name).replace(/\s+/g, ' ').slice(0, 500))}</g:description>
       <g:link>${esc(absUrl(`/product/${p.slug}`))}</g:link>
-      <g:image_link>${esc(p.images[0])}</g:image_link>${p.images.slice(1, 10).map((u) => `
+      <g:image_link>${esc(p.images[0])}</g:image_link>${p.images.slice(1, 5).map((u) => `
       <g:additional_image_link>${esc(u)}</g:additional_image_link>`).join('')}
       <g:availability>${p.inStock ? 'in_stock' : 'out_of_stock'}</g:availability>
       <g:condition>new</g:condition>
@@ -73,6 +80,7 @@ export async function GET(req) {
       </g:shipping>
     </item>`).join('');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
+${feedNote(pg, '/api/feed/google')}
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
     <title>${esc(SITE.name)}</title>
@@ -80,5 +88,5 @@ export async function GET(req) {
     <description>${esc(SITE.description)}</description>${items}
   </channel>
 </rss>`;
-  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, s-maxage=600' } });
+  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, s-maxage=600', ...feedHeaders(pg, '/api/feed/google') } });
 }

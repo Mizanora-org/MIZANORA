@@ -60,6 +60,16 @@ fewer on weak phones, none when Data Saver is on, and they pause when the tab is
 - `npm test` — import, voice, music, app music and search tests.
 - `npm run build:offline` — a build that does not need the internet (the fonts are mocked). Use the normal `npm run build` for the real deploy, so the real fonts are downloaded.
 
+## v32 upgrade (photos + video ads + big catalogue)
+
+See [UPGRADE-v32.md](UPGRADE-v32.md). In short:
+
+- **Every photo gets three chances**: the optimizer, the browser loading it directly, and the shop's own relay `/api/img` (hotlink blocks, expired links, `http:` links). No more empty cards, banners or cart thumbnails.
+- **Video ads play for real**: MP4/WebM, live `.m3u8` (hls.js served by the shop) and YouTube / Facebook / Instagram / TikTok / Vimeo / Drive embeds, a working play button, poster, mute, skip — and the rotation waits while the video is playing.
+- **Editing a video ad no longer wipes its video link**, ad links are absolute, and `key=self` respects the "Show ads on the shop itself" switch.
+- **The product feeds and `/catalog.json` are paged** (`?part=N`): the old 9 MB / 16 MB / 7.6 MB files were refused by the platform limit (~4.5 MB), so Merchant Center / Commerce Manager got nothing.
+- Build errors in `components/LiveTvPlayer.js` fixed; the flaky ad test and two out-of-date CI tests fixed.
+
 ## v30 upgrade
 
 See [UPGRADE-v30.md](UPGRADE-v30.md) for Live TV themes and backup sources, Noor's limited/AI modes, richer product details, date-range archive export/deletion and safety notes. Archive range operations affect repository files only, not Firebase copies.

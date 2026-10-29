@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Image from 'next/image';
+import RemoteImg from './RemoteImg';
 import Link from 'next/link';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Flame, Heart, Music, Pause, Play, Share2, ShoppingBag, Shuffle, Volume2, VolumeX, X } from 'lucide-react';
 import { parseVideo } from '@/lib/video';
@@ -40,14 +40,11 @@ function probeVideo(el) {
 // ---------------------------------------------------------------------------------------------
 function Poster({ reel, v, sizes = '240px', priority = false, className = '' }) {
   const src = v.thumb || reel.image;
-  const [bad, setBad] = useState(0); // 0 = optimised photo, 1 = the plain photo (some hosts refuse the optimiser), 2 = brand colours
+  // RemoteImg handles: optimised photo -> plain photo -> the shop's image relay -> brand colours.
+  const [dead, setDead] = useState(false);
   const fallback = <span className={`absolute inset-0 bg-gradient-to-br from-gold via-[#0A5A3A] to-[#06301F] ${className}`} />;
-  if (!src || bad >= 2) return fallback;
-  if (bad === 1) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={() => setBad(2)} className={`absolute inset-0 h-full w-full object-cover ${className}`} />;
-  }
-  return <Image referrerPolicy="no-referrer" src={src} alt="" fill sizes={sizes} priority={priority} onError={() => setBad(1)} className={`object-cover ${className}`} />;
+  if (!src || dead) return fallback;
+  return <RemoteImg src={src} alt="" fill sizes={sizes} priority={priority} onDead={() => setDead(true)} className={`object-cover ${className}`} />;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -272,7 +269,7 @@ function Viewer({ reels, start, onClose, music }) {
                 <div className="absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pr-16">
                   <p className="line-clamp-2 text-base font-bold leading-snug drop-shadow">{reel.title}</p>
                   <div className="mt-2.5 flex items-center gap-3 rounded-2xl bg-black/45 p-2">
-                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/20">{reel.image && <Image referrerPolicy="no-referrer" src={reel.image} alt="" fill sizes="48px" className="object-cover" />}</span>
+                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/20">{reel.image && <RemoteImg src={reel.image} alt="" fill sizes="48px" className="object-cover" />}</span>
                     <span className="min-w-0 flex-1">
                       {reel.price > 0 && <span className="block text-lg font-extrabold leading-none text-saffron">{formatPKR(reel.price)}</span>}
                       <span className="block text-[0.7rem] text-white/80">Cash on delivery</span>

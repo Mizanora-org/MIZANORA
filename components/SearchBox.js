@@ -1,6 +1,6 @@
 'use client';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import Image from 'next/image';
+import RemoteImg from './RemoteImg';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Clock, CornerDownLeft, Search, Tag, X } from 'lucide-react';
@@ -190,7 +190,7 @@ export default function SearchBox({ id, className = '', categories = [] }) {
                     </Link>
                   ) : (
                     <Link href={`/product/${row.p.slug}`} onClick={() => setOpen(false)} onMouseEnter={() => setActive(i)} className={`flex items-center gap-3 px-3 py-2 ${active === i ? 'bg-raised' : 'hover:bg-raised'}`}>
-                      <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-raised">{row.p.image && <Image referrerPolicy="no-referrer" src={row.p.image} alt="" fill sizes="44px" className="object-cover" />}</span>
+                      <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-raised">{row.p.image && <RemoteImg src={row.p.image} alt="" fill sizes="44px" className="object-cover" />}</span>
                       <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold"><Highlight text={row.p.name} words={queryWords(dq)} /></span><span className="text-xs text-faint">{row.p.category}</span></span>
                       <span className="text-sm font-bold text-gold">{formatPKR(getPricing(row.p.id, row.p.price, row.p.comparePrice || 0).price)}</span>
                     </Link>

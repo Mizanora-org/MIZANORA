@@ -77,10 +77,14 @@ assert.ok(/pk\.linkedin\.com\/in\/muaaz-iqbal-744b25430/.test(tm) && /github\.co
 const posts = ['asaan-lang-urdu-programming-language-by-muaaz-iqbal', 'learn-coding-in-urdu-asaan-lang-examples-for-beginners', 'muaaz-iqbal-linkedin-github-asaan-lang-mizanora-projects'];
 for (const s of posts) { const t = read(`content/blog/${s}.md`); assert.ok(t.startsWith('---\ntitle:') && t.includes(`slug: ${s}`) && /date: 2026-10-24/.test(t)); assert.ok(!/2009|27 ?nov|date of birth/i.test(t), `${s}: no date of birth`); }
 assert.ok(/pk\.linkedin\.com/.test(read(`content/blog/${posts[2]}.md`)));
-assert.ok(!/2009|27 ?nov|date of birth/i.test(mp), 'no date of birth on the profile');
+// The owner now publishes his birth date on purpose (the profile carries
+// birthDate: '2009-11-27' and there is a birthday article), so the old
+// "no date of birth on the profile" rule was dropped here; it still applies to
+// the three Asaan Lang posts above.
+assert.ok(/birthDate: '2009-11-27'/.test(mp), 'profile states the same birth date as the birthday article');
 const { getPosts } = await import(pathToFileURL(path.join(root, 'lib/blog.js')).href).catch(() => ({ getPosts: null }));
 if (getPosts) { const g = getPosts().find((p) => p.slug === posts[0]); assert.ok(g && /<pre/.test(g.html || g.content || ''), 'code blocks render'); }
-ok('Muaaz Iqbal: LinkedIn + GitHub + Asaan Lang on the profile, 3 new posts, code blocks, no date of birth');
+ok('Muaaz Iqbal: LinkedIn + GitHub + Asaan Lang on the profile, 3 new posts, code blocks, stated birth date');
 
 // assistant
 const as = read('app/api/assistant/route.js');

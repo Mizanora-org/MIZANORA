@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { SITE } from '@/lib/config';
 import { serveAds } from '@/lib/adsServer';
 
 export const runtime = 'nodejs';
@@ -12,23 +11,26 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400',
   'Cache-Control': 'no-store',
+  Vary: 'Origin',
 };
 
 // GET /api/ads/serve?key=mza_xxx&slot=video&count=1
 // slot: '' | 'auto' | 'banner' | 'video' | 'animation' | 'product' | 'html'
-// Special key "self": the shop's own pages (only accepted when the request
-// comes from the shop's own origin - home + deals pages use it).
+// Special key "self": the shop's own pages (accepted only from the shop's own
+// address AND only when the admin switched "Show ads on the shop itself" on).
 export async function GET(req) {
   const sp = req.nextUrl.searchParams;
   const key = sp.get('key') || '';
   const slot = String(sp.get('slot') || '').slice(0, 20);
   const count = Math.max(1, Math.min(12, Math.floor(Number(sp.get('count'))) || 1));
   const origin = String(req.headers.get('origin') || '').replace(/\/$/, '');
+  const host = String(req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(',')[0].trim();
 
-  const r = await serveAds({ key, slot, count, selfOrigin: origin });
+  const r = await serveAds({ key, slot, count, selfOrigin: origin, selfHost: host });
   if (!r.ok) {
-    const status = /key|auth/i.test(String(r.error || '')) ? 401 : 503;
+    const status = /key|auth|self/i.test(String(r.error || '')) ? 401 : 503;
     return NextResponse.json({ ok: false, error: r.error }, { status, headers: CORS });
   }
   return NextResponse.json(r, { headers: CORS });
