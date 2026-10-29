@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import RemoteImg from './RemoteImg';
 import { useRouter } from 'next/navigation';
 import { Loader2, Lock, MapPin, Pencil, ShieldCheck, Tag, Truck } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -295,7 +295,7 @@ export default function CheckoutClient() {
           <ul className="space-y-3">
             {items.map((i) => (
               <li key={i.key} className="flex gap-3">
-                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-raised">{i.image && <Image referrerPolicy="no-referrer" src={i.image} alt="" fill sizes="56px" className="object-cover" />}</div>
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-raised">{i.image && <RemoteImg src={i.image} alt="" fill sizes="56px" className="object-cover" />}</div>
                 <div className="min-w-0 flex-1 text-sm"><p className="line-clamp-2">{i.name}</p><p className="text-faint">{i.size ? `${i.size} · ` : ''}Qty {i.qty}</p></div>
                 <p className="text-sm font-semibold">{formatPKR(i.price * i.qty)}</p>
               </li>
@@ -338,7 +338,7 @@ export default function CheckoutClient() {
             <ul className="mt-4 space-y-2.5">
               {items.map((i) => (
                 <li key={i.key} className="flex items-center gap-3 rounded-xl bg-raised p-2.5">
-                  <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-white">{i.image && <Image referrerPolicy="no-referrer" src={i.image} alt="" fill sizes="56px" className="object-cover" />}</span>
+                  <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-white">{i.image && <RemoteImg src={i.image} alt="" fill sizes="56px" className="object-cover" />}</span>
                   <span className="min-w-0 flex-1 text-sm"><b className="line-clamp-2">{i.name}</b><span className="block text-faint">{i.size ? `${i.size} · ` : ''}Qty {i.qty}</span></span>
                   <b className="shrink-0 text-sm">{formatPKR(i.price * i.qty)}</b>
                 </li>

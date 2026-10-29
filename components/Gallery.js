@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import Image from 'next/image';
+import RemoteImg from './RemoteImg';
 import { Play } from 'lucide-react';
 import { reportBrokenImage } from '@/lib/imageReport';
 
@@ -10,7 +10,8 @@ export default function Gallery({ images, videos = [], name, slug }) {
   const [i, setI] = useState(0);
   const [on, setOn] = useState(false);           // the video of the current slide is playing
   const [vbad, setVbad] = useState({});
-  const [bad, setBad] = useState({});            // photos that failed to load: 1 = try the plain photo, 2 = placeholder (reported once)
+  // photos that failed every step: the placeholder is shown and the broken link is reported once
+  const [, setBad] = useState({});
   const slides = [...images.map((src) => ({ t: 'img', src })), ...videos.map((v) => ({ t: 'vid', v }))];
   if (!slides.length) return <div className="grid aspect-square place-items-center rounded-2xl bg-raised font-display text-5xl text-bronze">M</div>;
   const go = (d) => { setOn(false); setI((c) => (c + d + slides.length) % slides.length); };
@@ -19,12 +20,17 @@ export default function Gallery({ images, videos = [], name, slug }) {
   let x0 = null;
   const cur = slides[i];
 
-  const photo = (src, n, big) => (bad[n] === 2 ? <span className="grid h-full w-full place-items-center bg-raised text-bronze">M</span> : bad[n] === 1 ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={big ? `${name} - photo ${n + 1}` : ''} referrerPolicy="no-referrer" decoding="async" loading={big ? undefined : 'lazy'} className="absolute inset-0 h-full w-full object-cover" onError={() => { setBad((b) => ({ ...b, [n]: 2 })); if (big) reportBrokenImage(slug); }} />
-  ) : (
-    <Image referrerPolicy="no-referrer" src={src} alt={big ? `${name} - photo ${n + 1}` : ''} fill priority={big && n === 0} sizes={big ? '(max-width:1024px) 100vw, 50vw' : '64px'} className="object-cover" onError={() => setBad((b) => ({ ...b, [n]: 1 }))} />
-  ));
+  const photo = (src, n, big) => (
+    <RemoteImg
+      src={src}
+      alt={big ? `${name} - photo ${n + 1}` : ''}
+      fill
+      priority={big && n === 0}
+      sizes={big ? '(max-width:1024px) 100vw, 50vw' : '64px'}
+      className="object-cover"
+      onDead={() => { setBad((b) => ({ ...b, [n]: 3 })); if (big) reportBrokenImage(slug); }}
+    />
+  );
 
   return (
     <div className="min-w-0 max-w-full">

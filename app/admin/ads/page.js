@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { authClient, dbClient, firebaseConfigured } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
-import { AD_TYPES, ANIM_PRESETS, cleanAd } from '@/lib/ads';
+import { AD_TYPES, ANIM_PRESETS, cleanAd, videoMeta } from '@/lib/ads';
 
 const TABS = [
   { id: 'ads', label: 'Ads', icon: Megaphone },
@@ -62,7 +62,19 @@ export default function AdminAds() {
 
   function newAd() { setForm(NEW_AD); setEditing(true); setPreview(null); }
   function editAd(ad) {
-    setForm({ ...NEW_AD, ...ad, video: ad.video || {}, product: ad.product || null });
+    // v32: the video link used to be LOST here (it is stored in ad.video.url while
+    // the form keeps videoUrl), so saving an old video ad wiped its video. Fixed.
+    const v = ad.video || {};
+    setForm({
+      ...NEW_AD,
+      ...ad,
+      videoUrl: v.url || ad.videoUrl || '',
+      poster: v.poster || ad.poster || '',
+      muted: v.muted !== undefined ? v.muted !== false : true,
+      loop: v.loop !== undefined ? v.loop !== false : true,
+      skipAfter: v.skipAfter !== undefined ? v.skipAfter : 5,
+      product: ad.product || null,
+    });
     setEditing(true); setPreview(null);
   }
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
@@ -201,14 +213,20 @@ export default function AdminAds() {
               )}
 
               {form.type === 'video' && (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="block text-sm"><span className="label">Video URL (mp4 / webm)</span><input className="input" value={form.videoUrl} onChange={(e) => set('videoUrl', e.target.value)} placeholder="https://.../ad.mp4" /></label>
-                  <label className="block text-sm"><span className="label">Poster image URL</span><input className="input" value={form.poster} onChange={(e) => set('poster', e.target.value)} placeholder="https://..." /></label>
-                  <label className="block text-sm"><span className="label">Skip countdown (seconds)</span><input className="input" type="number" min="0" max="30" value={form.skipAfter} onChange={(e) => set('skipAfter', Number(e.target.value))} /></label>
-                  <div className="flex gap-4 text-sm">
-                    <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-[#0B6B45]" checked={form.muted} onChange={(e) => set('muted', e.target.checked)} /> Muted (autoplays on every phone)</label>
-                    <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-[#0B6B45]" checked={form.loop} onChange={(e) => set('loop', e.target.checked)} /> Loop</label>
+                <div className="grid gap-3">
+                  <label className="block text-sm"><span className="label">Video link (mp4, webm, .m3u8, YouTube, Facebook, Instagram, TikTok, Vimeo, Drive)</span>
+                    <textarea className="input font-mono !text-xs" rows={2} spellCheck={false} value={form.videoUrl} onChange={(e) => set('videoUrl', e.target.value)} placeholder="https://.../ad.mp4   or   https://www.youtube.com/watch?v=..." />
+                  </label>
+                  <VideoSourceHint url={form.videoUrl} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm"><span className="label">Poster image URL (optional)</span><input className="input" value={form.poster} onChange={(e) => set('poster', e.target.value)} placeholder="https://... (YouTube / Vimeo use their own cover)" /></label>
+                    <label className="block text-sm"><span className="label">Skip countdown (seconds, 0 = no skip)</span><input className="input" type="number" min="0" max="30" value={form.skipAfter} onChange={(e) => set('skipAfter', Number(e.target.value))} /></label>
+                    <div className="flex flex-wrap gap-4 text-sm sm:col-span-2">
+                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-[#0B6B45]" checked={form.muted} onChange={(e) => set('muted', e.target.checked)} /> Muted (autoplays on every phone)</label>
+                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-[#0B6B45]" checked={form.loop} onChange={(e) => set('loop', e.target.checked)} /> Loop</label>
+                    </div>
                   </div>
+                  <p className="text-xs text-dim">The video plays in a real player: muted autoplay where the browser allows it, a working play button where it does not, and a CTA button that opens your link. A video ad is never cut off by the rotation.</p>
                 </div>
               )}
 
@@ -270,7 +288,7 @@ function AdsTab({ data, statsOf, ctrOf, onEdit, onDel }) {
               <p className="mt-1 line-clamp-1 text-xs text-dim">
                 {ad.headline || ad.product && ad.product.name || '(no headline)'}
                 {ad.productId ? ` · ${ad.productId}` : ''}
-                {ad.videoUrl ? ' · video' : ''}
+                {ad.video && ad.video.url ? ' · video' : ''}
               </p>
             </div>
             <div className="flex gap-6 text-right">
@@ -506,6 +524,24 @@ function EmbedTab({ data }) {
   );
 }
 
+// ---------------- Video source hint ------------------------------------------
+// Tells the admin, while typing, WHAT the link is and whether it can play.
+function VideoSourceHint({ url }) {
+  const meta = videoMeta(url);
+  if (!url || !String(url).trim()) {
+    return <p className="rounded-lg bg-raised p-2 text-xs text-dim">No link yet. Supported: MP4 / WebM files, live .m3u8 streams, and YouTube, Facebook, Instagram, TikTok, Vimeo, Dailymotion, Streamable or Google Drive video links.</p>;
+  }
+  if (!meta.kind) {
+    return <p className="rounded-lg bg-red-900/30 p-2 text-xs text-red-300">This is not a video link. Use a direct file (.mp4, .webm, .m3u8) or a YouTube / Facebook / Instagram / TikTok / Vimeo link.</p>;
+  }
+  const how = meta.kind === 'iframe' ? 'plays in the site\'s own embed player' : meta.kind === 'hls' ? 'live HLS stream (plays with hls.js)' : 'HTML5 video (muted autoplay + play button)';
+  return (
+    <p className="rounded-lg bg-green-900/30 p-2 text-xs text-green-300">
+      <b>{meta.label || 'Video'}</b> detected - {how}.{meta.vertical ? ' Vertical (9:16) creative.' : ''}{meta.thumb ? ' The cover image comes from the video itself.' : ''}
+    </p>
+  );
+}
+
 // ---------------- Creative preview ------------------------------------------
 function PreviewBox({ creative }) {
   const a = creative || {};
@@ -517,14 +553,35 @@ function PreviewBox({ creative }) {
         <div className="mza-prow">{a.product.price > 0 && <span className="mza-pprice">Rs {a.product.price}</span>}{a.product.comparePrice > a.product.price && <span className="mza-pcmp">Rs {a.product.comparePrice}</span>}</div>
         <span className="mza-pcta">{a.cta}</span></div>
     </div>;
-  } else if (a.type === 'video' && a.video) {
-    node = <div className="mza-video" style={{ minHeight: 220 }}>
-      {a.video.url && <video src={a.video.url} poster={a.video.poster} muted loop playsInline preload="metadata" className="mza-vposter" style={{ height: 220 }} />}
-      {!a.video.url && a.video.poster && <img src={a.video.poster} alt="" className="mza-vposter" style={{ height: 220, width: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />}
-      <div className="mza-vshade" />
-      <div className="mza-vlabel">{a.headline || a.name}</div>
-      <span className="mza-badge">Ad</span>
-    </div>;
+  } else if (a.type === 'video') {
+    // v32: the preview is a REAL player - an iframe for YouTube & co, a normal
+    // <video> for mp4/webm, and a clear message when the link cannot play.
+    const v = a.video || {};
+    const meta = videoMeta(v.url);
+    node = (
+      <div>
+        {meta.kind === 'iframe' ? (
+          <div className="mza-video">
+            <iframe src={meta.src} title="Ad video preview" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" loading="lazy" />
+            <span className="mza-badge">Ad</span>
+          </div>
+        ) : v.url ? (
+          <div className="mza-video">
+            <video src={v.url} poster={v.poster || meta.thumb || undefined} muted={v.muted !== false} loop={v.loop !== false} playsInline controls preload="metadata" />
+            <span className="mza-badge">Ad</span>
+          </div>
+        ) : (
+          <p className="rounded-xl bg-raised p-4 text-sm text-dim">
+            No video link yet. Paste an mp4/webm/.m3u8 link or a YouTube, Facebook, Instagram, TikTok, Vimeo or Drive link above.
+            {v.poster && <img src={v.poster} alt="" className="mt-2 w-full rounded-lg" referrerPolicy="no-referrer" />}
+          </p>
+        )}
+        <p className="mt-2 text-xs text-dim">
+          {meta.label ? `${meta.label} · ${meta.kind === 'iframe' ? 'embed player' : meta.kind === 'hls' ? 'HLS stream (hls.js)' : 'HTML5 video'}` : 'No video'}
+          {a.headline ? ` · ${a.headline}` : ''}
+        </p>
+      </div>
+    );
   } else if (a.type === 'html') {
     node = <div className="mza-slot mza-anim-pop" dangerouslySetInnerHTML={{ __html: a.html || '(empty creative)' }} />;
   } else {

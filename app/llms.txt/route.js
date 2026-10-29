@@ -15,8 +15,11 @@ Pakistani online store. Prices are in PKR. Delivery across Pakistan (about 2-7 d
 Orders are confirmed by phone or message before dispatch. Support is on WhatsApp: https://wa.me/${SITE.whatsapp}
 
 ## Machine-readable data
-- [Full product catalog (JSON)](${absUrl('/catalog.json')}): every active product with price, stock, options and images
-- [Google/Meta product feed (XML)](${absUrl('/api/feed')})
+- [Full product catalog (JSON, paged)](${absUrl('/catalog.json')}): every active product with price, stock, options and images.
+  The shop has 10,000+ products, so the file is split into parts: read 'total', 'part', 'pages' and follow 'next',
+  or ask for one part directly: '/catalog.json?part=2'.
+- [Google/Meta product feed (XML, paged)](${absUrl('/api/feed')}): the same parts, numbered '?part=1..N'
+  ('X-Feed-Pages' header, and a comment at the top of each file). '/api/feed/google' is the Google Merchant version.
 - [Sitemap](${absUrl('/sitemap.xml')})
 
 ## Shop

@@ -487,7 +487,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
           player.on(Dash.MediaPlayer.events.PLAYBACK_PLAYING, () => { if (!dead) { fails.current = 0; setBuffering(false); setStatus('playing'); } });
 
           player.initialize(v, target.src, autoplay);
-          setDashLevels([]); setDashAudioLangs([]); setAudioTracks([]);
+          setDashLevels([]); setDashAudioLangs([]);
           setAudioTrack(0);
           return;
         }
@@ -548,7 +548,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     return () => {
       dead = true;
       clearTimeout(stall);
-      if (dash.current) { try { dash.current.reset(); dash.current.dispose(); } catch (_) { /* gone */ } dash.current = null; dashPlayerEl.current = null; }
+      if (dash.current) { try { dash.current.reset(); dash.current.dispose(); } catch (_) { /* gone */ } dash.current = null; }
       v.onplaying = null; v.onerror = null; v.onwaiting = null; v.onstalled = null; v.oncanplay = null;
       try { v.pause(); } catch (_) { /* gone */ }
     };

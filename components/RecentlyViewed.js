@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
+import RemoteImg from './RemoteImg';
 import Link from 'next/link';
 import { getRecent } from '@/lib/recent';
 import { getSearchIndex } from '@/lib/searchIndex';
@@ -20,7 +20,7 @@ export default function RecentlyViewed({ current = '' }) {
       <div className="no-sb flex gap-3 overflow-x-auto pb-2">
         {items.map((p) => (
           <Link key={p.id} href={`/product/${p.slug}`} className="w-32 shrink-0 sm:w-40">
-            <span className="relative block aspect-square overflow-hidden rounded-xl border border-line bg-raised">{p.image && <Image referrerPolicy="no-referrer" src={p.image} alt={p.name} fill sizes="160px" className="object-cover" />}</span>
+            <span className="relative block aspect-square overflow-hidden rounded-xl border border-line bg-raised">{p.image && <RemoteImg src={p.image} alt={p.name} fill sizes="160px" className="object-cover" />}</span>
             <span className="mt-1 line-clamp-1 block text-sm font-semibold">{p.name}</span>
             <span className="text-sm font-bold text-gold">{formatPKR(p.price)}</span>
           </Link>

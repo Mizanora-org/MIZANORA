@@ -1,6 +1,7 @@
 import { getProducts } from '@/lib/products';
 import { allCards } from '@/lib/catalogQuery';
 import { SITE, absUrl } from '@/lib/config';
+import { feedPage, feedHeaders, feedNote } from '@/lib/feedSplit';
 
 export const revalidate = 600;
 
@@ -10,19 +11,23 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 // In Commerce Manager: Catalog > Data sources > Add items > Data feed > use this URL (/api/feed) and set a daily schedule.
 // The id equals the product slug, the same id the Meta Pixel sends as content_ids, so ads match your catalog.
 export async function GET(req) {
+  const sp = new URL(req.url).searchParams;
   let products = await getProducts();
   // The archive (data/catalog files) is part of the shop too: a zero-Firebase catalogue still reaches Meta.
   // Add ?live=1 to send only the products that live in Firebase.
-  if (!new URL(req.url).searchParams.get('live')) {
+  if (!sp.get('live')) {
     try { products = [...products, ...(await allCards()).archived.map((c) => ({ ...c, videos: [], description: c.description || c.name }))]; } catch { /* no archive */ }
   }
-  const items = products.filter((p) => p.images[0]).map((p) => `
+  // v32: the full catalogue is bigger than a serverless response may be (4.5 MB),
+  // so the feed is split into numbered parts and each part is a valid feed file.
+  const pg = feedPage(products.filter((p) => p.images[0]), { page: sp.get('part') || sp.get('page'), size: sp.get('size') });
+  const items = pg.items.map((p) => `
     <item>
       <g:id>${esc(p.slug)}</g:id>
       <g:title>${esc(p.name.slice(0, 150))}</g:title>
-      <g:description>${esc((p.description || p.name).replace(/\s+/g, ' ').slice(0, 4900))}</g:description>
+      <g:description>${esc((p.description || p.name).replace(/\s+/g, ' ').slice(0, 900))}</g:description>
       <g:link>${esc(absUrl(`/product/${p.slug}`))}</g:link>
-      <g:image_link>${esc(p.images[0])}</g:image_link>${p.images.slice(1, 10).map((u) => `
+      <g:image_link>${esc(p.images[0])}</g:image_link>${p.images.slice(1, 5).map((u) => `
       <g:additional_image_link>${esc(u)}</g:additional_image_link>`).join('')}
       <g:availability>${p.inStock ? 'in stock' : 'out of stock'}</g:availability>
       <g:condition>new</g:condition>
@@ -32,6 +37,7 @@ export async function GET(req) {
       <g:product_type>${esc((p.categories && p.categories.length ? p.categories : [p.category]).join(' > '))}</g:product_type>` : ''}
     </item>`).join('');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
+${feedNote(pg, '/api/feed')}
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
     <title>${esc(SITE.name)}</title>
@@ -39,5 +45,5 @@ export async function GET(req) {
     <description>${esc(SITE.description)}</description>${items}
   </channel>
 </rss>`;
-  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, s-maxage=600' } });
+  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, s-maxage=600', ...feedHeaders(pg, '/api/feed') } });
 }

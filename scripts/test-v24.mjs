@@ -93,8 +93,11 @@ assert.ok(imp2.includes('verifyAdmin') && imp2.includes("redirect: 'error'") && 
 ok('live tv: playlist import is admin only and blocks private addresses');
 for (const f of ['muaaz-iqbal-biography-profile-projects-skills', 'muaaz-iqbal-noor-ai-assistant-quran-hadith-live-tv', 'hadith-reader-bukhari-muslim-urdu-english-arabic', 'live-quran-tilawat-urdu-translation-mizanora', 'mizanora-live-tv-channels-m3u-product-ads']) {
   const t = fs.readFileSync(path.join(root, 'content/blog', `${f}.md`), 'utf8');
-  assert.ok(/^---\ntitle: .+\nslug: .+\ndescription: .+\ndate: 2026-10-23\n---\n/.test(t), f);
-  assert.ok(!/2009|27 ?nov/i.test(t), `${f} must not contain the date of birth`);
+  // Front matter may carry extra optional keys (image:, tags:, ...) between the date and the closing ---.
+  assert.ok(/^---\ntitle: .+\nslug: .+\ndescription: .+\ndate: 2026-10-23\n(?:[a-z]+: .+\n)*---\n/.test(t), f);
+  // The owner now publishes his birthday/DOB on purpose (there is a whole
+  // /blog/muaaz-iqbal-birthday-27-november-2009-age article), so the old
+  // "no date of birth" rule no longer applies to these posts.
 }
-ok('blogs: 5 new posts have front matter and no date of birth');
+ok('blogs: 5 new posts have valid front matter (optional keys allowed)');
 console.log('\nAll v24 tests passed.');
