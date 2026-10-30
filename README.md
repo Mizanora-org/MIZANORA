@@ -231,6 +231,26 @@ npm run build:offline
 Both feeds are paged (each part stays under ~4 MB):
 `/api/feed?part=N`, `/api/feed/google?part=N`, `/catalog.json?part=N`.
 
+## v35 upgrade (a pro-level GitHub profile, generated from this repo)
+
+The owner's profile README (github.com/muaaziqbalvip) is now generated here and shipped as a ready
+package in [`profile/`](profile/SETUP.md):
+
+- **18 animated SVGs**, each in a dark **and** a light file (`<picture>` + `prefers-color-scheme`):
+  `hero` (rotating monogram, sweeping name, typing line, rotating "currently" line, chips, live card
+  with LIVE dot + 3 rotating titles + 20-bar waveform + progress + real counts), `ticker`, `live`
+  (LIVE strip with latest push), `stats` (6 number cards), `languages` (share-of-repos bar),
+  `logo`, `projects` (6 cards), `tech-stack` (4 shelves) and `philosophy`.
+- **The numbers stay true:** every changing value is tagged `data-k="..."`;
+  `profile/scripts/refresh-live.mjs` reads the public GitHub API and the shop's `/api/github` and
+  rewrites only that text. A run with the same numbers changes nothing.
+- **`profile/.github/workflows/refresh.yml`** does it nightly (02:17 UTC), regenerates the art first,
+  and commits only when something actually changed.
+- **The generator** is `scripts/make-profile-art.mjs` (in this repo; `profile/scripts/make-art.mjs` is
+  the same file). The same art is served by the shop at `/brand/profile/*.svg`.
+- Setup, files and the nightly job: [`profile/SETUP.md`](profile/SETUP.md). Tests:
+  `node scripts/test-v35.mjs` (10 checks).
+
 ## v33 upgrade (pure-live badges + GitHub on the website)
 
 - **One live badge everywhere.** `components/LiveBadge.js` + `lib/liveBadges.js` draw every `LIVE / SOON / NEW / OFF AIR` label on the shop: a red dot that beats, a slow sheen, amber for "starts soon", green for new. All CSS, all switched off for `prefers-reduced-motion`.
