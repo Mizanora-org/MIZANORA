@@ -27,6 +27,7 @@ export default function Footer({ categories = [] }) {
           <div className="mt-4 flex gap-3">
             {socials.map((s) => {
               const Icon = SOCIAL_ICONS[s.id];
+              if (!Icon) return null;
               return <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="grid h-10 w-10 place-items-center rounded-full bg-raised text-gold hover:bg-line"><Icon size={20} /></a>;
             })}
           </div>
@@ -34,7 +35,7 @@ export default function Footer({ categories = [] }) {
         <FooterCol title="Shop" links={[['/deals', 'Deals'], ['/products', 'All products'], ...categories.slice(0, 5).map((c) => [`/category/${c.slug}`, c.name]), ['/cart', 'Cart']]} />
         <FooterCol title="Help" links={[['/workers', 'Earn with Mizanora'], ['/reels', 'Reels'], ['/account', 'My account'], ['/track', 'Track order'], ['/wishlist', 'Wishlist'], ['/how-to-order', 'How to order'], ['/faq', 'FAQ'], ['/returns', 'Returns'], ['/contact', 'Contact support'], ['/connect', 'Official accounts']]} />
         <div>
-          <FooterCol title="Company" links={[['/about', 'About us'], ['/team', 'Team & profiles'], ['/muaaz-iqbal', 'Muaaz Iqbal'], ['/quran', 'Quran'], ['/hadith', 'Hadith'], ['/live', 'Live TV'], ['/tools', 'Free tools'], ['/tools/zakat-calculator', 'Zakat calculator'], ['/tools/linux-commands-cheat-sheet', 'Linux commands'], ['/reviews', 'Customer reviews'], ['/islamic', 'Islamic reminders'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
+          <FooterCol title="Company" links={[['/about', 'About us'], ['/team', 'Team & profiles'], ['/muaaz-iqbal', 'Muaaz Iqbal'], ['/quran', 'Quran'], ['/hadith', 'Hadith'], ['/live', 'Live TV'], ['/live-channel', 'Live channel'], ['/reels', 'Reels'], ['/tools', 'Free tools'], ['/tools/zakat-calculator', 'Zakat calculator'], ['/tools/linux-commands-cheat-sheet', 'Linux commands'], ['/reviews', 'Customer reviews'], ['/islamic', 'Islamic reminders'], ['/blog', 'Blog'], ['/privacy-policy', 'Privacy policy'], ['/terms', 'Terms of use']]} />
           <p className="mt-4 text-sm font-semibold text-cream">Get the app</p>
           <span className="mt-2 block text-sm"><InstallApp /></span>
           <p className="mt-1 text-xs text-faint">Tez khulta hai, weak internet par bhi chalta hai. Free.</p>

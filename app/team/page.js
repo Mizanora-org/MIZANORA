@@ -8,6 +8,8 @@ import Reveal from '@/components/Reveal';
 import { CREDIT, FOUNDER, TEAM, initialsOf } from '@/lib/team';
 import FounderPhoto from '@/components/FounderPhoto';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
+import { getGitHub } from '@/lib/githubLive';
+import GitHubLive from '@/components/GitHubLive';
 import { effectiveTier } from '@/lib/workers';
 
 export const revalidate = 300;
@@ -45,7 +47,7 @@ async function publicWorkers() {
 }
 
 export default async function TeamPage() {
-  const workers = await publicWorkers();
+  const [workers, gh] = await Promise.all([publicWorkers(), getGitHub().catch(() => null)]);
   const founder = {
     '@type': 'Person',
     name: FOUNDER.name,
@@ -97,6 +99,13 @@ export default async function TeamPage() {
         </Reveal>
 
         {/* TEAM */}
+        {/* GITHUB, LIVE (v33): the founder's real open-source work, straight from GitHub */}
+        {gh && gh.profile && (
+          <Reveal>
+            <GitHubLive data={gh} limit={4} compact title="Founder on GitHub, live" intro="Har commit yahin dikhta hai: repositories, stars aur languages seedha GitHub se." />
+          </Reveal>
+        )}
+
         <Reveal>
           <section aria-labelledby="team" className="space-y-4">
             <div className="flex items-end justify-between gap-3">

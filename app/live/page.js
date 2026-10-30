@@ -6,7 +6,9 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import ProductAds from '@/components/ProductAds';
 import LiveTvPlayer from '@/components/LiveTvPlayer';
+import LiveStrip from '@/components/LiveStrip';
 import { getTvAds, getTvConfig } from '@/lib/liveTvServer';
+import { getChannelConfig } from '@/lib/liveChannelServer';
 import { channelGroups, channelSlugs } from '@/lib/liveTv';
 
 export const revalidate = 600;
@@ -17,6 +19,9 @@ export const metadata = {
 
 export default async function LivePage() {
   const cfg = await getTvConfig();
+  // v33: the Quran & Hadith channel bar - what MIZANORA itself is broadcasting right now
+  // (it runs even when Live TV has no channels, so this page is never "empty").
+  const chCfg = await getChannelConfig().catch(() => null);
   const on = cfg.enabled && cfg.channels.some((c) => !c.off);
   const ads = on && cfg.ads.enabled ? await getTvAds(cfg.ads.slugs) : [];
   const slugs = channelSlugs(cfg.channels);
@@ -27,6 +32,14 @@ export default async function LivePage() {
     <>
       {ld && <JsonLd data={ld} />}
       <PageHead title={cfg.title} intro={on ? (cfg.note || 'Channel badalne ke liye Pichla / Agla dabayein, ya guide mein se chunein.') : 'Live TV abhi available nahi hai.'} crumbs={[['/', 'Home'], [null, 'Live TV']]} />
+      <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-4">
+        <LiveStrip
+          channel={chCfg}
+          initialAt={Date.now()}
+          tv={{ count: list.length, channels: list.map((x) => ({ name: x.c.name, slug: x.s, off: x.c.off, group: x.c.group })) }}
+          variant="page"
+        />
+      </div>
       <section className="mx-auto max-w-7xl px-3 py-6 sm:px-4">
         {on ? <LiveTvPlayer cfg={cfg} ads={ads} /> : <p className="rounded-2xl bg-raised p-5 text-dim">Live TV jaldi shuru hoga. Tab tak <Link className="font-bold text-gold underline" href="/quran">Quran</Link> aur <Link className="font-bold text-gold underline" href="/hadith">Hadees</Link> padhein.</p>}
       </section>

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Flame, Heart, Music, Pause, Play, Share2, ShoppingBag, Shuffle, Volume2, VolumeX, X } from 'lucide-react';
 import { parseVideo } from '@/lib/video';
 import { formatPKR } from '@/lib/format';
+import LiveBadge from './LiveBadge';
+import { reelBadges } from '@/lib/liveBadges';
 
 const LIKE_KEY = 'mz_reel_likes';
 const MUSIC_KEY = 'mz_reel_music';
@@ -246,7 +248,10 @@ function Viewer({ reels, start, onClose, music }) {
                 {/* top bar */}
                 <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
                   <button type="button" onClick={onClose} aria-label="Close reels" className={btn}><X size={22} /></button>
-                  <span className="rounded-full bg-black/55 px-3 py-1 text-xs font-bold">{i + 1} / {deck.length}</span>
+                  <span className="flex items-center gap-2">
+                    {live && <LiveBadge state={paused ? 'soon' : 'live'} label={paused ? 'PAUSED' : 'PLAYING'} size="xs" />}
+                    <span className="rounded-full bg-black/55 px-3 py-1 text-xs font-bold">{i + 1} / {deck.length}</span>
+                  </span>
                   <button type="button" onClick={reshuffle} aria-label="Shuffle reels" className={btn}><Shuffle size={19} /></button>
                 </div>
                 {live && chip && (
@@ -306,8 +311,12 @@ function Card({ reel, index, onOpen, grid }) {
       <Poster reel={reel} v={v} sizes="(max-width:640px) 45vw, 220px" priority={index < 2} className="transition duration-500 group-hover:scale-110" />
       <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40" />
 
-      <span className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[0.65rem] font-bold">
-        {index === 0 ? <><Flame size={12} className="text-saffron" /> Trending</> : v.label}
+      {/* v33: animated live badges (TRENDING / NEW / -20% OFF) + the video provider */}
+      <span className="absolute left-2.5 top-2.5 flex max-w-[calc(100%-1.25rem)] flex-wrap items-center gap-1">
+        {reelBadges(reel, index).map((b) => <LiveBadge key={b.label} state={b.state} label={b.label} size="xs" />)}
+        <span className="flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[0.65rem] font-bold">
+          {index === 0 ? <><Flame size={12} className="text-saffron" /> Hot</> : v.label}
+        </span>
       </span>
 
       <span className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2">

@@ -7,6 +7,7 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import ProductAds from '@/components/ProductAds';
 import LiveTvPlayer from '@/components/LiveTvPlayer';
+import LiveBadge from '@/components/LiveBadge';
 import { getTvAds, getTvConfig } from '@/lib/liveTvServer';
 import { channelSlugs } from '@/lib/liveTv';
 
@@ -47,6 +48,11 @@ export default async function ChannelPage({ params }) {
     <>
       <JsonLd data={ld} />
       <PageHead title={`${c.name} Live`} intro={`Watch ${c.name} live${c.group ? ` · ${c.group}` : ''}. Use Next and Previous to change channel.`} crumbs={[['/', 'Home'], ['/live', 'Live TV'], [null, c.name]]} />
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-3 pt-4 sm:px-4">
+        <LiveBadge state="live" label="ON AIR" />
+        <LiveBadge state="soon" label={c.group || 'Live TV'} pulse={false} />
+        <span className="text-xs text-dim">Pakistan time · quality aur audio apni pasand se chunein</span>
+      </div>
       <section className="mx-auto max-w-7xl px-3 py-6 sm:px-4"><LiveTvPlayer cfg={cfg} ads={ads} initialSlug={slug} /></section>
       <p className="mx-auto max-w-3xl px-4 text-sm text-dim">All channels are on the <Link className="font-bold text-gold underline" href="/live">Live TV page</Link>.</p>
       <Suspense fallback={null}><ProductAds seed={`tv-${slug}`} title="Shop while you watch" /></Suspense>

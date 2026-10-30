@@ -32,12 +32,14 @@ import ForYouShelf from '@/components/ForYouShelf';
 import HomeHub from '@/components/HomeHub';
 import MarketFeed from '@/components/MarketFeed';
 import AdsInject from '@/components/AdsInject';
+import LiveStrip from '@/components/LiveStrip';
 import { buildFeed } from '@/lib/marketFeed';
 import { ISLAMIC_ITEMS } from '@/lib/islamic';
 import { TOOLS } from '@/lib/tools';
 import { channelSlugs } from '@/lib/liveTv';
 import { getTvConfig } from '@/lib/liveTvServer';
 import { getMuaazImages } from '@/lib/imagesServer';
+import { getChannelConfig } from '@/lib/liveChannelServer';
 import { SOCIAL_ICONS } from '@/components/Icons';
 
 export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
@@ -80,6 +82,8 @@ export default async function Home() {
   // with no Firestore writes and no Firestore reads for visitors.
   const [all, banners, reels, categories, totalCount, reelMusic, feedPosts] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount(), getReelMusic(), getFeedPosts()]);
   const tv = await getTvConfig().catch(() => null);
+  // v33: the live bar on the home page - what Mizanora is broadcasting right now.
+  const chCfg = await getChannelConfig().catch(() => null);
   const muaazImgs = await getMuaazImages().catch(() => []);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
@@ -123,6 +127,12 @@ export default async function Home() {
         <BannerCarousel banners={banners.length > 0 ? banners : DEFAULT_SLIDES} />
         {/* v31: the shop can run its own ads (key=self). Nothing shows unless the admin switches it on. */}
         <AdsInject slots={['auto']} />
+        <LiveStrip
+          channel={chCfg}
+          initialAt={Date.now()}
+          variant="home"
+          tv={tv && tv.enabled ? { count: tvItems.length, channels: tvItems.map((c) => ({ name: c.name, slug: c.slug, group: c.group })) } : null}
+        />
         <h1 className="sr-only">Mizanora: online shopping market in Pakistan with cash on delivery</h1>
       </div>
 
@@ -241,6 +251,7 @@ export default async function Home() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {socials.map((s) => {
             const Icon = SOCIAL_ICONS[s.id];
+            if (!Icon) return null;
             return (
               <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 rounded-xl border border-line bg-surface p-4 hover:border-gold">
                 <span className="grid h-11 w-11 place-items-center rounded-full bg-raised text-gold"><Icon /></span>
