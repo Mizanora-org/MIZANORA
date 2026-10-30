@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="190" viewBox="0 0 1200 190" role="img" aria-labelledby="phTitle">
+<title id="phTitle">Unchi soch, chhote qadam — high thinking, small steps. Think in years, act in days. Build for your own people first. Be honest in public.</title>
+<defs>
+  <linearGradient id="phg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F3FBF7"/><stop offset=".5" stop-color="#E2F3EA"/><stop offset="1" stop-color="#F3FBF7"/></linearGradient>
+  <linearGradient id="phline" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#12A06B"/><stop offset="1" stop-color="#C08A22"/></linearGradient>
+  <clipPath id="phclip"><rect width="1200" height="190" rx="20"/></clipPath>
+</defs>
+<style>
+    .spin-slow{transform-box:fill-box;transform-origin:center;animation:mz-spin 42s linear infinite}
+    .spin-fast{transform-box:fill-box;transform-origin:center;animation:mz-spin 24s linear infinite reverse}
+    .spin-mid{transform-box:fill-box;transform-origin:center;animation:mz-spin 33s linear infinite}
+    @keyframes mz-spin{to{transform:rotate(360deg)}}
+    .glow{transform-box:fill-box;transform-origin:center;animation:mz-glow 5.5s ease-in-out infinite}
+    @keyframes mz-glow{0%,100%{opacity:.45;transform:scale(.96)}50%{opacity:1;transform:scale(1.05)}}
+    .live-dot{transform-box:fill-box;transform-origin:center;animation:mz-live 1.5s ease-in-out infinite}
+    @keyframes mz-live{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+    .ring{transform-box:fill-box;transform-origin:center;animation:mz-ring 2.4s ease-out infinite}
+    @keyframes mz-ring{0%{opacity:.6;transform:scale(.5)}100%{opacity:0;transform:scale(2.1)}}
+    .bar{transform-box:fill-box;transform-origin:50% 100%;animation:mz-bar 1.2s ease-in-out infinite}
+    @keyframes mz-bar{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(1)}}
+    .twinkle{transform-box:fill-box;transform-origin:center;animation:mz-twinkle 3s ease-in-out infinite}
+    @keyframes mz-twinkle{0%,100%{opacity:.12;transform:scale(.6)}50%{opacity:1;transform:scale(1)}}
+    .float{animation:mz-float 9s ease-in-out infinite}
+    @keyframes mz-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+    .scan{animation:mz-scan 5s linear infinite}
+    @keyframes mz-scan{0%{transform:translateY(0);opacity:0}10%{opacity:.45}85%{opacity:.45}100%{transform:translateY(150px);opacity:0}}
+    .sheen{animation:mz-sheen 6.5s ease-in-out infinite}
+    @keyframes mz-sheen{0%,58%{transform:translateX(-420px)}100%{transform:translateX(720px)}}
+    .tape{animation:mz-tape linear infinite}
+    .tape-l{animation-direction:normal}
+    .ch{opacity:1;animation:mz-ch 12s linear infinite both}
+    @keyframes mz-ch{0%{opacity:0}1.2%{opacity:1}96%{opacity:1}99.5%{opacity:0}100%{opacity:0}}
+    .caret{animation:mz-caret 1.05s steps(1) infinite}
+    @keyframes mz-caret{0%,49%{opacity:1}50%,100%{opacity:0}}
+    .fade1{opacity:1;animation:mz-fade 10.5s linear infinite both}
+    .fade2,.fade3{opacity:0;animation:mz-fade 10.5s linear infinite both}
+    .fade2{animation-delay:3.5s}
+    .fade3{animation-delay:7s}
+    @keyframes mz-fade{0%{opacity:0;transform:translateY(4px)}3%{opacity:1;transform:none}30%{opacity:1}33%{opacity:0}100%{opacity:0}}
+    .pop{opacity:1;animation:mz-pop 9s ease-out infinite both}
+    @keyframes mz-pop{0%{opacity:0;transform:translateY(10px) scale(.97)}6%{opacity:1;transform:none}100%{opacity:1;transform:none}}
+    .grow{transform-box:fill-box;transform-origin:0 50%;animation:mz-grow 7s ease-in-out infinite}
+    @keyframes mz-grow{0%{transform:scaleX(.02)}18%{transform:scaleX(1)}92%{transform:scaleX(1)}100%{transform:scaleX(.02)}}
+    .fill{animation:mz-fill 8s linear infinite}
+    @keyframes mz-fill{0%{width:10px}100%{width:340px}}
+    .beat{animation:mz-beat 2.6s ease-in-out infinite}
+    @keyframes mz-beat{0%,100%{opacity:.35}50%{opacity:.9}}
+    @media (prefers-reduced-motion: reduce){
+      .spin-slow,.spin-fast,.spin-mid,.glow,.live-dot,.ring,.bar,.twinkle,.float,.scan,.sheen,.tape,
+      .ch,.caret,.fade1,.fade2,.fade3,.pop,.grow,.fill,.beat{animation:none!important;transform:none!important}
+      .ch,.fade1,.pop{opacity:1}
+    }
+    
+  </style>
+<g clip-path="url(#phclip)">
+  <rect width="1200" height="190" fill="url(#phg)"/>
+  <circle class="twinkle" cx="60" cy="22" r="1.5" fill="#12A06B" style="animation-delay:0.00s"/><circle class="twinkle" cx="195" cy="34" r="1.5" fill="#12A06B" style="animation-delay:0.35s"/><circle class="twinkle" cx="330" cy="46" r="1.5" fill="#12A06B" style="animation-delay:0.70s"/><circle class="twinkle" cx="465" cy="22" r="1.5" fill="#12A06B" style="animation-delay:1.05s"/><circle class="twinkle" cx="600" cy="34" r="1.5" fill="#12A06B" style="animation-delay:1.40s"/><circle class="twinkle" cx="735" cy="46" r="1.5" fill="#12A06B" style="animation-delay:1.75s"/><circle class="twinkle" cx="870" cy="22" r="1.5" fill="#12A06B" style="animation-delay:2.10s"/><circle class="twinkle" cx="1005" cy="34" r="1.5" fill="#12A06B" style="animation-delay:2.45s"/><circle class="twinkle" cx="1140" cy="46" r="1.5" fill="#12A06B" style="animation-delay:2.80s"/>
+  <text x="600" y="62" text-anchor="middle" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="31" font-weight="800" letter-spacing="-.7" fill="#0B2A1E">Unchi soch. Chhote qadam.</text>
+  <g class="grow"><rect x="440" y="74" width="320" height="3" rx="1.5" fill="url(#phline)"/></g>
+  <text x="600" y="98" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" letter-spacing="2.6" fill="#5E8A78">HIGH THINKING · SMALL STEPS</text>
+  <text class="pop" x="600" y="130" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="11.5" font-weight="600" fill="#12A06B" style="animation-delay:0.50s">think in years, act in days</text><text class="pop" x="600" y="150" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="11.5" font-weight="600" fill="#C08A22" style="animation-delay:1.20s">build for your own people first</text><text class="pop" x="600" y="170" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="11.5" font-weight="600" fill="#41614F" style="animation-delay:1.90s">be honest in public</text>
+</g>
+<rect x=".5" y=".5" width="1199" height="189" rx="20" fill="none" stroke="#CFE7DA"/>
+</svg>

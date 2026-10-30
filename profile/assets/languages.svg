@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="210" viewBox="0 0 1200 210" role="img" aria-labelledby="lgTitle">
+<title id="lgTitle">Language mix across every public repository — HTML 38%, Python 24%, JavaScript 22%, Kotlin 14%, TypeScript 1%, CSS 1%</title>
+<defs>
+  <linearGradient id="lgg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#060F0D"/><stop offset="1" stop-color="#0E2019"/></linearGradient>
+  <clipPath id="lgclip"><rect width="1200" height="210" rx="22"/></clipPath>
+</defs>
+<style>
+    .spin-slow{transform-box:fill-box;transform-origin:center;animation:mz-spin 42s linear infinite}
+    .spin-fast{transform-box:fill-box;transform-origin:center;animation:mz-spin 24s linear infinite reverse}
+    .spin-mid{transform-box:fill-box;transform-origin:center;animation:mz-spin 33s linear infinite}
+    @keyframes mz-spin{to{transform:rotate(360deg)}}
+    .glow{transform-box:fill-box;transform-origin:center;animation:mz-glow 5.5s ease-in-out infinite}
+    @keyframes mz-glow{0%,100%{opacity:.45;transform:scale(.96)}50%{opacity:1;transform:scale(1.05)}}
+    .live-dot{transform-box:fill-box;transform-origin:center;animation:mz-live 1.5s ease-in-out infinite}
+    @keyframes mz-live{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+    .ring{transform-box:fill-box;transform-origin:center;animation:mz-ring 2.4s ease-out infinite}
+    @keyframes mz-ring{0%{opacity:.6;transform:scale(.5)}100%{opacity:0;transform:scale(2.1)}}
+    .bar{transform-box:fill-box;transform-origin:50% 100%;animation:mz-bar 1.2s ease-in-out infinite}
+    @keyframes mz-bar{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(1)}}
+    .twinkle{transform-box:fill-box;transform-origin:center;animation:mz-twinkle 3s ease-in-out infinite}
+    @keyframes mz-twinkle{0%,100%{opacity:.12;transform:scale(.6)}50%{opacity:1;transform:scale(1)}}
+    .float{animation:mz-float 9s ease-in-out infinite}
+    @keyframes mz-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+    .scan{animation:mz-scan 5s linear infinite}
+    @keyframes mz-scan{0%{transform:translateY(0);opacity:0}10%{opacity:.45}85%{opacity:.45}100%{transform:translateY(150px);opacity:0}}
+    .sheen{animation:mz-sheen 6.5s ease-in-out infinite}
+    @keyframes mz-sheen{0%,58%{transform:translateX(-420px)}100%{transform:translateX(720px)}}
+    .tape{animation:mz-tape linear infinite}
+    .tape-l{animation-direction:normal}
+    .ch{opacity:1;animation:mz-ch 12s linear infinite both}
+    @keyframes mz-ch{0%{opacity:0}1.2%{opacity:1}96%{opacity:1}99.5%{opacity:0}100%{opacity:0}}
+    .caret{animation:mz-caret 1.05s steps(1) infinite}
+    @keyframes mz-caret{0%,49%{opacity:1}50%,100%{opacity:0}}
+    .fade1{opacity:1;animation:mz-fade 10.5s linear infinite both}
+    .fade2,.fade3{opacity:0;animation:mz-fade 10.5s linear infinite both}
+    .fade2{animation-delay:3.5s}
+    .fade3{animation-delay:7s}
+    @keyframes mz-fade{0%{opacity:0;transform:translateY(4px)}3%{opacity:1;transform:none}30%{opacity:1}33%{opacity:0}100%{opacity:0}}
+    .pop{opacity:1;animation:mz-pop 9s ease-out infinite both}
+    @keyframes mz-pop{0%{opacity:0;transform:translateY(10px) scale(.97)}6%{opacity:1;transform:none}100%{opacity:1;transform:none}}
+    .grow{transform-box:fill-box;transform-origin:0 50%;animation:mz-grow 7s ease-in-out infinite}
+    @keyframes mz-grow{0%{transform:scaleX(.02)}18%{transform:scaleX(1)}92%{transform:scaleX(1)}100%{transform:scaleX(.02)}}
+    .fill{animation:mz-fill 8s linear infinite}
+    @keyframes mz-fill{0%{width:10px}100%{width:340px}}
+    .beat{animation:mz-beat 2.6s ease-in-out infinite}
+    @keyframes mz-beat{0%,100%{opacity:.35}50%{opacity:.9}}
+    @media (prefers-reduced-motion: reduce){
+      .spin-slow,.spin-fast,.spin-mid,.glow,.live-dot,.ring,.bar,.twinkle,.float,.scan,.sheen,.tape,
+      .ch,.caret,.fade1,.fade2,.fade3,.pop,.grow,.fill,.beat{animation:none!important;transform:none!important}
+      .ch,.fade1,.pop{opacity:1}
+    }
+    
+  </style>
+<g clip-path="url(#lgclip)">
+  <rect width="1200" height="210" fill="url(#lgg)"/>
+  <text x="28" y="46" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="800" fill="#EAF6F0">What the code is written in</text>
+  <text x="1172" y="46" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" letter-spacing="1.2" fill="#5E8A78">EVERY PUBLIC REPO · 92 REPOSITORIES</text>
+  <text x="28" y="74" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" letter-spacing="1.3" fill="#5E8A78">SHARE OF REPOSITORIES · NOT BYTES</text>
+  <rect x="28" y="86" width="1144" height="16" rx="8" fill="#17392E" opacity=".6"/>
+  <rect x="28.0" y="86" width="434.7" height="16" rx="3" fill="#64E7B0" opacity=".92"><animate attributeName="height" values="0;16" dur=".7s" begin="0.25s" fill="freeze"/><animate attributeName="y" values="94;86" dur=".7s" begin="0.25s" fill="freeze"/></rect><rect x="462.7" y="86" width="274.6" height="16" rx="3" fill="#8CB4FF" opacity=".92"><animate attributeName="height" values="0;16" dur=".7s" begin="0.37s" fill="freeze"/><animate attributeName="y" values="94;86" dur=".7s" begin="0.37s" fill="freeze"/></rect><rect x="737.3" y="86" width="251.7" height="16" rx="3" fill="#F1C86A" opacity=".92"><animate attributeName="height" values="0;16" dur=".7s" begin="0.49s" fill="freeze"/><animate attributeName="y" values="94;86" dur=".7s" begin="0.49s" fill="freeze"/></rect><rect x="989.0" y="86" width="160.2" height="16" rx="3" fill="#A97BFF" opacity=".92"><animate attributeName="height" values="0;16" dur=".7s" begin="0.61s" fill="freeze"/><animate attributeName="y" values="94;86" dur=".7s" begin="0.61s" fill="freeze"/></rect><rect x="1149.1" y="86" width="11.4" height="16" rx="3" fill="#4FA3F7" opacity=".92"><animate attributeName="height" values="0;16" dur=".7s" begin="0.73s" fill="freeze"/><animate attributeName="y" values="94;86" dur=".7s" begin="0.73s" fill="freeze"/></rect><rect x="1160.6" y="86" width="11.4" height="16" rx="3" fill="#7FA7FF" opacity=".92"><animate attributeName="height" values="0;16" dur=".7s" begin="0.85s" fill="freeze"/><animate attributeName="y" values="94;86" dur=".7s" begin="0.85s" fill="freeze"/></rect>
+  <g class="pop" style="animation-delay:0.30s">
+      <circle cx="33" cy="138" r="5" fill="#64E7B0"/>
+      <text x="46" y="142.5" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#EAF6F0">HTML</text>
+      <text x="206" y="142.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="700" fill="undefined">38%</text>
+    </g><g class="pop" style="animation-delay:0.48s">
+      <circle cx="423" cy="138" r="5" fill="#8CB4FF"/>
+      <text x="436" y="142.5" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#EAF6F0">Python</text>
+      <text x="596" y="142.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="700" fill="undefined">24%</text>
+    </g><g class="pop" style="animation-delay:0.66s">
+      <circle cx="813" cy="138" r="5" fill="#F1C86A"/>
+      <text x="826" y="142.5" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#EAF6F0">JavaScript</text>
+      <text x="986" y="142.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="700" fill="undefined">22%</text>
+    </g><g class="pop" style="animation-delay:0.84s">
+      <circle cx="33" cy="168" r="5" fill="#A97BFF"/>
+      <text x="46" y="172.5" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#EAF6F0">Kotlin</text>
+      <text x="206" y="172.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="700" fill="undefined">14%</text>
+    </g><g class="pop" style="animation-delay:1.02s">
+      <circle cx="423" cy="168" r="5" fill="#4FA3F7"/>
+      <text x="436" y="172.5" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#EAF6F0">TypeScript</text>
+      <text x="596" y="172.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="700" fill="undefined">1%</text>
+    </g><g class="pop" style="animation-delay:1.20s">
+      <circle cx="813" cy="168" r="5" fill="#7FA7FF"/>
+      <text x="826" y="172.5" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#EAF6F0">CSS</text>
+      <text x="986" y="172.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="700" fill="undefined">1%</text>
+    </g>
+</g>
+<rect x=".5" y=".5" width="1199" height="209" rx="22" fill="none" stroke="#17392E"/>
+</svg>

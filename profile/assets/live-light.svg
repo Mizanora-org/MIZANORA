@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="124" viewBox="0 0 1200 124" role="img" aria-labelledby="lvTitle">
+<title id="lvTitle">Live right now — Mizanora live channel, Quran and Hadith 24/7, plus the latest code push</title>
+<defs>
+  <linearGradient id="lvg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F3FBF7"/><stop offset=".55" stop-color="#E2F3EA"/><stop offset="1" stop-color="#F3FBF7"/></linearGradient>
+  <linearGradient id="lvbar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#12A06B"/><stop offset="1" stop-color="#C08A22"/></linearGradient>
+  <clipPath id="lvwin"><rect width="1200" height="124" rx="20"/></clipPath>
+</defs>
+<style>
+    .spin-slow{transform-box:fill-box;transform-origin:center;animation:mz-spin 42s linear infinite}
+    .spin-fast{transform-box:fill-box;transform-origin:center;animation:mz-spin 24s linear infinite reverse}
+    .spin-mid{transform-box:fill-box;transform-origin:center;animation:mz-spin 33s linear infinite}
+    @keyframes mz-spin{to{transform:rotate(360deg)}}
+    .glow{transform-box:fill-box;transform-origin:center;animation:mz-glow 5.5s ease-in-out infinite}
+    @keyframes mz-glow{0%,100%{opacity:.45;transform:scale(.96)}50%{opacity:1;transform:scale(1.05)}}
+    .live-dot{transform-box:fill-box;transform-origin:center;animation:mz-live 1.5s ease-in-out infinite}
+    @keyframes mz-live{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+    .ring{transform-box:fill-box;transform-origin:center;animation:mz-ring 2.4s ease-out infinite}
+    @keyframes mz-ring{0%{opacity:.6;transform:scale(.5)}100%{opacity:0;transform:scale(2.1)}}
+    .bar{transform-box:fill-box;transform-origin:50% 100%;animation:mz-bar 1.2s ease-in-out infinite}
+    @keyframes mz-bar{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(1)}}
+    .twinkle{transform-box:fill-box;transform-origin:center;animation:mz-twinkle 3s ease-in-out infinite}
+    @keyframes mz-twinkle{0%,100%{opacity:.12;transform:scale(.6)}50%{opacity:1;transform:scale(1)}}
+    .float{animation:mz-float 9s ease-in-out infinite}
+    @keyframes mz-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+    .scan{animation:mz-scan 5s linear infinite}
+    @keyframes mz-scan{0%{transform:translateY(0);opacity:0}10%{opacity:.45}85%{opacity:.45}100%{transform:translateY(150px);opacity:0}}
+    .sheen{animation:mz-sheen 6.5s ease-in-out infinite}
+    @keyframes mz-sheen{0%,58%{transform:translateX(-420px)}100%{transform:translateX(720px)}}
+    .tape{animation:mz-tape linear infinite}
+    .tape-l{animation-direction:normal}
+    .ch{opacity:1;animation:mz-ch 12s linear infinite both}
+    @keyframes mz-ch{0%{opacity:0}1.2%{opacity:1}96%{opacity:1}99.5%{opacity:0}100%{opacity:0}}
+    .caret{animation:mz-caret 1.05s steps(1) infinite}
+    @keyframes mz-caret{0%,49%{opacity:1}50%,100%{opacity:0}}
+    .fade1{opacity:1;animation:mz-fade 10.5s linear infinite both}
+    .fade2,.fade3{opacity:0;animation:mz-fade 10.5s linear infinite both}
+    .fade2{animation-delay:3.5s}
+    .fade3{animation-delay:7s}
+    @keyframes mz-fade{0%{opacity:0;transform:translateY(4px)}3%{opacity:1;transform:none}30%{opacity:1}33%{opacity:0}100%{opacity:0}}
+    .pop{opacity:1;animation:mz-pop 9s ease-out infinite both}
+    @keyframes mz-pop{0%{opacity:0;transform:translateY(10px) scale(.97)}6%{opacity:1;transform:none}100%{opacity:1;transform:none}}
+    .grow{transform-box:fill-box;transform-origin:0 50%;animation:mz-grow 7s ease-in-out infinite}
+    @keyframes mz-grow{0%{transform:scaleX(.02)}18%{transform:scaleX(1)}92%{transform:scaleX(1)}100%{transform:scaleX(.02)}}
+    .fill{animation:mz-fill 8s linear infinite}
+    @keyframes mz-fill{0%{width:10px}100%{width:340px}}
+    .beat{animation:mz-beat 2.6s ease-in-out infinite}
+    @keyframes mz-beat{0%,100%{opacity:.35}50%{opacity:.9}}
+    @media (prefers-reduced-motion: reduce){
+      .spin-slow,.spin-fast,.spin-mid,.glow,.live-dot,.ring,.bar,.twinkle,.float,.scan,.sheen,.tape,
+      .ch,.caret,.fade1,.fade2,.fade3,.pop,.grow,.fill,.beat{animation:none!important;transform:none!important}
+      .ch,.fade1,.pop{opacity:1}
+    }
+    
+  </style>
+<g clip-path="url(#lvwin)">
+  <rect width="1200" height="124" fill="url(#lvg)"/>
+  <rect width="1200" height="124" fill="#fff" opacity=".05"/>
+  <!-- row 1: LIVE + the channel name, right: the newest push -->
+  <rect x="26" y="22" width="92" height="27" rx="13.5" fill="#D94848"/>
+  <circle class="live-dot" cx="42" cy="35.5" r="4.6" fill="#fff"/>
+  <circle class="ring" cx="42" cy="35.5" r="4.6" fill="none" stroke="#fff" stroke-width="1.4"/>
+  <text x="56" y="40" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="800" letter-spacing="1.6" fill="#fff">LIVE</text>
+  <text x="132" y="40" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="11" letter-spacing="1.5" fill="#12A06B">MIZANORA LIVE CHANNEL · 24/7</text>
+  <text x="1174" y="30" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" letter-spacing="1.2" fill="#5E8A78">LATEST PUSH</text>
+  <text x="1174" y="48" text-anchor="end" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="800" fill="#C08A22">MIZANORA <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="10" font-weight="600" fill="#41614F" data-k="lastPush">· 2 days ago</tspan></text>
+
+  <!-- row 2: what is playing (three titles take turns) -->
+  <g font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="800" fill="#0B2A1E">
+    <text class="fade1" x="26" y="88">Quran Tilawat · Al-Baqarah 2:255</text>
+    <text class="fade2" x="26" y="88">Hadees · Sahih al-Bukhari 6018</text>
+    <text class="fade3" x="26" y="88">Noor AI finds “sasta laal joota under 2k”</text>
+  </g>
+
+  <!-- row 3: the waveform, the progress, the small print -->
+  <rect class="bar" x="618" y="76" width="5" height="10" rx="2.5" fill="#C08A22" opacity=".85" style="animation-delay:0.00s"/><rect class="bar" x="629" y="55" width="5" height="31" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.07s"/><rect class="bar" x="640" y="60" width="5" height="26" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.14s"/><rect class="bar" x="651" y="65" width="5" height="21" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.21s"/><rect class="bar" x="662" y="70" width="5" height="16" rx="2.5" fill="#C08A22" opacity=".85" style="animation-delay:0.28s"/><rect class="bar" x="673" y="75" width="5" height="11" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.35s"/><rect class="bar" x="684" y="54" width="5" height="32" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.42s"/><rect class="bar" x="695" y="59" width="5" height="27" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.49s"/><rect class="bar" x="706" y="64" width="5" height="22" rx="2.5" fill="#C08A22" opacity=".85" style="animation-delay:0.56s"/><rect class="bar" x="717" y="69" width="5" height="17" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.63s"/><rect class="bar" x="728" y="74" width="5" height="12" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.70s"/><rect class="bar" x="739" y="53" width="5" height="33" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.77s"/><rect class="bar" x="750" y="58" width="5" height="28" rx="2.5" fill="#C08A22" opacity=".85" style="animation-delay:0.84s"/><rect class="bar" x="761" y="63" width="5" height="23" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.91s"/><rect class="bar" x="772" y="68" width="5" height="18" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:0.98s"/><rect class="bar" x="783" y="73" width="5" height="13" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:1.05s"/><rect class="bar" x="794" y="52" width="5" height="34" rx="2.5" fill="#C08A22" opacity=".85" style="animation-delay:1.12s"/><rect class="bar" x="805" y="57" width="5" height="29" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:1.19s"/><rect class="bar" x="816" y="62" width="5" height="24" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:1.26s"/><rect class="bar" x="827" y="67" width="5" height="19" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:1.33s"/><rect class="bar" x="838" y="72" width="5" height="14" rx="2.5" fill="#C08A22" opacity=".85" style="animation-delay:1.40s"/><rect class="bar" x="849" y="51" width="5" height="35" rx="2.5" fill="#12A06B" opacity=".85" style="animation-delay:1.47s"/>
+  <rect x="618" y="94" width="242" height="5" rx="2.5" fill="#CFE7DA"/>
+  <rect class="fill" x="618" y="94" width="240" height="5" rx="2.5" fill="url(#lvbar)"/>
+  <text x="26" y="108" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" letter-spacing="1.1" fill="#5E8A78">QURAN · HADEES · PRODUCT ADS · PAKISTAN TIME</text>
+  <text x="1174" y="94" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" letter-spacing="1.1" fill="#5E8A78"><tspan data-k="topLang">JAVASCRIPT</tspan> · <tspan data-k="repos">92</tspan> REPOS</text>
+  <text x="1174" y="110" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" letter-spacing="1.1" fill="#5E8A78"><tspan data-k="stars">12</tspan> STARS · <tspan data-k="followers">6</tspan> FOLLOWERS</text>
+</g>
+<rect x=".5" y=".5" width="1199" height="123" rx="20" fill="none" stroke="#CFE7DA"/>
+</svg>
