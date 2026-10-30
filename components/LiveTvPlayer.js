@@ -9,6 +9,7 @@ import {
   TV_QUALITY, filterChannels, qualityLevel, streamOrigin, tvClock, tvStatusLabel,
 } from '@/lib/liveTvUi';
 import { TV_THEMES, channelGroups, channelSlugs, channelSources, channelTarget, pickAd, relayHref, stepIndex, tvTheme } from '@/lib/liveTv';
+import LiveBadge from './LiveBadge';
 
 // v30 LIVE TV: broadcast-style player and guide. hls.js (m3u8) and dash.js (mpd / MPEG-DASH) are local,
 // dynamically imported chunks — no third-party CDN. Every stream type plays in one player:
@@ -678,6 +679,12 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
                 <p>Chalane ke liye play dabayein</p>
               </div>
             )}
+            {/* v33: a pulsing LIVE ribbon on the picture itself (real state only: quiet while loading or failed) */}
+            <LiveBadge
+              state={status === 'ready' ? 'live' : status === 'failed' ? 'warn' : 'soon'}
+              label={status === 'ready' ? 'LIVE' : status === 'failed' ? 'RETRY' : 'CONNECTING'}
+              className="mztv-live-tag"
+            />
             {target && status === 'failed' && !ad && (
               <div className="mztv-failed">
                 <p className="mztv-failed-title">Ye channel abhi nahi chal raha.</p>

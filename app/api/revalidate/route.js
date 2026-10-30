@@ -11,7 +11,8 @@ export async function POST(req) {
   if (!admin.ok) return NextResponse.json({ ok: false }, { status: admin.status });
   const { slug, tags } = await req.json().catch(() => ({}));
   // v23: "light" refresh for settings (Quran, deals page, injections...). It does NOT re-read the product catalogue from Firebase.
-  const LIGHT = ['quran', 'deals-config', 'inject', 'theme', 'app-music', 'reel-music', 'feed-posts', 'livetv'];
+  // v33: 'github' refreshes the live GitHub cards without re-reading the catalogue.
+  const LIGHT = ['quran', 'deals-config', 'inject', 'theme', 'app-music', 'reel-music', 'feed-posts', 'livetv', 'github'];
   if (Array.isArray(tags) && tags.length) {
     tags.filter((t) => LIGHT.includes(t)).forEach((t) => revalidateTag(t));
     revalidatePath('/', 'layout');
@@ -28,6 +29,7 @@ export async function POST(req) {
   revalidateTag('livetv');
   revalidateTag('deals-config');
   revalidateTag('inject');
+  revalidateTag('github');
   revalidatePath('/', 'layout');
   ['/sitemap.xml', '/api/search-index', '/api/feed'].forEach((p) => revalidatePath(p));
   if (slug) revalidatePath(`/product/${String(slug).slice(0, 80)}`);

@@ -1,4 +1,27 @@
 # MIZANORA Store
+
+<p align="center">
+  <a href="https://mizanora.vercel.app"><img alt="Live site" src="https://img.shields.io/website?url=https%3A%2F%2Fmizanora.vercel.app&label=mizanora.vercel.app&style=for-the-badge&up_message=live&up_color=0b6b45&down_message=down&down_color=b42318"></a>
+  <a href="https://github.com/muaaziqbalvip/MIZANORA/actions"><img alt="Checks" src="https://img.shields.io/github/actions/workflow/status/muaaziqbalvip/MIZANORA/ci.yml?label=checks&style=for-the-badge"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/muaaziqbalvip/MIZANORA"><img alt="GitHub stars" src="https://img.shields.io/github/stars/muaaziqbalvip/MIZANORA?style=flat-square&logo=github&color=0b6b45"></a>
+  <a href="https://github.com/muaaziqbalvip/MIZANORA/forks"><img alt="Forks" src="https://img.shields.io/github/forks/muaaziqbalvip/MIZANORA?style=flat-square&logo=github"></a>
+  <a href="https://github.com/muaaziqbalvip/MIZANORA/issues"><img alt="Open issues" src="https://img.shields.io/github/issues/muaaziqbalvip/MIZANORA?style=flat-square"></a>
+  <a href="https://github.com/muaaziqbalvip/MIZANORA/pulls"><img alt="Pull requests" src="https://img.shields.io/github/issues-pr/muaaziqbalvip/MIZANORA?style=flat-square"></a>
+  <a href="https://github.com/muaaziqbalvip/MIZANORA/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/muaaziqbalvip/MIZANORA?style=flat-square"></a>
+  <a href="https://github.com/muaaziqbalvip/MIZANORA"><img alt="Repo size" src="https://img.shields.io/github/repo-size/muaaziqbalvip/MIZANORA?style=flat-square"></a>
+</p>
+
+<p align="center">
+  <a href="https://nextjs.org"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs"></a>
+  <a href="https://tailwindcss.com"><img alt="Tailwind" src="https://img.shields.io/badge/Tailwind-3-38bdf8?style=flat-square&logo=tailwindcss"></a>
+  <a href="https://firebase.google.com"><img alt="Firebase" src="https://img.shields.io/badge/Firebase-Firestore%20%2B%20RTDB-ffca28?style=flat-square&logo=firebase"></a>
+  <a href="https://mizanora.vercel.app/api/github"><img alt="Live GitHub feed" src="https://img.shields.io/badge/GitHub-live%20feed-0b6b45?style=flat-square&logo=github"></a>
+  <a href="https://mizanora.vercel.app/live-channel"><img alt="Live channel" src="https://img.shields.io/badge/Live%20channel-Quran%20%26%20Hadith-e5484d?style=flat-square"></a>
+</p>
+
 Next.js 15 (App Router) + Tailwind + Firebase + Meta Pixel/CAPI + installable PWA. See SETUP.md.
 Checks without installing: `node scripts/check.js` (syntax and imports).
 
@@ -73,3 +96,17 @@ See [UPGRADE-v32.md](UPGRADE-v32.md). In short:
 ## v30 upgrade
 
 See [UPGRADE-v30.md](UPGRADE-v30.md) for Live TV themes and backup sources, Noor's limited/AI modes, richer product details, date-range archive export/deletion and safety notes. Archive range operations affect repository files only, not Firebase copies.
+
+## v33 upgrade (pure-live badges + GitHub on the website)
+
+- **One live badge everywhere.** `components/LiveBadge.js` + `lib/liveBadges.js` draw every `LIVE / SOON / NEW / OFF AIR` label on the shop: a red dot that beats, a slow sheen, amber for "starts soon", green for new. All CSS, all switched off for `prefers-reduced-motion`.
+- **The live bar** (`components/LiveStrip.js`) sits under the hero on the home page and on `/live`: pulsing badge, what is playing now (tilawat / hadees / product ad) with a real progress bar, minutes left and "phir ..." (what is next), the Pakistan clock ticking every second, the live TV channel count and the channel's own ticker in a marquee. The program comes from the same wall clock as `/live-channel`, so it is never a made-up number.
+- **Reels look live:** cards carry `TRENDING` (first card), `NEW` (fresh) and a real `-20% OFF` badge (only when `comparePrice > price`); the full-screen viewer shows `PLAYING / PAUSED`.
+- **Live TV:** a pulsing `LIVE / CONNECTING / RETRY` ribbon on the picture, `ON AIR` + group badges on `/live/<channel>`, and the clock is no longer hidden on phones.
+- **GitHub is part of the site now.**
+  - `GET /api/github` - the public profile, repositories, stars, languages and last push, cached 30 minutes (`X-GitHub-Live`, `?bare=1` for a tiny badge request).
+  - `<GitHubLive />` on `/muaaz-iqbal` (8 repos) and `/team` (4 repos): avatar, followers, stars, forks, language bar, NEW / ACTIVE / MIT / LIVE DEMO badges and "2 ghante pehle" notes.
+  - `GitHub` is in `SITE.social` (footer icon + `/connect`), and `POST /api/revalidate` accepts tag `github` to refresh instantly.
+  - Optional env: `GITHUB_USER`, `GITHUB_PINNED` (comma separated, the repos shown first), `GITHUB_CACHE_SECONDS`, `NEXT_PUBLIC_GITHUB_URL`.
+  - If GitHub is unreachable the section renders from `FALLBACK_REPOS`, so the page is never empty.
+- Tests: `node scripts/test-v33.mjs` (badges, clock, live bar, reel badges, GitHub model, hydration safety).

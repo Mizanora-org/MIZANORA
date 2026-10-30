@@ -68,9 +68,13 @@ const mp4 = {
   // The play button must call play() (it used to do nothing).
   let played = 0;
   video.play = function () { played += 1; dom.window.document.querySelector('#s1 .mza-vplay').classList.add('mza-hide'); return Promise.resolve(); };
+  // Count only what THIS click adds. The player also autoplays once (a 40 ms timer) and the
+  // slot rotates on its own timer, so a fixed "played === 1" was a race; the click itself is
+  // synchronous, so the difference before/after is exact (v33: test made deterministic).
+  const before = played;
   document.querySelector('#s1 .mza-vbtn').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(played, before + 1, 'the play button really plays');
   await sleep(20);
-  assert.equal(played, 1, 'the play button really plays');
   console.log('ok    embed: the play button calls video.play()');
 
   // A playing video must not be rotated away (the slot rotates every 2.5 s at the soonest).

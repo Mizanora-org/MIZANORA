@@ -5,9 +5,12 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import { FOUNDER, FOUNDER_LINKS } from '@/lib/team';
 import { getMuaazImages } from '@/lib/imagesServer';
+import { getGitHub } from '@/lib/githubLive';
+import GitHubLive from '@/components/GitHubLive';
 import FounderPhoto from '@/components/FounderPhoto';
 
-export const revalidate = 86400;
+// v33: half an hour, so the live GitHub numbers on this page are never a day old.
+export const revalidate = 1800;
 export const metadata = pageMeta({
   title: 'Muaaz Iqbal: developer and founder of Mizanora (Kasur, Pakistan)',
   description: 'Muaaz Iqbal from Kasur, Punjab, Pakistan: AI-native full-stack developer, founder of Mizanora online marketplace and the HijriAnchor calendar app. His projects, skills, links and story.',
@@ -43,7 +46,11 @@ const FAQ = [
 ];
 
 export default async function MuaazPage() {
-  const photos = await getMuaazImages().catch(() => []);
+  const [photos, gh] = await Promise.all([
+    getMuaazImages().catch(() => []),
+    // v33: the real GitHub account (cached 30 min, with a code fallback - never an empty box).
+    getGitHub().catch(() => null),
+  ]);
   const crumbs = [['/', 'Home'], ['/muaaz-iqbal', 'Muaaz Iqbal']];
   const profile = {
     '@context': 'https://schema.org', '@type': 'ProfilePage', url: absUrl('/muaaz-iqbal'), name: 'Muaaz Iqbal',
@@ -108,6 +115,17 @@ warna
 bas`}</code></pre>
           <p>Read more: <Link href="/blog/asaan-lang-urdu-programming-language-by-muaaz-iqbal">what Asaan Lang is</Link>, <Link href="/blog/learn-coding-in-urdu-asaan-lang-examples-for-beginners">8 examples for beginners</Link>, and <Link href="/blog/muaaz-iqbal-linkedin-github-asaan-lang-mizanora-projects">all his links and projects</Link>.</p>
         </section>
+
+        {gh && gh.profile && (
+          <div className="mt-8">
+            <GitHubLive
+              data={gh}
+              limit={8}
+              title="GitHub, live"
+              intro="Ye Muaaz ka asli GitHub account hai - repositories, stars, languages aur aakhri push, seedha GitHub se (har 30 minute par update)."
+            />
+          </div>
+        )}
 
         <section className="mt-8" aria-labelledby="projects">
           <h2 id="projects" className="section-title mb-3">Projects</h2>

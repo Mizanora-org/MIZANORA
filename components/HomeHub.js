@@ -3,6 +3,7 @@ import { BookOpen, ScrollText, Tv, Wrench, ArrowRight } from 'lucide-react';
 import Reveal from '@/components/Reveal';
 import { TOOLS } from '@/lib/tools';
 import { channelSlugs } from '@/lib/liveTv';
+import LiveBadge from '@/components/LiveBadge';
 
 // The home page "hub" (v25): four big doors (Quran, Hadith, Live TV, Tools), a strip of live channels and the most used tools.
 // Everything is plain server markup: no extra JavaScript is sent to the visitor.
@@ -27,6 +28,7 @@ export default function HomeHub({ tv }) {
               <Icon size={64} className="absolute -bottom-3 -right-3 opacity-15 transition group-hover:scale-110" aria-hidden="true" />
               <Icon size={26} aria-hidden="true" />
               <h2 className="mt-3 font-display text-xl font-extrabold sm:text-2xl">{title}</h2>
+              {href === '/live' && chans.length > 0 && <span className="mb-1 mt-1.5 block"><LiveBadge state="live" label={`${chans.length} on air`} size="xs" /></span>}
               <p className="mt-1 text-xs text-white/85 sm:text-sm">{sub}</p>
               <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#F5B83D]">Open <ArrowRight size={13} /></span>
             </Link></li>
@@ -36,12 +38,12 @@ export default function HomeHub({ tv }) {
 
       {chans.length > 0 && (
         <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="hub-tv">
-          <div className="mb-3 flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-red-600">● Live now</p><h2 id="hub-tv" className="section-title">Live TV channels</h2></div><Link href="/live" className="flex items-center gap-1 whitespace-nowrap text-sm font-bold text-gold">All channels <ArrowRight size={15} /></Link></div>
+          <div className="mb-3 flex items-end justify-between gap-4"><div><p className="flex items-center gap-2"><LiveBadge state="live" label="Live now" /><span className="text-xs font-bold uppercase tracking-wider text-red-600">{chans.length} channels on air</span></p><h2 id="hub-tv" className="section-title">Live TV channels</h2></div><Link href="/live" className="flex items-center gap-1 whitespace-nowrap text-sm font-bold text-gold">All channels <ArrowRight size={15} /></Link></div>
           <ul className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2">
             {chans.slice(0, 18).map(({ c, i }) => (
               <li key={slugs[i]} className="shrink-0 snap-start"><Link href={`/live/${slugs[i]}`} prefetch={false} className="flex w-36 flex-col items-center gap-2 rounded-2xl border border-line bg-surface p-3 text-center transition hover:border-gold sm:w-40">
                 {c.logo ? <img src={c.logo} alt="" className="h-14 w-14 rounded-xl bg-white object-contain" loading="lazy" referrerPolicy="no-referrer" /> : <span className="grid h-14 w-14 place-items-center rounded-xl bg-raised font-bold text-gold">TV</span>}
-                <span className="line-clamp-2 text-sm font-bold leading-tight">{c.name}</span><span className="text-[11px] font-bold text-red-600">LIVE</span>
+                <span className="line-clamp-2 text-sm font-bold leading-tight">{c.name}</span><LiveBadge state="live" label="LIVE" size="xs" />
               </Link></li>
             ))}
           </ul>
