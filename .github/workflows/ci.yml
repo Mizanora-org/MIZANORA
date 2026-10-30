@@ -1,0 +1,43 @@
+# CI for MIZANORA - the same three commands that are run before every deploy.
+# The README badge "checks" points here, so a red badge means something real.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # syntax + imports (scripts/check.js) and undefined names (scripts/typecheck.js)
+      - name: Check
+        run: npm run check
+
+      # 25 test files: shop, reels, ads, live TV, the animated README, GitHub, archive
+      - name: Tests
+        run: npm test
+
+      # a real production build, with Google Fonts mocked so no network is needed
+      - name: Build
+        run: npm run build:offline

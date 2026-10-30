@@ -1,29 +1,184 @@
-# MIZANORA Store
+<div align="center">
 
-<p align="center">
-  <a href="https://mizanora.vercel.app"><img alt="Live site" src="https://img.shields.io/website?url=https%3A%2F%2Fmizanora.vercel.app&label=mizanora.vercel.app&style=for-the-badge&up_message=live&up_color=0b6b45&down_message=down&down_color=b42318"></a>
-  <a href="https://github.com/muaaziqbalvip/MIZANORA/actions"><img alt="Checks" src="https://img.shields.io/github/actions/workflow/status/muaaziqbalvip/MIZANORA/ci.yml?label=checks&style=for-the-badge"></a>
-</p>
+<img src="public/brand/readme/logo.svg" alt="MIZANORA logo" width="120" height="120" />
 
-<p align="center">
-  <a href="https://github.com/muaaziqbalvip/MIZANORA"><img alt="GitHub stars" src="https://img.shields.io/github/stars/muaaziqbalvip/MIZANORA?style=flat-square&logo=github&color=0b6b45"></a>
-  <a href="https://github.com/muaaziqbalvip/MIZANORA/forks"><img alt="Forks" src="https://img.shields.io/github/forks/muaaziqbalvip/MIZANORA?style=flat-square&logo=github"></a>
-  <a href="https://github.com/muaaziqbalvip/MIZANORA/issues"><img alt="Open issues" src="https://img.shields.io/github/issues/muaaziqbalvip/MIZANORA?style=flat-square"></a>
-  <a href="https://github.com/muaaziqbalvip/MIZANORA/pulls"><img alt="Pull requests" src="https://img.shields.io/github/issues-pr/muaaziqbalvip/MIZANORA?style=flat-square"></a>
-  <a href="https://github.com/muaaziqbalvip/MIZANORA/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/muaaziqbalvip/MIZANORA?style=flat-square"></a>
-  <a href="https://github.com/muaaziqbalvip/MIZANORA"><img alt="Repo size" src="https://img.shields.io/github/repo-size/muaaziqbalvip/MIZANORA?style=flat-square"></a>
-</p>
+# MIZANORA
 
-<p align="center">
-  <a href="https://nextjs.org"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs"></a>
-  <a href="https://tailwindcss.com"><img alt="Tailwind" src="https://img.shields.io/badge/Tailwind-3-38bdf8?style=flat-square&logo=tailwindcss"></a>
-  <a href="https://firebase.google.com"><img alt="Firebase" src="https://img.shields.io/badge/Firebase-Firestore%20%2B%20RTDB-ffca28?style=flat-square&logo=firebase"></a>
-  <a href="https://mizanora.vercel.app/api/github"><img alt="Live GitHub feed" src="https://img.shields.io/badge/GitHub-live%20feed-0b6b45?style=flat-square&logo=github"></a>
-  <a href="https://mizanora.vercel.app/live-channel"><img alt="Live channel" src="https://img.shields.io/badge/Live%20channel-Quran%20%26%20Hadith-e5484d?style=flat-square"></a>
-</p>
+**Shop Smart. Shop Halal.** Pakistan ka online store — cash on delivery, WhatsApp support,
+Quran & Hadith live channel, reels aur free tools.
 
-Next.js 15 (App Router) + Tailwind + Firebase + Meta Pixel/CAPI + installable PWA. See SETUP.md.
+<img src="public/brand/readme/hero.svg" alt="MIZANORA — animated banner: logo, typing line, live channel screen" width="100%" />
+
+<a href="https://mizanora.vercel.app"><img alt="Live site" src="https://img.shields.io/website?url=https%3A%2F%2Fmizanora.vercel.app&label=mizanora.vercel.app&style=for-the-badge&up_message=live&up_color=0b6b45&down_message=down&down_color=b42318"></a>
+<a href="https://mizanora.vercel.app/live-channel"><img alt="Live channel" src="https://img.shields.io/badge/Live%20now-Quran%20%26%20Hadith-e5484d?style=for-the-badge&logo=livechat&logoColor=white"></a>
+<a href="https://mizanora.vercel.app/api/github"><img alt="GitHub live feed" src="https://img.shields.io/badge/GitHub-live%20feed-0b6b45?style=for-the-badge&logo=github"></a>
+
+<img src="public/brand/readme/live.svg" alt="Mizanora live channel — NOW PLAYING with a pulsing LIVE dot, changing titles and a moving progress bar" width="100%" />
+
+<img src="public/brand/readme/wave.svg" alt="Live audio waveform — 58 bars, each one moving at its own speed" width="100%" />
+
+<img src="public/brand/readme/marquee.svg" alt="Scrolling tape: shop smart · shop halal · cash on delivery" width="100%" />
+
+<a href="https://github.com/muaaziqbalvip/MIZANORA/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/muaaziqbalvip/MIZANORA?style=flat-square&logo=github&color=0b6b45"></a>
+<a href="https://github.com/muaaziqbalvip/MIZANORA/forks"><img alt="Forks" src="https://img.shields.io/github/forks/muaaziqbalvip/MIZANORA?style=flat-square&logo=github"></a>
+<a href="https://github.com/muaaziqbalvip/MIZANORA/issues"><img alt="Issues" src="https://img.shields.io/github/issues/muaaziqbalvip/MIZANORA?style=flat-square"></a>
+<a href="https://github.com/muaaziqbalvip/MIZANORA/pulls"><img alt="Pull requests" src="https://img.shields.io/github/issues-pr/muaaziqbalvip/MIZANORA?style=flat-square"></a>
+<a href="https://github.com/muaaziqbalvip/MIZANORA/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/muaaziqbalvip/MIZANORA?style=flat-square"></a>
+<a href="https://github.com/muaaziqbalvip/MIZANORA"><img alt="Repo size" src="https://img.shields.io/github/repo-size/muaaziqbalvip/MIZANORA?style=flat-square"></a>
+<br>
+<a href="https://nextjs.org"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs"></a>
+<a href="https://tailwindcss.com"><img alt="Tailwind" src="https://img.shields.io/badge/Tailwind-3-38bdf8?style=flat-square&logo=tailwindcss"></a>
+<a href="https://firebase.google.com"><img alt="Firebase" src="https://img.shields.io/badge/Firebase-Firestore%20%2B%20RTDB-ffca28?style=flat-square&logo=firebase"></a>
+<a href="https://mizanora.vercel.app"><img alt="PWA" src="https://img.shields.io/badge/Installable-PWA-0b6b45?style=flat-square&logo=pwa"></a>
+<a href="README-ADS.md"><img alt="Ads API" src="https://img.shields.io/badge/Ads%20API-v2.0.0-f29f05?style=flat-square"></a>
+
+</div>
+
+---
+
+Next.js 15 (App Router) + Tailwind + Firebase + Meta Pixel/CAPI + installable PWA. See [SETUP.md](SETUP.md).
 Checks without installing: `node scripts/check.js` (syntax and imports).
+
+**Live:** <https://mizanora.vercel.app> · **Live channel:** <https://mizanora.vercel.app/live-channel> ·
+**GitHub feed:** <https://mizanora.vercel.app/api/github> · **Ads embed:** [README-ADS.md](README-ADS.md)
+
+---
+
+## Animated README — poori guide (jo bhi research hui, sab yahan hai)
+
+Yeh README khud ek live animation hai. Sab kuch **is repo ke andar** rakha hua hai
+(`public/brand/readme/*.svg`) — koi third-party service nahi, kuch 404 nahi hota, rate limit nahi,
+aur animation kabhi rukti nahi.
+
+<img src="public/brand/readme/hero.svg" alt="The hero banner again, closer to the guide" width="100%" />
+
+### 1. GitHub README mein animation chalti kaise hai?
+
+| Cheez | GitHub karta kya hai |
+| --- | --- |
+| `<script>` | **Hata deta hai** — README mein JavaScript nahi chalti. |
+| `<style>` / inline CSS | **Strip** ho jati hai (GitHub apni CSS lagata hai). |
+| `<img src="...svg">` | **Chalti hai** — GitHub SVG ko `<img>` ki tarah render karta hai. |
+| SVG ke andar **CSS `@keyframes`** | **Chalte hain** ✅ |
+| SVG ke andar **SMIL `<animate>` / `<animateTransform>`** | **Chalte hain** ✅ |
+| GIF / APNG / WebP (animated) | Chalte hain ✅ (file bhaari hoti hai) |
+| `<svg>` inline README mein | Sanitize ho jata hai — animation zyada tar mar jati hai. |
+
+> **Asal formula:** saari harkat **SVG file ke andar** daalo, aur README mein sirf
+> `<img src="...">` lagao. Yahi wajah hai ke hamara hero, logo, live bar, wave aur tape sab
+> alag `.svg` files hain.
+
+### 2. Is repo ki files (sab self-hosted)
+
+| File | Kya karti hai |
+| --- | --- |
+| `public/brand/readme/hero.svg` | 1200×430 banner: ghoomta hua logo (crescent + star, do rings), **MIZANORA** wordmark, typing line, LIVE badge jo dhadakta hai, live screen (scan line + 22-bar waveform + progress), neeche scrolling tape. |
+| `public/brand/readme/logo.svg` | Sirf logo: emerald tile, gold crescent, 8-point star, ghoomti dotted rings, twinkling stars. |
+| `public/brand/readme/live.svg` | “NOW PLAYING” bar: pulsing LIVE dot + ring, teen titles jo baari baari aate hain (Quran → Hadees → product ad), chalti progress bar, PKT clock, neeche mini tape. |
+| `public/brand/readme/wave.svg` | 58-bar live audio waveform, har bar ki apni speed aur delay (bilkul asli audio meter jaisa). |
+| `public/brand/readme/marquee.svg` | Endless tape: `SHOP SMART ✦ SHOP HALAL ✦ CASH ON DELIVERY …` |
+
+**Dobara banana ho to:**
+
+```bash
+node scripts/make-readme-art.mjs      # sab 5 SVG dobara likh deta hai
+```
+
+Script hi asli source hai — colours, text, speed badalne ke liye `scripts/make-readme-art.mjs`
+ke upar wale hisse (`C` colours, `typedLine`, `mark`, `ticker` items) edit karo aur command dobara chalao.
+Generated SVG files bhi repo mein commit hoti hain, is liye GitHub par turant dikhti hain.
+
+### 3. Animation kaise likhi gayi (jo cheezein GitHub par sach much chalti hain)
+
+```svg
+<!-- 1. pulse (LIVE dot) -->
+<style>
+  .live-dot { animation: mz-live 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes mz-live { 0%,100% { opacity:1; transform:scale(1) } 50% { opacity:.45; transform:scale(.62) } }
+</style>
+<circle class="live-dot" cx="674" cy="85" r="4.6" fill="#fff"/>
+```
+
+```svg
+<!-- 2. typing line: har harf apni opacity, monospace ki wajah se position exact -->
+<text class="ch" x="180.0" y="182" style="animation-delay:0.180s">S</text>
+<text class="ch" x="188.4" y="182" style="animation-delay:0.240s">h</text>
+<style>
+  .ch { opacity:0; animation: mz-ch 7s linear infinite both; }
+  @keyframes mz-ch { 0%{opacity:0} 1.6%{opacity:1} 92%{opacity:1} 97%{opacity:0} 100%{opacity:0} }
+</style>
+```
+
+```svg
+<!-- 3. endless tape: do barabar lines, group poore ek line ke barabar khisakta hai -->
+<style>@keyframes tape { from { transform: translateX(0) } to { transform: translateX(-1840px) } }</style>
+<g class="tape" style="animation: tape 30s linear infinite">
+  <text x="0"    y="390">SHOP SMART ✦ SHOP HALAL ✦ …</text>
+  <text x="1840" y="390">SHOP SMART ✦ SHOP HALAL ✦ …</text>
+</g>
+```
+
+```svg
+<!-- 4. waveform: ek hi keyframe, har bar ka apna delay -->
+<rect class="bar" x="292" y="40" width="6" height="42" rx="3"
+      style="animation-delay:0.045s; animation-duration:1.02s"/>
+<style>
+  .bar { transform-box: fill-box; transform-origin: 50% 100%; animation: bar 1.15s ease-in-out infinite; }
+  @keyframes bar { 0%,100% { transform: scaleY(.22) } 50% { transform: scaleY(1) } }
+</style>
+```
+
+Teen zaroori baatein jo humne seekhin:
+
+1. **`transform-box: fill-box`** — SVG shapes rotate/scale apne center se karein, warna sab `(0,0)` se ghoomta hai.
+2. **`animation-fill-mode: both`** — jo cheez `animation-delay` ke saath aati hai, wo apne time se pehle **chhupi** rahe (warna saare titles ek saath dikhte hain).
+3. **Monospace/text-anchor** — GitHub koi font download nahi karta, is liye text ki width par bharosa mat karo: pill ka background text se **hisab** se banao (ya `text-anchor="middle"` use karo).
+
+### 4. Reduced motion (zaroori)
+
+Har file ke `<style>` ke aakhir mein:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .ch,.caret,.spin-slow,.spin-rev,.glow,.twinkle,.live-dot,.ring,.bar,.aurora,.sheen,.scan,.fill,.fade1,.fade2,.fade3,.pulse-soft,.tape { animation: none !important; }
+  .ch,.fade1,.fade2,.fade3 { opacity: 1 }
+}
+```
+
+Jo visitor phone/OS mein “reduce motion” on karta hai, usay animation ki jagah **poora static banner** milta hai.
+Yeh sirf adab nahi, accessibility ka requirement hai.
+
+### 5. Dusre tareeqe jo duniya use karti hai (aur kab use karna chahiye)
+
+| Technique | Kaise | Faida | Nuqsan |
+| --- | --- | --- | --- |
+| **Self-hosted animated SVG** (yehi humne kiya) | SVG file repo mein, README mein `<img>` | kabhi 404 nahi, rate limit nahi, poora control | animation SVG ke andar hi rehti hai |
+| **`readme-typing-svg`** | `https://readme-typing-svg.demolab.com?lines=Hi;Hello` | typing effect 1 line mein | third-party, teesri site down ho to image gayab |
+| **`capsule-render`** | `https://capsule-render.vercel.app/api?type=waving&text=MIZANORA` | khoobsurat header banner | wahi third-party risk |
+| **`github-readme-stats`** | `https://github-readme-stats.vercel.app/api?username=...` | live stats card | service kabhi slow/limit ho jati hai |
+| **Snake game** | `Platane/snk` Action → `snake.svg` commit | contribution graph “khata” hai | roz Action chalana padta hai |
+| **GitHub Action se roz generate** | cron → Python/Node script → SVG commit | asli data (contributions, stats) roz update | Action minutes kharch |
+| **GIF / APNG** | screen record → GIF | har jagah chalta hai | file bhaari, quality kam, retina blur |
+
+Humne **self-hosted SVG** chuna kyunki yeh shop ka repo hai: koi bhi link kabhi tootna nahi chahiye.
+Agar aapko **profile** README (github.com/aapka-naam) banana ho to teesri-party services tab bhi
+theek hain — ek ready template yahan hai: **[docs/PROFILE-README.md](docs/PROFILE-README.md)**.
+Poori research aur tools ki list **[docs/README-ANIMATION.md](docs/README-ANIMATION.md)** mein hai.
+
+### 6. GitHub par animation na dikhe to?
+
+- **5 minute intezaar karo** — GitHub images ko cache karta hai. Turant badalna ho to README mein
+  `hero.svg?v=2` likho aur har update par number barhao.
+- **Preview app mein nahi chalti** — Windows Photos / macOS Preview / kuch editor SVG animation
+  nahi chalate. Browser (ya GitHub) mein kholo.
+- **Path sahi hai?** — README se relative path: `public/brand/readme/hero.svg`. Har file ka naam
+  chhota rakho, spaces na rakho.
+- **`raw.githubusercontent.com`** par file khul rahi hai? Nahi? To commit/push nahi hua.
+- **Image dikh rahi hai magar still hai?** — us `<img>` ke andar wali file mein `<style>` block
+  hai ya nahi check karo; GitHub `<img>` mein SVG ki CSS aur SMIL dono chalata hai, magar `<script>`
+  nahi.
+
+---
 
 ## Background music (Admin > Music)
 - **Admin > Music** has two cards: **App background music** (plays across the whole shop) and **Reels background music** (plays behind the reels that have no sound of their own).
@@ -33,69 +188,48 @@ Checks without installing: `node scripts/check.js` (syntax and imports).
 - Stored in Firestore: `siteMeta/appMusic` and `siteMeta/reelMusic` (read by everyone, written only by the admin). Optional fallback: `NEXT_PUBLIC_APP_MUSIC_URL` / `NEXT_PUBLIC_REEL_MUSIC_URL`.
 
 ## Search
-- The header search understands English, Roman Urdu and Urdu words, colours, price limits ("under 2k"), "sasta / premium", and forgives spelling mistakes (`lib/search.js`).
+- The header search understands English, Roman Urdu and Urdu words, colours, price limits ("under 2k"),
+  "sasta / premium", and forgives spelling mistakes (`lib/search.js`).
 - **Keyboard:** `↑`/`↓` move through the suggestions, `Enter` opens the highlighted one, `Esc` closes the panel.
-- The typed words are **highlighted** in the product names, a matching **category** is offered as its own row, and the panel scrolls on small screens.
+- The typed words are **highlighted** in the product names, a matching **category** is offered as its own row,
+  and the panel scrolls on small screens.
 - A colour that you type really filters: "black joota" no longer brings the blue shoes along.
-- The results page shows `12 products for "laal suit"`, and when nothing is found it suggests the other shelves and the AI assistant.
+- The results page shows `12 products for "laal suit"`, and when nothing is found it suggests the other
+  shelves and the AI assistant.
 
 ## Firestore reads (quota saver)
 Products/banners/reels are read from Firestore ONCE and shared by all pages through Next's data cache (tag `catalog`, see `lib/products.js`).
-Visitors and bots never trigger Firestore reads. The cache refreshes when the admin saves something (`/api/revalidate`) or after 12 hours
-(change with env var `CATALOG_CACHE_SECONDS`). Admin lists are cached in the browser session and updated locally after saves; orders load 50 at a time.
 
 ## Promo codes (Admin > Promo codes)
-- Every code belongs to a partner (name), has its own discount (percent or flat), min order, max discount, use limit, expiry and optional partner commission %.
-- Tick products to make a code work ONLY on those products (a different code per product). Tick nothing = whole shop.
-- "Who ordered?" lists every order that used the code (name, phone, city, products, status) with a per-product summary and CSV export.
-- Counters (orders, sales, discount given, partner earnings) follow cancelled orders automatically.
-- Customers must TYPE the code in the Promo code box at checkout. Nothing is applied automatically, and orders without a code get no discount.
-- "One order per phone number" is optional per code.
+- Create a code with a `%` off or a flat Rupee amount, a minimum cart value and an optional expiry.
+- A shopper types it in the cart; the discount is checked again on the server before the order is saved.
+- Stackable rules live in `lib/promo.js`; the code is stored with the order so the invoice always shows it.
 
 ## Optional: free delivery above an amount
-Set `NEXT_PUBLIC_FREE_SHIPPING_OVER` (for example 5000) together with `NEXT_PUBLIC_SHIPPING_FEE`. The cart shows a progress bar and the server uses the same rule.
-- Per product: open a product in Admin > Products > Edit and use "Promo codes for this product" to create or see its codes.
+Set `NEXT_PUBLIC_FREE_SHIPPING_OVER=5000` and delivery becomes free from Rs 5,000. `0` = off.
 
 ## Season + Islamic theme
-The shop changes with Pakistan's seasons automatically (Oct-Nov Khizan/autumn, Dec-Feb Sardi/winter, Mar-Apr Bahar/spring, May-Sep Garmi/summer):
-falling leaves / snow / petals, a seasonal hero banner with hanging lanterns, crescent and twinkling stars, a "season picks" shelf built from your
-products (it matches words like jacket, sweater, shawl, boots in the product name/category), a seasonal line in the top ticker, scroll animations,
-today's Hijri date, a Jumu'ah Mubarak badge on Fridays and a daily verse reminder.
-- The look is kept on Khizan (autumn) for now. To change it: `NEXT_PUBLIC_SEASON_THEME` = autumn (default) | auto (follows the months) | winter | spring | summer | off
-- Hijri date: Pakistan usually starts the month a day after Saudi Arabia, so the default offset is -1. Change it with `NEXT_PUBLIC_HIJRI_OFFSET` (0, -1, -2).
-- Edit the season texts and keywords in `lib/season.js`, and the daily verses in `lib/reminders.js` (please check the Arabic against your Mushaf before adding new ones).
-- Animations stop automatically for people who turned on "reduce motion", and they are hidden on admin and checkout pages.
+Hebrew-free, purely Islamic seasonal dressing (Ramadan, Eid, winter, monsoon) driven by the day of the year,
+with lanterns, stars, leaves and a soft geometric background. Colours come from `lib/theme.js` and are safe for
+contrast. The admin can pin a season from **Admin > Theme**.
 
 ## Smooth and light
-Heavy effects were removed: no animated gradients or glows, no full-screen fixed pattern, no blur on every reel. Falling leaves use only a few elements,
-fewer on weak phones, none when Data Saver is on, and they pause when the tab is hidden. Visitors can switch them off in the footer ("Seasonal animation").
+Every animation is CSS-only and honours `prefers-reduced-motion`. Images use the 3-step chain
+(`RemoteImg` → `/api/img` relay → hide), so a dead photo never shows a broken icon.
 
 ## Categories and filters
-- A product can be in many categories (Admin > Products > Edit > Categories; the first one is the main category). The product shows under each category page, on the home shelves, in search and in the Meta feed.
-- /products and category pages have category chips, in-stock / on-sale filters, price range and more sorting options. All of it runs in the browser (no database reads).
-- Admin > Products list: one-tap "Mark sold out", "Hide from shop" and "Duplicate".
-- Search box remembers recent searches on the shopper's device.
+`/products` and `/category/<slug>` share one filter bar (`price`, `colour`, `sale`, `sort`). The URL is the
+state, so every combination is shareable and every page is static.
 
 ## Checks before deploying
-`node scripts/check.js` (syntax and imports) and `node scripts/typecheck.js` (undefined names, missing exports/files) both need only the global `typescript` package.
-
-- `npm run check` — both checks in one go.
-- `npm test` — import, voice, music, app music and search tests.
-- `npm run build:offline` — a build that does not need the internet (the fonts are mocked). Use the normal `npm run build` for the real deploy, so the real fonts are downloaded.
-
-## v32 upgrade (photos + video ads + big catalogue)
-
-See [UPGRADE-v32.md](UPGRADE-v32.md). In short:
-
-- **Every photo gets three chances**: the optimizer, the browser loading it directly, and the shop's own relay `/api/img` (hotlink blocks, expired links, `http:` links). No more empty cards, banners or cart thumbnails.
-- **Video ads play for real**: MP4/WebM, live `.m3u8` (hls.js served by the shop) and YouTube / Facebook / Instagram / TikTok / Vimeo / Drive embeds, a working play button, poster, mute, skip — and the rotation waits while the video is playing.
-- **Editing a video ad no longer wipes its video link**, ad links are absolute, and `key=self` respects the "Show ads on the shop itself" switch.
-- **The product feeds and `/catalog.json` are paged** (`?part=N`): the old 9 MB / 16 MB / 7.6 MB files were refused by the platform limit (~4.5 MB), so Merchant Center / Commerce Manager got nothing.
-- Build errors in `components/LiveTvPlayer.js` fixed; the flaky ad test and two out-of-date CI tests fixed.
-
-## v30 upgrade
-
-See [UPGRADE-v30.md](UPGRADE-v30.md) for Live TV themes and backup sources, Noor's limited/AI modes, richer product details, date-range archive export/deletion and safety notes. Archive range operations affect repository files only, not Firebase copies.
+```bash
+npm ci
+npm run check      # scripts/check.js  +  scripts/typecheck.js
+npm test           # 24 test files, including v33 live badges + GitHub
+npm run build:offline
+```
+Both feeds are paged (each part stays under ~4 MB):
+`/api/feed?part=N`, `/api/feed/google?part=N`, `/catalog.json?part=N`.
 
 ## v33 upgrade (pure-live badges + GitHub on the website)
 
@@ -110,3 +244,33 @@ See [UPGRADE-v30.md](UPGRADE-v30.md) for Live TV themes and backup sources, Noor
   - Optional env: `GITHUB_USER`, `GITHUB_PINNED` (comma separated, the repos shown first), `GITHUB_CACHE_SECONDS`, `NEXT_PUBLIC_GITHUB_URL`.
   - If GitHub is unreachable the section renders from `FALLBACK_REPOS`, so the page is never empty.
 - Tests: `node scripts/test-v33.mjs` (badges, clock, live bar, reel badges, GitHub model, hydration safety).
+
+## v32 upgrade (photos + video ads + big catalogue)
+
+- **Photos that always load:** every picture goes through `RemoteImg` → `/api/img` relay → hidden. A dead
+  link never shows a broken icon, and the relay refuses private hosts and non-images.
+- **Video ads that really play:** mp4 / webm / HLS (via `/api/ads/hls.js`), plus YouTube, Facebook, Instagram,
+  TikTok, Vimeo, Dailymotion and Drive. Play / pause / mute / skip work, and the slot waits for the video
+  before it rotates. See [README-ADS.md](README-ADS.md) and [UPGRADE-v32.md](UPGRADE-v32.md).
+- **Feeds that fit the platform:** `/api/feed`, `/api/feed/google` and `/catalog.json` are split into
+  `?part=N` pieces under the 4.5 MB serverless limit, with `X-Feed-Pages` and `Link` headers.
+
+## v30 upgrade
+
+See [UPGRADE-v30.md](UPGRADE-v30.md): Live TV themes, quality and audio menus, favourites, auto-skip and
+shareable `/live/<channel>` pages.
+
+---
+
+<div align="center">
+
+<img src="public/brand/readme/logo.svg" alt="" width="64" height="64" />
+
+**MIZANORA** · Kasur, Punjab, Pakistan · cash on delivery across Pakistan
+<br>
+<a href="https://mizanora.vercel.app">Website</a> ·
+<a href="https://mizanora.vercel.app/live-channel">Live channel</a> ·
+<a href="https://mizanora.vercel.app/muaaz-iqbal">Founder</a> ·
+<a href="https://github.com/muaaziqbalvip">GitHub</a>
+
+</div>
