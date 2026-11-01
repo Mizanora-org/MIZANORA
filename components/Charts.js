@@ -53,3 +53,59 @@ export function TopList({ items, empty = 'No data yet', color = '#0B6B45', prett
     </ul>
   );
 }
+
+// v38: the dashboard's new blocks.
+// A two-slice ring: new vs returning visitors. Dependency-free, one <svg>, no library.
+export function Donut({ parts, size = 150, thickness = 22 }) {
+  const total = parts.reduce((a, p) => a + Math.max(0, p.value), 0);
+  const r = (size - thickness) / 2;
+  const c = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img" aria-label={parts.map((p) => `${p.label} ${p.value}`).join(', ')}>
+        <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" opacity="0.12" strokeWidth={thickness} />
+          {total > 0 && parts.map((p) => {
+            const len = (Math.max(0, p.value) / total) * c;
+            const el = <circle key={p.label} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={p.color} strokeWidth={thickness}
+              strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset} strokeLinecap="butt"><title>{`${p.label}: ${p.value.toLocaleString('en-PK')}`}</title></circle>;
+            offset += len;
+            return el;
+          })}
+        </g>
+        <text x={size / 2} y={size / 2 - 2} textAnchor="middle" fontSize="20" fontWeight="800" fill="currentColor">{total.toLocaleString('en-PK')}</text>
+        <text x={size / 2} y={size / 2 + 15} textAnchor="middle" fontSize="10" fill="currentColor" opacity="0.6">visitors</text>
+      </svg>
+      <ul className="space-y-1 text-sm">
+        {parts.map((p) => (
+          <li key={p.label} className="flex items-center gap-2">
+            <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />
+            <span className="text-dim">{p.label}</span>
+            <b>{p.value.toLocaleString('en-PK')}</b>
+            <span className="text-xs text-faint">{total ? `${Math.round((p.value / total) * 100)}%` : '—'}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// A bar that grows to the right: kinder to long labels ("Most read pages") than a column chart.
+export function HBarChart({ bars, color = '#0B6B45', empty = 'No data yet' }) {
+  if (!bars || !bars.length) return <p className="text-sm text-dim">{empty}</p>;
+  const max = Math.max(1, ...bars.map((b) => b.value));
+  return (
+    <ul className="space-y-1">
+      {bars.map((b, i) => (
+        <li key={`${b.label}-${i}`} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-2 text-xs sm:grid-cols-[minmax(0,14rem)_1fr_auto]">
+          <span className="truncate text-dim" title={b.label}>{b.label}</span>
+          <span className="h-3 rounded-full bg-raised">
+            <span className="block h-3 rounded-full" style={{ width: `${(b.value / max) * 100}%`, background: color }} />
+          </span>
+          <b className="tabular-nums">{b.value.toLocaleString('en-PK')}</b>
+        </li>
+      ))}
+    </ul>
+  );
+}

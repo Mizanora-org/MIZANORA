@@ -25,7 +25,11 @@ export default async function sitemap() {
   const muaazImgs = (await getMuaazImages().catch(() => [])).map((i) => i.url).filter(Boolean);
   const muaazPageImgs = [...founderPhotoUrls(absUrl('/')), ...FOUNDER.photos, ...muaazImgs].filter(Boolean).slice(0, 20);
   let tv = [];
-  try { const cfg = await getTvConfig(); if (cfg.enabled) { const sl = channelSlugs(cfg.channels); tv = cfg.channels.map((c, i) => ({ c, s: sl[i] })).filter((x) => !x.c.off).slice(0, 800); } } catch { /* no TV */ }
+  try { const cfg = await getTvConfig(); if (cfg.enabled) { const sl = channelSlugs(cfg.channels); // v38: the shop can hold 100,000 channels now, so the old 800-channel cap in the sitemap was
+// leaving almost all of them invisible to Google. A sitemap file may hold 50,000 addresses,
+// and the archived products already reserve room up to 49,000 - so TV takes 8,000, which is
+// enough for a serious line-up while leaving the total well inside the limit.
+      tv = cfg.channels.map((c, i) => ({ c, s: sl[i] })).filter((x) => !x.c.off).slice(0, 8000); } } catch { /* no TV */ }
   const fixed = [
     ['/', 1.0, 'daily'], ['/products', 0.9, 'daily'], ['/how-to-order', 0.7, 'monthly'], ['/blog', 0.8, 'weekly'], ['/workers', 0.8, 'monthly'], ['/reels', 0.6, 'weekly'], ['/track', 0.4, 'monthly'],
     ['/about', 0.5, 'monthly'], ['/team', 0.7, 'weekly'], ['/contact', 0.5, 'monthly'], ['/faq', 0.6, 'monthly'], ['/connect', 0.4, 'monthly'],
@@ -45,7 +49,7 @@ export default async function sitemap() {
     ...cats.map((c) => ({ url: absUrl(`/category/${c.slug}`), lastModified: now, changeFrequency: 'weekly', priority: 0.8 })),
     ...products.map((p) => ({ url: absUrl(`/product/${p.slug}`), lastModified: new Date(p.updatedAt || p.createdAt || now), changeFrequency: 'weekly', priority: 0.9, images: (p.images || []).slice(0, 3) })),
     // archived products (a sitemap file may hold 50,000 addresses in total)
-    ...archived.slice(0, Math.max(0, 49000 - products.length - cats.length)).map((c) => ({ url: absUrl(`/product/${c.slug}`), lastModified: new Date(c.createdAt || now), changeFrequency: 'monthly', priority: 0.6 })),
+    ...archived.slice(0, Math.max(0, 40000 - products.length - cats.length - tv.length)).map((c) => ({ url: absUrl(`/product/${c.slug}`), lastModified: new Date(c.createdAt || now), changeFrequency: 'monthly', priority: 0.6 })),
     ...TOOLS.map((t) => ({ url: absUrl(`/tools/${t.slug}`), lastModified: now, changeFrequency: 'monthly', priority: 0.8 })),
     ...tv.map((x) => ({ url: absUrl(`/live/${x.s}`), lastModified: now, changeFrequency: 'weekly', priority: 0.5 })),
     // v31: blog posts advertise their image (front matter "image: https://...")

@@ -231,6 +231,37 @@ npm run build:offline
 Both feeds are paged (each part stays under ~4 MB):
 `/api/feed?part=N`, `/api/feed/google?part=N`, `/catalog.json?part=N`.
 
+## v38 upgrade (100,000 Live TV channels, bulk import, editing tools)
+
+- **Live TV holds 100,000 channels now** (it stopped at 800). A Firestore document may hold
+  1 MB, so the channel list is no longer stored inside the setting: it is **sharded** across
+  `siteMeta/liveTv/channels/p0, p1, …`, packed by size as well as by count. Measured: 100,000
+  channels → 80 shards, largest 306 KB, packed in 247 ms. Old installs read as-is; the next
+  Save rewrites them into shards.
+- **Xtream Codes can fill the shop by itself.** New **"Straight into the shop"** button: the
+  server pulls the panel, merges (Add *or* Replace), writes the shards and revalidates `/live`
+  — only the counts travel back, so a 100,000-channel panel takes seconds instead of freezing
+  the tab. The importer fetches **category by category** (four at a time) rather than one 30 MB
+  download. Limits: 100,000 channels, 48 MB bulk / 12 MB per category, 60 s timeout.
+- **Delete every channel at once** — from the bulk tools (then Save), or straight from the
+  database with "Delete all channels from the database". Plus delete ticked / search results /
+  a whole group / every dead channel.
+- **A full set of editing tools** in Admin → Live TV: find & replace across names, links, logos
+  and groups; prefix/suffix; capitalise; tidy spaces; rename a group; switch a group on or off;
+  remove duplicate links and names; clear all logos; sort; reverse. Every tool works on a scope
+  you pick — **ticked / search results / all** — and none of them save behind your back.
+- **The channel list is paged** (50 at a time) with tick-page and select-all-found, because
+  100,000 rows would freeze the tab.
+- **The dashboard's missing charts:** most-read pages, new vs returning, busiest hours, busiest
+  weekdays, and a totals strip. Range now up to **90 days**.
+  The **by-hour chart had never worked** — it read a field nothing ever wrote. `lib/track.js`
+  writes `stats/hr/<day>/<HH>` now and the chart reads that.
+- **Fixes:** `lib/seo.js` was emitting relative `canonical` / `og:url` / `og:image` (Google
+  needs absolute); `scripts/check.js` now fails on any internal `/blog/<slug>` link that points
+  at a post that does not exist; the sitemap's TV cap went from 800 to 8,000 channels.
+
+Full notes: [UPGRADE-v38.md](UPGRADE-v38.md).
+
 ## v37 upgrade (Live TV by login, open analytics, and a news desk)
 
 - **Live TV connects with a username and password.** Admin → Live TV now takes an **Xtream

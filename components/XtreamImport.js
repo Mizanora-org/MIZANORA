@@ -5,13 +5,19 @@ import { authClient } from '@/lib/firebase-client';
 
 // v37: connect an Xtream Codes panel (the login every IPTV provider gives you).
 // Three fields - server, username, password - then Test, choose the groups you want, and Import.
-// Nothing is saved here: the channels land in the editor like any other import, and the admin
-// still presses Save. The password is sent once, never stored in state after the call, and
-// never sent back by the server.
+// The password is sent once, never stored in state after the call, and never sent back.
+//
+// v38: TWO ways in, because a big panel does not fit through a browser tab:
+//   "Add to the editor"  - the channels come back here so you can look before you keep them.
+//                          Right for a few thousand. Nothing is saved until you press Save.
+//   "Straight into the shop" - the SERVER pulls the panel, merges it with what the shop has and
+//                          writes the shards itself. Use this for 10,000+ channels: only the
+//                          counts travel back, so a 100,000-channel panel takes seconds, not a
+//                          frozen tab. Mode: add to what is there, or replace everything.
 
 const REMEMBER_KEY = 'mz_xtream_server'; // only the server address is remembered, never the password
 
-export default function XtreamImport({ onChannels, max, used }) {
+export default function XtreamImport({ onChannels, onReload, max, used }) {
   const [form, setForm] = useState(() => ({
     server: typeof window !== 'undefined' ? (localStorage.getItem(REMEMBER_KEY) || '') : '',
     username: '',
@@ -23,6 +29,8 @@ export default function XtreamImport({ onChannels, max, used }) {
   const [what, setWhat] = useState('live');
   const [hls, setHls] = useState(true);
   const [msg, setMsg] = useState('');
+  const [mode, setMode] = useState('merge');      // merge = add, replace = wipe then take the panel's
+  const [done, setDone] = useState(null);         // the report from a straight-into-the-shop import
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -43,19 +51,40 @@ export default function XtreamImport({ onChannels, max, used }) {
       if (!json.ok) { setMsg(json.error || 'Could not connect.'); return; }
       try { localStorage.setItem(REMEMBER_KEY, form.server.trim()); } catch { /* ignore */ }
       setTest(json);
-      setMsg(`Connected: ${json.counts.live} live channels in ${json.groups.length} groups.`);
+      setDone(null);
+      const big = json.counts && json.counts.live > 20000;
+      setMsg(`Connected: ${(json.counts.live || 0).toLocaleString('en-PK')} live channels in ${json.groups.length} groups.${big ? ' That is a big panel — use "Straight into the shop" below.' : ''}${json.partial ? ' Some groups did not answer; the counts may be low.' : ''}`);
     } catch (err) { setMsg(err.message); }
     setBusy('');
   }
 
   async function runImport() {
-    setBusy('import'); setMsg('');
+    setBusy('import'); setMsg(''); setDone(null);
     try {
       const { json } = await call({ action: 'import', ...form, what, categories: picked, hls });
-      if (!json.ok) { setMsg(json.error || 'Import failed.'); return; }
+      if (!json.ok) {
+        // 413: the panel has more than the browser should swallow. Point at the server-side way.
+        if (json.tooBig) { setMsg(`${json.error}`); setMode('merge'); return; }
+        setMsg(json.error || 'Import failed.');
+        return;
+      }
       if (!json.channels.length) { setMsg('That selection has no channels.'); return; }
       const n = onChannels(json.channels);
-      setMsg(`${n} channel${n === 1 ? '' : 's'} added to the editor from the panel${json.channels.length > n ? ` (${json.channels.length - n} were duplicates or over the ${max} limit)` : ''}. Press Save to publish.`);
+      setMsg(`${n.toLocaleString('en-PK')} channel${n === 1 ? '' : 's'} added to the editor from the panel${json.channels.length > n ? ` (${(json.channels.length - n).toLocaleString('en-PK')} were duplicates or over the ${Number(max).toLocaleString('en-PK')} limit)` : ''}. Press Save to publish.`);
+    } catch (err) { setMsg(err.message); }
+    setBusy('');
+  }
+
+  // v38: the big one. The server pulls the panel, merges, writes the shards and answers with counts.
+  async function runCommit() {
+    setBusy('commit'); setMsg(''); setDone(null);
+    if (mode === 'replace' && !window.confirm('Replace EVERY channel in the shop with this panel\'s list? What is there now will be deleted.')) { setBusy(''); return; }
+    try {
+      const { json } = await call({ action: 'commit', ...form, what, categories: picked, hls, mode });
+      if (!json.ok) { setMsg(json.error || 'Import failed.'); setBusy(''); return; }
+      setDone(json);
+      setMsg(json.message || `Done: ${json.total} channels.`);
+      if (typeof onReload === 'function') onReload();
     } catch (err) { setMsg(err.message); }
     setBusy('');
   }
@@ -131,17 +160,46 @@ export default function XtreamImport({ onChannels, max, used }) {
             </div>
           )}
 
-          <button type="button" className="btn-gold mt-3" disabled={busyNow} onClick={runImport}>
-            {busy === 'import' ? <Loader2 size={14} className="animate-spin" /> : <ChevronsDown size={14} />}
-            {what === 'live' ? 'Import live channels' : what === 'vod' ? 'Import movies' : 'Import series'}
-            {picked.length ? ` (${picked.length} groups)` : ' (all)'}
-          </button>
+          <div className="mt-3 rounded-lg border border-line bg-raised p-2">
+            <span className="label">How to bring them in</span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {[['merge', 'Add to what the shop has'], ['replace', 'Replace everything']].map(([id, label]) => (
+                <button key={id} type="button" onClick={() => setMode(id)} className={`mz-chip${mode === id ? ' is-on' : ''}`}>{label}</button>
+              ))}
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <button type="button" className="btn-ghost !py-1.5" disabled={busyNow} onClick={runImport}>
+                {busy === 'import' ? <Loader2 size={14} className="animate-spin" /> : <ChevronsDown size={14} />}
+                Add to the editor
+              </button>
+              <button type="button" className="btn-gold !py-1.5" disabled={busyNow} onClick={runCommit}>
+                {busy === 'commit' ? <Loader2 size={14} className="animate-spin" /> : <ChevronsDown size={14} />}
+                Straight into the shop ({what === 'live' ? 'live' : what === 'vod' ? 'movies' : 'series'}{picked.length ? `, ${picked.length} groups` : ', all'})
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-dim">
+              <b>Add to the editor</b> brings the channels back here so you can look before you keep them — right for a few thousand, and nothing is saved until you press Save.{' '}
+              <b>Straight into the shop</b> does the whole job on the server (pull, merge, write the shards) and only reports the counts. That is the one to use for 10,000+ channels or a panel that times out.
+            </p>
+          </div>
+
+          {done && (
+            <div className="mt-2 rounded-lg border border-emerald-500/40 bg-emerald-50 p-2 text-xs text-emerald-900">
+              <p className="font-bold">Imported straight into the shop</p>
+              <p className="mt-0.5">
+                Pulled {Number(done.pulled || 0).toLocaleString('en-PK')} from the panel · added {Number(done.added || 0).toLocaleString('en-PK')}
+                {Number(done.updated || 0) ? ` · refreshed ${Number(done.updated).toLocaleString('en-PK')}` : ''} · now {Number(done.total || 0).toLocaleString('en-PK')} channels in {done.parts} shard{done.parts === 1 ? '' : 's'}
+                {done.fetched ? ` · fetched ${done.fetched === 'bulk' ? 'in one go' : 'group by group'}` : ''}
+              </p>
+              {done.partial ? <p className="mt-0.5 text-amber-800">Some groups did not answer, so this may be short. Try again with fewer groups ticked.</p> : null}
+            </div>
+          )}
         </div>
       )}
 
       {msg && (
         <p role="status" className={`mt-2 flex items-start gap-1.5 text-xs font-semibold ${msg.startsWith('Connected') || msg.includes('added') ? 'text-emerald-400' : 'text-amber-400'}`}>
-          {msg.startsWith('Connected') || msg.includes('added') ? <CheckCircle2 size={13} className="mt-0.5 shrink-0" /> : <XCircle size={13} className="mt-0.5 shrink-0" />}
+          {msg.startsWith('Connected') || msg.includes('added') || msg.includes('Now holding') || msg.includes('now holds') || msg.includes('Replaced') ? <CheckCircle2 size={13} className="mt-0.5 shrink-0" /> : <XCircle size={13} className="mt-0.5 shrink-0" />}
           {msg}
         </p>
       )}

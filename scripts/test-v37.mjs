@@ -68,7 +68,7 @@ ok('stats API: online means seen within the last few minutes', /90e3|90000|90\s*
 ok('stats API: it leaks no visitor id', !/Object\.keys\(p\w*\)\.map|id:\s*/.test(statsApi));
 ok('stats API: it leaks no order or cart contents', !/ordersBackup|liveOrders/.test(statsApi));
 ok('stats API: it leaks no search words', !/['"]q0['"]|searchWords|rawQ/.test(statsApi));
-ok('stats API: it turns internal page keys back into real paths', /prettyPath|blog_/.test(statsApi));
+ok('stats API: it turns internal page keys back into real paths', /pageLabel|prettyPath|blog_/.test(statsApi));
 ok('stats API: it fails soft when the database is not configured', /setup/.test(statsApi));
 
 const statsPage = src('app/stats/page.js');
