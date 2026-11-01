@@ -231,6 +231,35 @@ npm run build:offline
 Both feeds are paged (each part stays under ~4 MB):
 `/api/feed?part=N`, `/api/feed/google?part=N`, `/catalog.json?part=N`.
 
+## v37 upgrade (Live TV by login, open analytics, and a news desk)
+
+- **Live TV connects with a username and password.** Admin → Live TV now takes an **Xtream
+  Codes** panel: server, username, password, **Test connection**, pick the groups you want,
+  import live TV / movies / series. The call is admin-only, refuses private and loopback
+  addresses, follows no redirects, caps the body at 8 MB, and never stores or logs the
+  password. Free credentials to try it: [BarakatWave TV](https://barakatwave.vercel.app) →
+  *Generate My Free Xtream Server*. Walkthrough:
+  [the setup guide](/blog/barakatwave-tv-xtream-codes-setup-guide).
+- **Analytics got deeper, and part of it went public.** The dashboard now keeps up to **90
+  days** and reports most-read pages, new vs returning visitors, traffic by hour and by
+  weekday, and all-time totals. New **`/stats`** is open to anyone — no sign-in — with a live
+  "on the site now" count, a 14-day sparkline, top pages and the device/source split,
+  refreshing every minute. `/api/stats` returns **totals only**: no visitor ids, no presence
+  records, no order or cart contents, no search words.
+- **A news desk at `/news`.** World, science and technology, written as dated articles so
+  every dispatch indexes on its own, with tabs, a lead story and its own **RSS feed** at
+  `/news/feed.xml`. Three new shelves in `lib/blog.js` exported as `NEWS_CATEGORIES`.
+- **Eleven new articles** (136 in total): three world-news pieces with a Pakistan angle
+  (the 2026 economy, why delivery charges move, tariffs and import prices), two science
+  pieces (the 2026 space results; what the Mars organics really mean), two technology pieces
+  (AI's electricity and your next phone; buying through the chip shortage), two about
+  [Muaaz Iqbal](/muaaz-iqbal) (his character, and every project mapped), and two supporting
+  **BarakatWave TV** and **SIRAVEX**.
+- **`/news` and `/stats` are in the sitemap**, and every dispatch carries breadcrumb and
+  collection structured data.
+
+Full notes: [UPGRADE-v37.md](UPGRADE-v37.md).
+
 ## v36 upgrade (Muaaz Iqbal is on the site + a blog built for 125 guides)
 
 - **His pictures now live in the shop.** Eight photos were optimised into `public/img/muaaz/`

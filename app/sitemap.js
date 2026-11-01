@@ -29,6 +29,10 @@ export default async function sitemap() {
   const fixed = [
     ['/', 1.0, 'daily'], ['/products', 0.9, 'daily'], ['/how-to-order', 0.7, 'monthly'], ['/blog', 0.8, 'weekly'], ['/workers', 0.8, 'monthly'], ['/reels', 0.6, 'weekly'], ['/track', 0.4, 'monthly'],
     ['/about', 0.5, 'monthly'], ['/team', 0.7, 'weekly'], ['/contact', 0.5, 'monthly'], ['/faq', 0.6, 'monthly'], ['/connect', 0.4, 'monthly'],
+    // v37: the public live-stats page (updated every minute, so Google is told to come back often)
+    ['/stats', 0.5, 'daily'],
+    // v37: the news desk (world / science / technology dispatches) and its own RSS feed
+    ['/news', 0.8, 'daily'],
     ['/returns', 0.3, 'yearly'], ['/shipping', 0.5, 'monthly'], ['/size-guide', 0.5, 'monthly'], ['/islamic', 0.6, 'weekly'], ['/deals', 0.9, 'daily'], ['/quran', 0.7, 'monthly'], ['/hadith', 0.7, 'monthly'], ['/live', 0.7, 'daily'], ['/tools', 0.9, 'weekly'], ['/reviews', 0.7, 'daily'], ['/muaaz-iqbal', 0.8, 'monthly'], ['/winter', 0.7, 'weekly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'],
   ].map(([p, priority, changeFrequency]) => ({ url: absUrl(p), lastModified: now, changeFrequency, priority }));
   // v31: /muaaz-iqbal carries its images in the sitemap (Google Images / search)
