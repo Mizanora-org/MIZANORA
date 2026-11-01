@@ -6,6 +6,7 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import Reveal from '@/components/Reveal';
 import { CREDIT, FOUNDER, TEAM, initialsOf } from '@/lib/team';
+import { founderAvatarPhotos, founderHeroPhoto } from '@/lib/founderPhotos';
 import FounderPhoto from '@/components/FounderPhoto';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { getGitHub } from '@/lib/githubLive';
@@ -52,7 +53,7 @@ export default async function TeamPage() {
     '@type': 'Person',
     name: FOUNDER.name,
     jobTitle: FOUNDER.role,
-    image: FOUNDER.photos[0],
+    image: absUrl(founderHeroPhoto(FOUNDER.photos[0])),
     telephone: `+${FOUNDER.whatsapp}`,
     description: FOUNDER.bio,
     knowsAbout: ['web development', 'artificial intelligence', 'digital marketing', 'e-commerce'],
@@ -73,7 +74,7 @@ export default async function TeamPage() {
               <span className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-saffron/25 blur-2xl" aria-hidden="true" />
               <span className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
               <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
-                <FounderPhoto photos={FOUNDER.photos} initials={initialsOf(FOUNDER.name)} name={FOUNDER.name} />
+                <FounderPhoto photos={founderAvatarPhotos(FOUNDER.photos)} initials={initialsOf(FOUNDER.name)} name={FOUNDER.name} />
                 <div className="min-w-0">
                   <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider"><Sparkles size={13} /> {FOUNDER.role}</p>
                   <h1 id="founder" className="mt-2 font-display text-3xl font-extrabold leading-tight sm:text-4xl">{FOUNDER.name}</h1>

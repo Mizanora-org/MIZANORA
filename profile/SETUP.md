@@ -27,7 +27,7 @@ Bas. Roz 02:17 UTC par `refresh live numbers` chalta hai aur numbers khud update
 
 | Path | Kya hai |
 | --- | --- |
-| `README.md` | Profile ka README: hero → ticker → badges → live strip → stats → projects → stack → how I work → contact → "how this stays alive" |
+| `README.md` | Profile ka README: hero → ticker → badges → live strip → stats → **photos** → projects → stack → how I work → contact → "how this stays alive" |
 | `assets/hero.svg` · `hero-light.svg` | 1200×420 banner: ghoomta monogram, naam ka sheen, typing line, rotating "currently" line, chips, aur live card (LIVE dot, 3 titles, 20-bar waveform, progress, 92 repos · 12 stars · 6 followers) |
 | `assets/ticker.svg` · `ticker-light.svg` | Endless tape: MIZANORA · ASAAN LANG · BARAKATWAVE TV · SIRAVEX … |
 | `assets/live.svg` · `live-light.svg` | "LIVE right now" strip: LIVE chip, rotating titles, waveform, LATEST PUSH + numbers |
@@ -37,6 +37,7 @@ Bas. Roz 02:17 UTC par `refresh live numbers` chalta hai aur numbers khud update
 | `scripts/make-art.mjs` | **Source of all art.** Colours/text/speed yahan badlo, phir: `node scripts/make-art.mjs` |
 | `scripts/refresh-live.mjs` | GitHub + shop `/api/github` se asli numbers, `data-k="…"` tags mein patch |
 | `.github/workflows/refresh.yml` | Roz 02:17 UTC: art regenerate → numbers refresh → commit (sirf badla ho to) |
+| `assets/photos/*.jpg` | **Muaaz ki 8 tasweerein** (512×512, EXIF/GPS hata diya gaya). README mein "📸 Photos" grid unhi ko dikhata hai. |
 
 > Purane art files (`projects.svg`, `tech-stack.svg`, `philosophy.svg`, `stats.svg` ka purana version)
 > README ab bhi use karta hai — unhe **mat delete karo** jab tak naya art unki jagah na le le.
