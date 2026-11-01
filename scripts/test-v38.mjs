@@ -186,6 +186,29 @@ ok('tv config route: save removes shards left over from a longer list', /removed
 ok('tv config route: load tells the admin how many shards the database holds', /parts: Number\(config\.parts\)/.test(tvConfigRoute));
 ok('tv config route: save tells the admin how many shards it wrote', /parts: r\.parts/.test(tvConfigRoute));
 
+// ------------- 3b. v39 hotfix: the admin TV page must never hang or wipe -------------
+{
+  const page = src('app/admin/tv/page.js');
+  // "when I open Admin > Live TV it just sits there" - load() had no try/catch, so any
+  // rejection left cfg === null and the page showed "Loading..." forever with no way out.
+  ok('hotfix: the sign-in token is fetched without throwing on a missing session', /const token = useCallback/.test(page) && /return u \? await u\.getIdToken\(\) : null/.test(page));
+  ok('hotfix: call() returns a shaped error instead of rejecting', /Could not reach the server/.test(page));
+  ok('hotfix: load() wraps its call in try/catch', /try \{\s*\n?\s*j = await call\(\{ action: 'load' \}\);\s*\n?\s*\} catch \(e\)/.test(page));
+  ok('hotfix: a failed load still leaves the page usable (never null cfg)', /setCfg\(\(c\) => c \|\| \{ \.\.\.TV_DEFAULT \}\)/.test(page));
+  ok('hotfix: the error is shown with a Try again button', /role="alert"/.test(page) && /Try again/.test(page) && /onClick=\{load\}/.test(page));
+  // "the channels disappeared" - if the shards cannot be read, the page shows 0 and Save would
+  // overwrite them. Now the page knows how many the DATABASE recorded and refuses blindly.
+  ok('hotfix: it remembers how many channels the database recorded', /setExpected/.test(page) && /recorded/.test(page));
+  ok('hotfix: a short read is called out in red before anything is saved', /but none came back/.test(page));
+  ok('hotfix: saving a suspiciously short list asks first', /looksBroken/.test(page) && /window\.confirm/.test(page));
+  ok('hotfix: deleting a handful of channels does NOT nag', /cfg\.channels\.length === 0 \? missing > 0 : missing > Math\.max\(20, expected \* 0\.5\)/.test(page));
+  ok('hotfix: Save can be cancelled without changing anything', /Save cancelled\. Nothing was changed\./.test(page));
+  // the guard is only as good as the number behind it
+  ok('hotfix: the route sends both the recorded count and what it read', /recorded: Number\(config\.count\)/.test(src('app/api/admin/tv/config/route.js')));
+  // Firestore rules do not cascade into subcollections
+  ok('hotfix: the rules cover the channel shards explicitly', /match \/siteMeta\/\{id\}\/channels\/\{part\}/.test(src('firestore.rules')));
+}
+
 // ------------------------------------------------- 4. Dashboard charts
 const dash = src('app/admin/dashboard/page.js');
 ok('dashboard: it draws the most-read pages', /Most read pages/.test(dash) && /topPages/.test(dash));

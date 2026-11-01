@@ -50,7 +50,17 @@ export async function POST(req) {
       // `parts` has to travel with the config: it is how the admin page shows how many shard
       // documents the database is holding. cleanTv() only keeps the setting fields, so it is
       // put back on afterwards.
-      return json({ ok: true, cfg: { ...cleanTv({ ...config, channels }), channels, parts: Number(config.parts) || 0 }, legacy, count: channels.length, parts: Number(config.parts) || 0 });
+      // `count` is what the DATABASE recorded at the last save; `loaded` is what we actually
+      // managed to read back. They can differ (a shard that will not read), and the admin page
+      // treats that gap as a warning: saving a short list would delete what it could not see.
+      return json({
+        ok: true,
+        cfg: { ...cleanTv({ ...config, channels }), channels, parts: Number(config.parts) || 0, count: Number(config.count) || 0 },
+        legacy,
+        count: channels.length,
+        recorded: Number(config.count) || 0,
+        parts: Number(config.parts) || 0,
+      });
     }
 
     if (action === 'clear') {
