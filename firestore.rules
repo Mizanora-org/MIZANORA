@@ -20,6 +20,11 @@ service cloud.firestore {
     // Products hidden because their photos do not load (the server writes them; only the admin reads / clears them).
     // Website status (shut down / high alert + reason). Anyone may read it, only the admin changes it.
     match /siteMeta/{id} { allow read: if true; allow write: if isAdmin(); }
+    // v39: the Live TV channel shards live in a SUBCOLLECTION of siteMeta/liveTv. Firestore
+    // rules do not cascade into subcollections, so without this a browser-side read would be
+    // denied with no error at all - it would just look like "zero channels". Today only the
+    // Admin SDK touches them (server-side, rules do not apply), but the rule makes it safe.
+    match /siteMeta/{id}/channels/{part} { allow read: if true; allow write: if isAdmin(); }
     // v29: SECRETS (YouTube stream key). Nobody can read or write these from a browser - only the server (Admin SDK) can.
     // siteMeta above is PUBLIC, so a stream key must never be stored there.
     match /adminSecrets/{id} { allow read, write: if false; }

@@ -39,27 +39,59 @@ export default function AdminTv() {
   const [prog, setProg] = useState(null); // { done, total, dead }
   const [selected, setSelected] = useState(() => new Set());
   const [parts, setParts] = useState(0);
+  const [loadErr, setLoadErr] = useState('');   // why the list could not be read
+  const [expected, setExpected] = useState(0);  // how many channels the DATABASE says it holds
 
-  const call = useCallback(async (body) => {
-    const r = await fetch('/api/admin/tv/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await authClient().currentUser.getIdToken()}` },
-      body: JSON.stringify(body),
-    });
-    return r.json().catch(() => ({ ok: false, error: 'The server could not be reached.' }));
+  // The sign-in token. Never throws: a missing or expired session comes back as null and the
+  // caller shows a message instead of dying inside a template literal.
+  const token = useCallback(async () => {
+    try {
+      const u = authClient().currentUser;
+      return u ? await u.getIdToken() : null;
+    } catch (_) { return null; }
   }, []);
 
+  const call = useCallback(async (body) => {
+    const t = await token();
+    if (!t) return { ok: false, error: 'You are signed out. Reload the page and sign in again.' };
+    try {
+      const r = await fetch('/api/admin/tv/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify(body),
+      });
+      return await r.json().catch(() => ({ ok: false, error: `The server answered ${r.status}.` }));
+    } catch (e) {
+      return { ok: false, error: `Could not reach the server: ${e.message}` };
+    }
+  }, [token]);
+
+  // v39: load() used to have NO try/catch. Any rejection - a dropped connection, a signed-out
+  // session - left `cfg` null, and the page sat on "Loading..." forever with no message and no
+  // way out. It now always lands somewhere: real data, an error with a Try again button, or an
+  // empty setting. It can never hang.
   const load = useCallback(async () => {
     setBusy('load');
-    const j = await call({ action: 'load' });
+    let j;
+    try {
+      j = await call({ action: 'load' });
+    } catch (e) {
+      j = { ok: false, error: e.message || 'unknown error' };
+    }
     if (j.ok) {
       setCfg(j.cfg || { ...TV_DEFAULT });
       setParts(j.cfg && j.cfg.parts ? j.cfg.parts : 0);
+      setExpected(j.recorded != null ? Number(j.recorded) || 0 : (j.cfg && Number(j.cfg.count)) || 0);
       setSelected(new Set());
       setPage(0);
+      if (j.cfg && j.cfg.count > 0 && !(j.cfg.channels || []).length) {
+        setLoadErr(`The database says it holds ${j.cfg.count.toLocaleString('en-PK')} channels, but none came back. Do NOT press Save until this is sorted - saving an empty list would delete them.`);
+      } else {
+        setLoadErr('');
+      }
     } else {
-      setMsg(`Could not read the setting: ${j.error || 'unknown error'}`);
-      setCfg({ ...TV_DEFAULT });
+      setCfg((c) => c || { ...TV_DEFAULT });
+      setLoadErr(`Could not read the setting: ${j.error || 'unknown error'}`);
     }
     setBusy('');
   }, [call]);
@@ -181,11 +213,28 @@ export default function AdminTv() {
 
   async function save() {
     setBusy('save'); setMsg('');
+    // v39: the one mistake that cannot be undone. If the database remembers more channels than
+    // this page is showing, the page may simply have failed to read the shards - and saving now
+    // would overwrite them with an empty list. Ask first.
+    // Only ask when the shortfall looks like a FAILED READ, not a deliberate edit: deleting a
+    // handful of channels is normal, losing the whole list is not.
+    const missing = expected - cfg.channels.length;
+    const looksBroken = cfg.channels.length === 0 ? missing > 0 : missing > Math.max(20, expected * 0.5);
+    if (looksBroken) {
+      const go = window.confirm(
+        `The database holds ${expected.toLocaleString('en-PK')} channels, but this page is showing ${cfg.channels.length.toLocaleString('en-PK')}.\n\n`
+        + `Saving now would delete ${missing.toLocaleString('en-PK')} channel${missing === 1 ? '' : 's'} for good.\n\n`
+        + 'Press "Try again" first if you did not mean to remove them. Save anyway?',
+      );
+      if (!go) { setBusy(''); setMsg('Save cancelled. Nothing was changed.'); return; }
+    }
     try {
       const j = await call({ action: 'save', cfg });
       if (!j.ok) { setMsg(`Could not save: ${j.error}`); setBusy(''); return; }
       setCfg(j.cfg);
       setParts(j.parts || 0);
+      setExpected(j.count || 0);
+      setLoadErr('');
       setMsg(j.message || `Saved ${j.count} channels.`);
     } catch (e) { setMsg(`Could not save: ${e.message}`); }
     setBusy('');
@@ -199,6 +248,8 @@ export default function AdminTv() {
     setCfg((c) => ({ ...c, channels: [] }));
     setSelected(new Set());
     setParts(0);
+    setExpected(0);
+    setLoadErr('');
     setMsg(j.message || 'All channels deleted.');
     setBusy('');
   }
@@ -212,6 +263,17 @@ export default function AdminTv() {
         <div className="flex gap-2"><Link href="/live" target="_blank" className="btn-ghost">Open /live</Link><button type="button" className="btn-gold" disabled={busy === 'save'} onClick={save}>{busy === 'save' ? 'Saving...' : 'Save'}</button></div>
       </header>
       {msg && <p role="status" className="rounded-xl bg-raised p-3 text-sm font-semibold text-gold">{msg}</p>}
+      {loadErr && (
+        <p role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-red-500/50 bg-red-50 p-3 text-sm text-red-800">
+          <span className="min-w-0 flex-1">{loadErr}</span>
+          <button type="button" className="btn-ghost !py-1.5" disabled={busy === 'load'} onClick={load}>{busy === 'load' ? 'Trying...' : 'Try again'}</button>
+        </p>
+      )}
+      {!loadErr && expected > 0 && cfg.channels.length === 0 && (
+        <p role="alert" className="rounded-xl border-2 border-amber-500 bg-amber-50 p-3 text-sm text-amber-900">
+          This list is empty, but the database recorded {expected.toLocaleString('en-PK')} channels at the last save. Pressing Save now would delete them. Use <b>Try again</b> first; only press Save if you really mean to wipe the list.
+        </p>
+      )}
 
       <p className="flex flex-wrap gap-x-4 gap-y-1 rounded-xl bg-raised p-3 text-sm">
         <span><b className="text-cream">{cfg.channels.length.toLocaleString('en-PK')}</b> channels</span>
