@@ -260,6 +260,18 @@ Both feeds are paged (each part stays under ~4 MB):
   needs absolute); `scripts/check.js` now fails on any internal `/blog/<slug>` link that points
   at a post that does not exist; the sitemap's TV cap went from 800 to 8,000 channels.
 
+### v38.1 — the fonts are self-hosted (the Vercel build was failing)
+
+`next/font/google` downloads the font files **while the app builds**, so the build dies as soon as
+the build machine cannot reach `fonts.googleapis.com` — which is what happened on Vercel
+(`TypeError: Cannot read properties of null (reading '1')` from the Google font loader). All nine
+woff2 files (Plus Jakarta Sans, Inter, Amiri — 344 KB) now live in `public/fonts/` and are loaded
+with `next/font/local`, so **the build needs no network at all** and the shop serves the fonts
+from its own domain. The CSS variables are unchanged, so no styling moved.
+
+Worth knowing: `npm run build:offline` mocks the Google response, which is why this never showed
+up locally — **the real `npm run build` is the gate that matters**, and it passes now.
+
 Full notes: [UPGRADE-v38.md](UPGRADE-v38.md).
 
 ## v37 upgrade (Live TV by login, open analytics, and a news desk)

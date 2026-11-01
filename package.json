@@ -1,6 +1,6 @@
 {
   "name": "mizanora-store",
-  "version": "38.0.1",
+  "version": "38.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,6 +12,9 @@
     "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs && node scripts/test-v20.mjs && node scripts/test-v21.mjs && node scripts/test-v23.mjs && node scripts/test-v24.mjs && node scripts/test-v25.mjs && node scripts/test-v26.mjs && node scripts/test-v27.mjs && node scripts/test-v28.mjs && node scripts/test-v29.mjs && node scripts/test-v30.mjs && node scripts/test-ads.mjs && node scripts/test-v31.mjs && node scripts/test-v32.mjs && node scripts/test-v33.mjs && node scripts/test-v34.mjs && node scripts/test-v35.mjs && node scripts/test-v36.mjs && node scripts/test-v37.mjs && node scripts/test-v38.mjs && node scripts/test-v32-player.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v30-api.mjs"
   },
   "dependencies": {
+    "@fontsource/amiri": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/plus-jakarta-sans": "^5.3.0",
     "dashjs": "^5.2.1",
     "firebase": "^11.0.0",
     "firebase-admin": "^13.0.0",

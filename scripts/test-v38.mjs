@@ -262,6 +262,34 @@ ok('check: it validates /blog/<slug> links', /BROKEN BLOG LINK/.test(src('script
   ok(`blog: every internal post link resolves (${broken} broken)`, broken === 0);
 }
 
+// ------------- 4b. v38.1: the fonts are self-hosted (the build must not need Google) -------------
+{
+  // next/font/google downloads CSS + woff2 WHILE THE APP BUILDS. If the build machine cannot
+  // reach fonts.googleapis.com the build dies - which is exactly what happened on Vercel
+  // ("TypeError: Cannot read properties of null (reading '1')"). Locally it never showed up
+  // because `build:offline` mocks the Google response, so the real path was never exercised.
+  const layout = src('app/layout.js');
+  const codeOnly = layout.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  ok('fonts: nothing imports next/font/google any more', !/next\/font\/google/.test(codeOnly));
+  ok('fonts: the layout uses next/font/local', /from 'next\/font\/local'/.test(layout));
+  ok('fonts: all three families are still defined', /--font-display/.test(layout) && /--font-arabic/.test(layout) && /--font-body/.test(layout));
+
+  // every path the layout points at must exist, or the build fails with a confusing error
+  const missing = [];
+  for (const m of layout.matchAll(/path: '([^']+\.woff2)'/g)) {
+    const rel = m[1].replace(/^\.\.\//, ''); // paths are relative to app/
+    if (!existsSync(join(root, rel))) missing.push(m[1]);
+  }
+  ok(`fonts: every woff2 the layout names is in the repo (${missing.length} missing)`, missing.length === 0 && /path: '/.test(layout));
+
+  const dir = join(root, 'public', 'fonts');
+  const have = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.woff2')) : [];
+  ok(`fonts: the woff2 files are committed to public/fonts (${have.length} files)`, have.length >= 9);
+  ok('fonts: no woff (uncompressed) duplicates are shipped', !have.some((f) => f.endsWith('.woff')));
+  // the mock existed to work around this; it must not be the way the site is built
+  ok('fonts: the offline build script is documented as a fallback, not the real build', /NEXT_FONT_GOOGLE_MOCKED_RESPONSES/.test(src('package.json')));
+}
+
 // ------------------------------------------------- 6. Hygiene
 const pkg = JSON.parse(src('package.json'));
 ok('version: it is at least 38', Number(String(pkg.version).split('.')[0]) >= 38);

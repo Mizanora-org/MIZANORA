@@ -1,5 +1,11 @@
 import './globals.css';
-import { Plus_Jakarta_Sans, Inter, Amiri } from 'next/font/google';
+// v39: the fonts are SELF-HOSTED from public/fonts/ (next/font/local), not fetched from
+// Google while the app builds. next/font/google downloads the CSS and the woff2 files at BUILD
+// time, so the build fails the moment the build machine cannot reach fonts.googleapis.com -
+// which is exactly what happened on Vercel. With the files in the repo the build needs no
+// network at all, and the shop serves the fonts from its own domain (faster, and no third
+// party sees who visits). The files come from the @fontsource packages; see UPGRADE-v39.md.
+import localFont from 'next/font/local';
 import { SITE } from '@/lib/config';
 import { getCategories } from '@/lib/products';
 import { orgJsonLd, websiteJsonLd } from '@/lib/seo';
@@ -43,9 +49,36 @@ import SiteInject from '@/components/SiteInject';
 import { getQuranConfig } from '@/lib/quranServer';
 import { getInject } from '@/lib/injectServer';
 
-const display = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
-const arabic = Amiri({ subsets: ['arabic'], weight: ['400', '700'], variable: '--font-arabic', display: 'swap' });
-const body = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap' });
+const display = localFont({
+  src: [
+    { path: '../public/fonts/plus-jakarta-sans-latin-600-normal.woff2', weight: '600', style: 'normal' },
+    { path: '../public/fonts/plus-jakarta-sans-latin-700-normal.woff2', weight: '700', style: 'normal' },
+    { path: '../public/fonts/plus-jakarta-sans-latin-800-normal.woff2', weight: '800', style: 'normal' },
+  ],
+  variable: '--font-display',
+  display: 'swap',
+  fallback: ['system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+});
+const arabic = localFont({
+  src: [
+    { path: '../public/fonts/amiri-arabic-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/amiri-arabic-700-normal.woff2', weight: '700', style: 'normal' },
+  ],
+  variable: '--font-arabic',
+  display: 'swap',
+  fallback: ['Noto Naskh Arabic', 'Geeza Pro', 'Tahoma', 'serif'],
+});
+const body = localFont({
+  src: [
+    { path: '../public/fonts/inter-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/inter-latin-500-normal.woff2', weight: '500', style: 'normal' },
+    { path: '../public/fonts/inter-latin-600-normal.woff2', weight: '600', style: 'normal' },
+    { path: '../public/fonts/inter-latin-700-normal.woff2', weight: '700', style: 'normal' },
+  ],
+  variable: '--font-body',
+  display: 'swap',
+  fallback: ['system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+});
 
 export const viewport = {
   width: 'device-width',
