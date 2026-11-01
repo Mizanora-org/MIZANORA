@@ -34,6 +34,7 @@
   <a href="#-tools-i-actually-use">Stack</a> ·
   <a href="#-how-i-work">How I work</a> ·
   <a href="#-lets-build-something">Contact</a> ·
+  <a href="#-photos">Photos</a> ·
   <a href="#-how-this-profile-stays-alive">How it stays alive</a>
 </p>
 
@@ -88,6 +89,23 @@ believing   honest prices, halal earning, privacy by default
 </div>
 
 <br />
+
+<br />
+
+## 📸 Photos
+
+<div align="center">
+
+| | | | |
+| :---: | :---: | :---: | :---: |
+| <img src="./assets/photos/muaaz-iqbal-01.jpg" alt="Muaaz Iqbal, founder and developer of Mizanora, Kasur Punjab Pakistan" width="180" /> | <img src="./assets/photos/muaaz-iqbal-02.jpg" alt="Muaaz Iqbal, developer and AI builder from Kasur, Pakistan" width="180" /> | <img src="./assets/photos/muaaz-iqbal-03.jpg" alt="Muaaz Iqbal, creator of Asaan Lang, the Urdu programming language" width="180" /> | <img src="./assets/photos/muaaz-iqbal-04.jpg" alt="Muaaz Iqbal, founder of Mizanora online marketplace" width="180" /> |
+| <img src="./assets/photos/muaaz-iqbal-05.jpg" alt="Muaaz Iqbal, full-stack developer, Islamia Graduate College Kasur" width="180" /> | <img src="./assets/photos/muaaz-iqbal-06.jpg" alt="Muaaz Iqbal, AI-native builder from Punjab, Pakistan" width="180" /> | <img src="./assets/photos/muaaz-iqbal-07.jpg" alt="Muaaz Iqbal, maker of the HijriAnchor calendar app" width="180" /> | <img src="./assets/photos/muaaz-iqbal-08.jpg" alt="Muaaz Iqbal, founder of Mizanora, Shop Smart Shop Halal" width="180" /> |
+
+<sub>Every picture above is served from this repository — no third-party host, nothing to 404, nothing hotlink-blocked.
+The full-size set lives on <a href="https://mizanora.vercel.app/muaaz-iqbal">mizanora.vercel.app/muaaz-iqbal</a>.</sub>
+
+</div>
+
 
 ## 🚀 Things I've shipped
 

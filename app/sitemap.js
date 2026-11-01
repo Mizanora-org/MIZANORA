@@ -8,6 +8,7 @@ import { getTvConfig } from '@/lib/liveTvServer';
 import { channelSlugs } from '@/lib/liveTv';
 import { getMuaazImages } from '@/lib/imagesServer';
 import { FOUNDER } from '@/lib/team';
+import { founderPhotoUrls } from '@/lib/founderPhotos';
 
 export const revalidate = 3600;
 
@@ -18,9 +19,11 @@ export default async function sitemap() {
   try { archived = (await allCards()).archived; } catch { /* no archive */ }
   const posts = getPosts();
   const now = new Date();
-  // v31: Muaaz Iqbal's photos go into the image sitemap so Google Images / search can find them.
+  // v36: Muaaz Iqbal's photos go into the image sitemap so Google Images / search can find them.
+  // Self-hosted files come FIRST (they are on our own domain, so they are the ones worth indexing);
+  // the old third-party links and any Admin > Images links follow.
   const muaazImgs = (await getMuaazImages().catch(() => [])).map((i) => i.url).filter(Boolean);
-  const muaazPageImgs = [...FOUNDER.photos, ...muaazImgs].filter(Boolean).slice(0, 12);
+  const muaazPageImgs = [...founderPhotoUrls(absUrl('/')), ...FOUNDER.photos, ...muaazImgs].filter(Boolean).slice(0, 20);
   let tv = [];
   try { const cfg = await getTvConfig(); if (cfg.enabled) { const sl = channelSlugs(cfg.channels); tv = cfg.channels.map((c, i) => ({ c, s: sl[i] })).filter((x) => !x.c.off).slice(0, 800); } } catch { /* no TV */ }
   const fixed = [
@@ -42,6 +45,12 @@ export default async function sitemap() {
     ...TOOLS.map((t) => ({ url: absUrl(`/tools/${t.slug}`), lastModified: now, changeFrequency: 'monthly', priority: 0.8 })),
     ...tv.map((x) => ({ url: absUrl(`/live/${x.s}`), lastModified: now, changeFrequency: 'weekly', priority: 0.5 })),
     // v31: blog posts advertise their image (front matter "image: https://...")
-    ...posts.map((p) => ({ url: absUrl(`/blog/${p.slug}`), lastModified: new Date(p.date), changeFrequency: 'monthly', priority: 0.7, ...(p.image ? { images: [String(p.image)].filter(Boolean).slice(0, 3) } : {}) })),
+    // v36: a sitemap must hold ABSOLUTE image addresses. A guide may name a local picture
+    // (image: /img/muaaz/...), and that used to be written out as a bare path Google rejects.
+    ...posts.map((p) => {
+      const img = String(p.image || '').trim();
+      const images = img ? [img.startsWith('http') ? img : absUrl(img)] : [];
+      return { url: absUrl(`/blog/${p.slug}`), lastModified: new Date(p.date), changeFrequency: 'monthly', priority: 0.7, ...(images.length ? { images } : {}) };
+    }),
   ];
 }

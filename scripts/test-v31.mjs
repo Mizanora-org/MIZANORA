@@ -63,7 +63,10 @@ assert.match(read('app/page.js'), /images: muaazImgs/);
 // ---- muaaz page gallery + blog cards ----------------------------------------
 assert.match(read('app/muaaz-iqbal/page.js'), /getMuaazImages/);
 assert.match(read('app/muaaz-iqbal/page.js'), /birthDate/);
-assert.match(read('app/blog/page.js'), /p\.image/);
+// v36: the blog index renders its cards inside components/BlogBrowser.js now, so the
+// "cards show the guide's picture" check moved with it. The post page still uses p.image.
+assert.match(read('components/BlogBrowser.js'), /p\.image/);
+assert.match(read('app/blog/page.js'), /postCards|getPosts/);
 assert.match(read('app/blog/\[slug\]/page.js'), /p\.image/);
 
 console.log('ok    v31: Muaaz Iqbal birthday/age blogs (27 Nov 2009, age 16, turns 17)');

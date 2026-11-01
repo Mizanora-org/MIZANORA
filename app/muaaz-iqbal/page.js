@@ -5,9 +5,11 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import { FOUNDER, FOUNDER_LINKS } from '@/lib/team';
 import { getMuaazImages } from '@/lib/imagesServer';
+import { sortedFounderPhotos, founderAvatarPhotos, founderPhotoJsonLd } from '@/lib/founderPhotos';
 import { getGitHub } from '@/lib/githubLive';
 import GitHubLive from '@/components/GitHubLive';
 import FounderPhoto from '@/components/FounderPhoto';
+import PhotoGallery from '@/components/PhotoGallery';
 
 // v33: half an hour, so the live GitHub numbers on this page are never a day old.
 export const revalidate = 1800;
@@ -46,17 +48,31 @@ const FAQ = [
 ];
 
 export default async function MuaazPage() {
-  const [photos, gh] = await Promise.all([
+  const [remote, gh] = await Promise.all([
     getMuaazImages().catch(() => []),
     // v33: the real GitHub account (cached 30 min, with a code fallback - never an empty box).
     getGitHub().catch(() => null),
   ]);
+  // v36: the shop's OWN pictures first (self-hosted = always alive, no hotlink blocking, and Google
+  // sees them on mizanora.vercel.app). Pictures added later in Admin > Images come after them.
+  const local = sortedFounderPhotos();
+  const photos = [
+    ...local,
+    ...remote.filter((r) => r && r.url).map((r) => ({
+      id: r.id, src: r.url, thumb: r.url, square: r.url, title: r.title, alt: r.title || r.caption || 'Muaaz Iqbal',
+      caption: r.caption, width: 0, height: 0, local: false,
+    })),
+  ];
+  const avatarPhotos = founderAvatarPhotos(FOUNDER.photos);
+  const heroPhoto = local.find((p) => p.local && p.width >= 600)?.src || FOUNDER.photos[0];
   const crumbs = [['/', 'Home'], ['/muaaz-iqbal', 'Muaaz Iqbal']];
   const profile = {
     '@context': 'https://schema.org', '@type': 'ProfilePage', url: absUrl('/muaaz-iqbal'), name: 'Muaaz Iqbal',
     mainEntity: {
       '@type': 'Person', '@id': absUrl('/muaaz-iqbal#person'), name: 'Muaaz Iqbal', alternateName: ['Muaaz Iqbal Kasur', 'Muaaz Iqbal Mizanora'],
-      jobTitle: 'Founder and full-stack developer', url: absUrl('/muaaz-iqbal'), image: FOUNDER.photos[0],
+      jobTitle: 'Founder and full-stack developer', url: absUrl('/muaaz-iqbal'), image: absUrl(heroPhoto),
+      // v36: every picture of him, as ImageObject rows, so Google Images can index the gallery.
+      ...(photos.length ? { subjectOf: { '@type': 'ImageGallery', name: 'Photos of Muaaz Iqbal', url: absUrl('/muaaz-iqbal#photos'), image: founderPhotoJsonLd(absUrl('/')) } } : {}),
       birthDate: '2009-11-27',
       address: { '@type': 'PostalAddress', addressLocality: 'Kasur', addressRegion: 'Punjab', addressCountry: 'PK' },
       worksFor: { '@id': absUrl('/#org') },
@@ -70,7 +86,7 @@ export default async function MuaazPage() {
       <PageHead title="Muaaz Iqbal" intro="Developer and founder of Mizanora, from Kasur, Punjab, Pakistan." crumbs={[['/', 'Home'], [null, 'Muaaz Iqbal']]} />
       <article className="mx-auto max-w-4xl px-4 py-8">
         <div className="flex flex-wrap items-center gap-5 rounded-3xl border border-line bg-surface p-5">
-          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl"><FounderPhoto photos={FOUNDER.photos} name="Muaaz Iqbal" initials="MI" /></div>
+          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl"><FounderPhoto photos={avatarPhotos} name="Muaaz Iqbal" initials="MI" /></div>
           <div className="min-w-0 flex-1">
             <h2 className="font-display text-2xl font-extrabold">Muaaz Iqbal</h2>
             <p className="text-dim">AI-native full-stack developer, indie founder and builder · Kasur, Punjab, Pakistan</p>
@@ -86,22 +102,14 @@ export default async function MuaazPage() {
           <p>He is the founder of <Link href="/">Mizanora</Link>, an online market for Pakistan with cash on delivery, and of <strong>HijriAnchor</strong>, an offline, ad-free dual calendar. More about the people behind the shop is on the <Link href="/team">team page</Link>, and his story is told in <Link href="/blog/who-is-muaaz-iqbal-founder-of-mizanora">this article</Link>.</p>
         </section>
 
+        <PhotoGallery photos={photos} title={`Photos (${photos.length})`} />
         {photos.length > 0 && (
-          <section className="mt-8" aria-labelledby="photos">
-            <h2 id="photos" className="section-title mb-3">Photos</h2>
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {photos.map((ph) => (
-                <li key={ph.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
-                  {ph.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={ph.url} alt={ph.title || 'Muaaz Iqbal'} loading="lazy" referrerPolicy="no-referrer" className="h-28 w-full object-cover" />
-                  ) : <div className="grid h-28 place-items-center font-display text-2xl text-bronze">MI</div>}
-                  {(ph.title || ph.caption) && <p className="p-2 text-xs text-dim line-clamp-2">{ph.title || ph.caption}</p>}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs text-faint">Add more pictures from <b>Admin &gt; Images</b> (group: Muaaz Iqbal). They appear here and in the image sitemap automatically.</p>
-          </section>
+          <p className="mt-2 text-xs text-faint">
+            {local.length} of these pictures are hosted by Mizanora itself, so they can never break or be hotlink-blocked.
+            {' '}Add more from <b>Admin &gt; Images</b> (group: Muaaz Iqbal), or drop new files in and run{' '}
+            <code className="rounded bg-raised px-1">node scripts/muaaz-photos.mjs &lt;folder&gt;</code>.
+            Everything here goes into the image sitemap by itself.
+          </p>
         )}
 
         <section className="prose-mz mt-8" aria-labelledby="asaan">

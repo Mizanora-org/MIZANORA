@@ -231,6 +231,29 @@ npm run build:offline
 Both feeds are paged (each part stays under ~4 MB):
 `/api/feed?part=N`, `/api/feed/google?part=N`, `/catalog.json?part=N`.
 
+## v36 upgrade (Muaaz Iqbal is on the site + a blog built for 125 guides)
+
+- **His pictures now live in the shop.** Eight photos were optimised into `public/img/muaaz/`
+  (full, thumb and square for each), EXIF and GPS stripped, and listed in
+  `data/muaaz-photos.json`. They power a real gallery with a lightbox on
+  [`/muaaz-iqbal`](/../app/muaaz-iqbal/page.js), the avatar on `/team`, and the image sitemap —
+  all served from `mizanora.vercel.app`, so no third-party host can break or block them.
+  Re-run any time: `node scripts/muaaz-photos.mjs <folder>`.
+- **Twenty new guides:** eight on how Muaaz Iqbal thinks (the Mizan mindset, zero-quota,
+  Urdu-first, small steps, compounding, trust-first, the AI orchestra, plus a Roman-Urdu one),
+  three shopping guides, four search guides, and five grounded 2026 tech-and-commerce pieces.
+  The blog is now **125 guides**.
+- **Six new topic hubs** at `/blog/category/<slug>` with `CollectionPage` data, and a `/blog`
+  that is paginated and searchable instead of rendering 125 cards at once.
+- **Eleven real bugs fixed**, including a `{cta}` placeholder that never rendered in 22 guides,
+  a "Keep reading" list that was just the newest two posts, local images being impossible in
+  markdown, and two sitemap bugs (`//img/...` and relative image URLs) that Google rejects.
+- **Google submission pack:** `node scripts/search-console.mjs` writes 141 pages in 15 daily
+  batches of 10 (Google's URL Inspection limit) plus the image list and a step-by-step
+  `README.txt`. Search Console itself still needs a signed-in human — there is no way around that.
+
+Full notes: [UPGRADE-v36.md](UPGRADE-v36.md).
+
 ## v35 upgrade (a pro-level GitHub profile, generated from this repo)
 
 The owner's profile README (github.com/muaaziqbalvip) is now generated here and shipped as a ready

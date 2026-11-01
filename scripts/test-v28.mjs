@@ -102,7 +102,13 @@ assert.ok(!/\/home\/claude\/\.npm-global/.test(read('scripts/check.js')) && !/\/
 assert.ok(/requestIdleCallback/.test(read('components/PwaRegister.js')) && /cancelIdleCallback/.test(read('components/PwaRegister.js')));
 assert.ok(/const VERSION = 'mz-v5';/.test(read('public/sw.js')));
 const packageJson = JSON.parse(read('package.json'));
-assert.ok(['28.0.0', '29.0.0', '30.0.0'].includes(packageJson.version));
+// v36: this used to hard-code the three versions that existed when v28 shipped, so bumping the
+// package broke an unrelated test. The point of the check is "the package is wired up", so any
+// version from v28 onwards is fine (semver major, minor and patch are all accepted).
+{
+  const [major] = String(packageJson.version).split('.').map(Number);
+  assert.ok(Number.isFinite(major) && major >= 28, `package version ${packageJson.version} is v28 or later`);
+}
 assert.ok(packageJson.dependencies['hls.js']);
 assert.ok(packageJson.scripts.test.includes('scripts/test-v28.mjs'));
 ok('cleanup: portable TypeScript check, service-worker timer cleanup, v28 package wiring');
