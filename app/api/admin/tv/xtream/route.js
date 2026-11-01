@@ -5,7 +5,7 @@ import { xtreamTest, xtreamImport } from '@/lib/xtreamServer';
 import { cleanXtreamCreds, maskXtream, mergeXtreamChannels, XTREAM_LIMITS } from '@/lib/xtream';
 import { readTvAll, writeTvAll } from '@/lib/liveTvStore';
 import { MAX_CHANNELS } from '@/lib/liveTv';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -93,14 +93,17 @@ export async function POST(req) {
       });
       if (!r.ok) return json({ ok: false, error: r.error, partial: r.partial, errors: r.errors }, 502);
 
-      const { channels: current } = await readTvAll(adminDb());
+      const { config, channels: current, legacy } = await readTvAll(adminDb());
+      if (!legacy && Number(config?.count) > current.length) {
+        return json({ ok: false, error: 'Existing channels could not all be read. Try again before importing.' }, 409);
+      }
       const merged = mergeXtreamChannels(current, r.channels, mode, MAX_CHANNELS);
       const list = Array.isArray(merged) ? merged : merged.channels;
       if (list.length > MAX_CHANNELS) {
         return json({ ok: false, error: `That would take the shop to ${list.length.toLocaleString('en-PK')} channels. The limit is ${MAX_CHANNELS.toLocaleString('en-PK')}.` }, 400);
       }
-      const w = await writeTvAll(adminDb(), { ...(b.cfg && typeof b.cfg === 'object' ? b.cfg : {}), channels: list });
-      try { revalidatePath('/live'); } catch (_) { /* ignore */ }
+      const w = await writeTvAll(adminDb(), { ...(config || {}), channels: list });
+      try { revalidateTag('livetv'); revalidatePath('/live'); } catch (_) { /* ignore */ }
       return json({
         ok: true,
         creds: maskXtream(creds),

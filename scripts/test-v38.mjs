@@ -70,6 +70,7 @@ ok('cleanTv: duplicate links are dropped, not stored twice', (() => {
   const db = (() => {
     const docs = new Map();
     const mkDoc = (ref) => ({
+      __id: ref,
       get: async () => ({ exists: docs.has(ref), id: ref.split('/').pop(), data: () => docs.get(ref) }),
       set: async (v) => {
         if (JSON.stringify(v).length > 1024 * 1024) throw new Error('DOCUMENT TOO BIG: a Firestore document may hold 1 MB');
@@ -88,7 +89,7 @@ ok('cleanTv: duplicate links are dropped, not stored twice', (() => {
             const ref = `${base}/${id}`;
             const d = mkDoc(ref);
             return Object.assign(d, {
-              collection(sub) { const c = { doc: (sid2) => mkDoc(`${ref}/${sub}/${sid2}`) }; return { doc: (sid2) => mkDoc(`${ref}/${sub}/${sid2}`) }; },
+              collection(sub) { const prefix = `${ref}/${sub}/`; return { doc: (sid2) => mkDoc(`${prefix}${sid2}`), get: async () => ({ docs: [...docs.entries()].filter(([k]) => k.startsWith(prefix)).map(([k, value]) => ({ id: k.slice(prefix.length), data: () => value })) }) }; },
             });
           },
         };
@@ -199,7 +200,7 @@ ok('tv config route: save tells the admin how many shards it wrote', /parts: r\.
   // "the channels disappeared" - if the shards cannot be read, the page shows 0 and Save would
   // overwrite them. Now the page knows how many the DATABASE recorded and refuses blindly.
   ok('hotfix: it remembers how many channels the database recorded', /setExpected/.test(page) && /recorded/.test(page));
-  ok('hotfix: a short read is called out in red before anything is saved', /but none came back/.test(page));
+  ok('hotfix: a short read is called out in red before anything is saved', /saving an incomplete list would delete channels/.test(page));
   ok('hotfix: saving a suspiciously short list asks first', /looksBroken/.test(page) && /window\.confirm/.test(page));
   ok('hotfix: deleting a handful of channels does NOT nag', /cfg\.channels\.length === 0 \? missing > 0 : missing > Math\.max\(20, expected \* 0\.5\)/.test(page));
   ok('hotfix: Save can be cancelled without changing anything', /Save cancelled\. Nothing was changed\./.test(page));
