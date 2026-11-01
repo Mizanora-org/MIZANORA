@@ -34,5 +34,29 @@ for (const f of files) {
   const isClient = /^\s*['"]use client['"]/.test(src);
   if (!isClient && /\b(useState|useEffect|useRef|useMemo|useCallback)\(/.test(src) && !/lib\//.test(path.relative(root, f))) { bad++; console.log("HOOK WITHOUT 'use client'", path.relative(root, f)); }
 }
+// v38: every internal /blog/<slug> link in the content must point at a post that exists.
+// A guide that links to a guide that was never written is a 404 waiting to be crawled, and
+// nothing else in the chain catches it.
+{
+  const blogDir = path.join(root, 'content', 'blog');
+  if (fs.existsSync(blogDir)) {
+    const slugs = new Set();
+    for (const f of fs.readdirSync(blogDir)) {
+      if (!f.endsWith('.md')) continue;
+      const m = fs.readFileSync(path.join(blogDir, f), 'utf8').match(/^slug:\s*(\S+)\s*$/m);
+      if (m) slugs.add(m[1]);
+    }
+    for (const f of fs.readdirSync(blogDir)) {
+      if (!f.endsWith('.md')) continue;
+      const text = fs.readFileSync(path.join(blogDir, f), 'utf8');
+      for (const m of text.matchAll(/\]\((\/blog\/[a-z0-9\-\/]+)\)/g)) {
+        const target = m[1].replace(/^\/blog\//, '').replace(/\/$/, '');
+        if (target.startsWith('category/')) continue; // /blog/category/<slug> is a route, not a post
+        if (!slugs.has(target)) { bad++; console.log('BROKEN BLOG LINK', 'content/blog/' + f, '->', m[1]); }
+      }
+    }
+  }
+}
+
 console.log(files.length + ' files checked, problems: ' + bad);
 process.exit(bad ? 1 : 0);

@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authClient } from '@/lib/firebase-client';
 import { formatPKR } from '@/lib/format';
-import { BarChart, LineChart, TopList } from '@/components/Charts';
+import { BarChart, Donut, HBarChart, LineChart, TopList } from '@/components/Charts';
+import { pageLabel } from '@/lib/track';
 
 // Admin > Dashboard: live visitors, traffic, sources, devices, funnel, orders and sales, top products and searches.
 // All numbers come from the Realtime Database (separate free quota): the dashboard costs NO Firestore reads.
@@ -78,7 +79,7 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-extrabold sm:text-4xl">Dashboard</h1>
         <div className="flex items-center gap-2 text-sm">
-          <select className="input !w-auto !py-1.5" value={days} onChange={(e) => setDays(Number(e.target.value))}>{[7, 14, 30, 60].map((d) => <option key={d} value={d}>Last {d} days</option>)}</select>
+          <select className="input !w-auto !py-1.5" value={days} onChange={(e) => setDays(Number(e.target.value))}>{[7, 14, 30, 60, 90].map((d) => <option key={d} value={d}>Last {d} days</option>)}</select>
           <button type="button" className="btn-ghost !py-1.5" onClick={() => { loadAll(); loadLive(); }}>Refresh</button>
         </div>
       </div>
@@ -110,6 +111,17 @@ export default function Dashboard() {
         <Kpi l="Conversion today" v={t ? `${conv}%` : '...'} s="orders / visitors" />
         <Kpi l="Avg. order today" v={t ? formatPKR(aov) : '...'} />
       </div>
+
+      {data && data.totals && (
+        <p className="flex flex-wrap gap-x-5 gap-y-1 rounded-xl bg-raised p-3 text-sm">
+          <span className="text-xs font-bold uppercase tracking-wide text-dim">Last {data.days} days:</span>
+          <span><b className="text-cream">{(data.totals.views || 0).toLocaleString('en-PK')}</b> page views</span>
+          <span><b className="text-cream">{(data.totals.uv || 0).toLocaleString('en-PK')}</b> visitors</span>
+          <span><b className="text-cream">{(data.totals.orders || 0).toLocaleString('en-PK')}</b> orders</span>
+          <span><b className="text-cream">{formatPKR(data.totals.sales || 0)}</b> sales</span>
+          <span className="text-dim">{(data.totals.uv ? (data.totals.views / data.totals.uv).toFixed(1) : '0.0')} views per visitor</span>
+        </p>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title={`Live visitors (${lv ? lv.online : 0})`}>
@@ -148,6 +160,29 @@ export default function Dashboard() {
               <Card title="Where visitors come from"><TopList items={data.sources} color="#7C3AED" pretty={pretty} /></Card>
               <Card title="Devices"><TopList items={data.devices} color="#2563EB" pretty={pretty} /></Card>
             </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="Most read pages">
+              <HBarChart bars={(data.topPages || []).map((x) => ({ label: pageLabel(x.k), value: x.v }))} empty="No page data yet: it starts counting as soon as someone visits." />
+              <p className="mt-2 text-xs text-dim">The pages people actually open, over the last {data.days} days. Blog guides that nobody reads are the ones worth rewriting.</p>
+            </Card>
+            <Card title="New vs returning visitors">
+              <Donut parts={[
+                { label: 'New', value: (data.newVsReturning && data.newVsReturning.new) || 0, color: '#0B6B45' },
+                { label: 'Returning', value: (data.newVsReturning && data.newVsReturning.back) || 0, color: '#F2A007' },
+              ]} />
+              <p className="mt-2 text-xs text-dim">Counted once per visitor per day, from the first time their browser appeared.</p>
+            </Card>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="Busiest hours (added over the range)">
+              <BarChart color="#2563EB" bars={(data.byHour || []).map((x) => ({ label: x.h.slice(0, 2), value: x.v }))} />
+              <p className="mt-1 text-xs text-dim">Pakistan time. Publish and run sales when your own visitors are awake, not when a global average says so.</p>
+            </Card>
+            <Card title="Busiest days of the week">
+              <BarChart color="#7C3AED" bars={(data.byWeekday || []).map((x) => ({ label: x.d, value: x.avg }))} />
+              <p className="mt-1 text-xs text-dim">Average views per {data.byWeekday && data.byWeekday.some((x) => x.avg) ? 'weekday' : 'day'} over the last {data.days} days, so a single viral Monday cannot distort it.</p>
+            </Card>
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="Most viewed products (7 days)"><TopList items={data.topProducts} pretty={pretty} /></Card>

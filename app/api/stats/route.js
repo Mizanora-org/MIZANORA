@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminRtdb, adminReady } from '@/lib/firebase-admin';
 import { dayKey, rtdbOn } from '@/lib/rtdb';
+import { pageLabel } from '@/lib/track';
 
 export const runtime = 'nodejs';
 export const revalidate = 60;
@@ -16,8 +17,6 @@ const json = (b, s = 200) => NextResponse.json(b, { status: s, headers: { 'Cache
 
 const top = (map, n = 10) => Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ k, v }));
 const addInto = (acc, o) => { for (const [k, v] of Object.entries(o || {})) acc[k] = (acc[k] || 0) + (Number(v) || 0); };
-
-const prettyPath = (k) => (k === 'home' ? '/' : `/${String(k).replace(/_/g, '/')}`);
 
 export async function GET() {
   if (!adminReady() || !rtdbOn()) {
@@ -58,7 +57,7 @@ export async function GET() {
       online,
       today: { views: today.views, uv: today.uv },
       series,
-      topPages: top(pages, 10).map((x) => ({ path: prettyPath(x.k), views: x.v })),
+      topPages: top(pages, 10).map((x) => ({ path: pageLabel(x.k), views: x.v })),
       devices: top(devices, 4),
       sources: top(sources, 6),
       totals: series.reduce((a, r) => ({ views: a.views + r.views, uv: a.uv + r.uv }), { views: 0, uv: 0 }),

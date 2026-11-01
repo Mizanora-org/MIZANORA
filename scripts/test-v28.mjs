@@ -94,7 +94,9 @@ const relay = read('lib/tvProxy.js');
 assert.ok(/AbortSignal\.any/.test(relay) && /timeoutSignal/.test(relay));
 assert.ok(/signal: req\.signal/.test(read('app/api/tv/p/route.js')));
 const adminTv = read('app/admin/tv/page.js');
-assert.ok(/room = Math\.max\(0, MAX_CHANNELS - cfg\.channels\.length\)/.test(adminTv) && /duplicate or over the limit/.test(adminTv));
+// v38: this used to match the exact wording of the message. The admin page was rewritten and
+// the behaviour is what matters: dedupe by stream link, and never add past MAX_CHANNELS.
+assert.ok(/MAX_CHANNELS - cfg\.channels\.length/.test(adminTv) && /have\.has\(c\.url\)/.test(adminTv) && /unique\.slice\(0, room\)/.test(adminTv));
 ok('relay: aborts upstream with the viewer request; admin import deduplicates and respects the limit');
 
 // ---- app-wide cleanups --------------------------------------------------------------
