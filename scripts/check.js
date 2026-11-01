@@ -58,5 +58,21 @@ for (const f of files) {
   }
 }
 
+// v38.1: a self-hosted font the layout points at but that is not in the repo makes the build
+// fail with a message that points nowhere near the real cause. Catch the missing file instead.
+{
+  const layout = path.join(root, 'app', 'layout.js');
+  if (fs.existsSync(layout)) {
+    const text = fs.readFileSync(layout, 'utf8');
+    for (const m of text.matchAll(/path: '([^']+\.woff2)'/g)) {
+      const rel = m[1].replace(/^\.\.\//, ''); // paths are relative to app/
+      if (!fs.existsSync(path.join(root, rel))) { bad++; console.log('MISSING FONT FILE', 'app/layout.js ->', m[1]); }
+    }
+    // next/font needs plain string literals: a variable or a template literal compiles to
+    // "Font loader values must be explicitly written literals", which is easy to misread.
+    for (const m of text.matchAll(/path: (`|\$\{)/g)) { bad++; console.log('FONT PATH MUST BE A PLAIN STRING', 'app/layout.js'); break; }
+  }
+}
+
 console.log(files.length + ' files checked, problems: ' + bad);
 process.exit(bad ? 1 : 0);

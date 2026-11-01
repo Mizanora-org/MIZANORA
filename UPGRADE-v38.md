@@ -223,3 +223,81 @@ validation), `package.json` (38.0.0 + test chain), `package-lock.json`, `README.
   thousand, which is where a real shop sits.
 - **The relay's allow-check** (`isChannelSourceAllowed`) scans the channel list per request. It
   is in-memory and cached, so it is fine today; at 100,000 channels it wants an index.
+
+---
+
+# v38.1 — The fonts are self-hosted now (the Vercel build was failing)
+
+## What broke
+
+```
+app/layout.js
+An error occurred in `next/font`.
+TypeError: Cannot read properties of null (reading '1')
+    at .../@next/font/dist/google/loader.js:122:78
+```
+
+`next/font/google` does **not** just link to Google Fonts — it **downloads the CSS and the
+woff2 files while the app is being built**, and serves the result from the shop's own domain.
+That is normally a good thing. But it means:
+
+> **the build fails the moment the build machine cannot reach `fonts.googleapis.com`**
+
+which is exactly what happened on Vercel. Locally the same build gave
+`Failed to fetch 'Amiri' from Google Fonts` — the same root cause wearing a clearer hat.
+
+## Why nobody caught it
+
+`npm run build:offline` sets `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=./scripts/google-fonts-mock.js`,
+which replaces the Google response with empty fonts so the build runs with no network. That was
+the gate being used — and **it mocked away the very thing that was broken.** The real
+`npm run build` (which is what Vercel runs) was never exercised.
+
+That was the actual lesson here, and it is the one worth keeping.
+
+## The fix: no network at build time, ever
+
+The three families are now **self-hosted** from `public/fonts/` via `next/font/local`:
+
+| Family | Files | Used for |
+| --- | --- | --- |
+| Plus Jakarta Sans | 600, 700, 800 latin | headings (`--font-display`) |
+| Inter | 400, 500, 600, 700 latin | body copy (`--font-body`) |
+| Amiri | 400, 700 arabic | Quran and Arabic text (`--font-arabic`) |
+
+9 woff2 files, **344 KB total**, committed to the repo. They come from the `@fontsource`
+packages (`@fontsource/plus-jakarta-sans`, `@fontsource/inter`, `@fontsource/amiri`, all 5.3.0)
+and were copied into `public/fonts/`; the packages stay in `dependencies` so the copy can be
+refreshed.
+
+The CSS variables (`--font-display`, `--font-arabic`, `--font-body`) are unchanged, so **not one
+line of styling had to move.**
+
+### What this buys
+
+- The build needs **no network** — it works on Vercel, in CI, on a plane, anywhere.
+- The shop serves fonts from its own domain (a touch faster, and Google never sees your visitors).
+- No more "it built yesterday" surprises.
+
+### Two gotchas worth writing down
+
+`next/font/local` requires the paths to be **plain string literals**. Both of these fail with the
+delightfully unhelpful `Font loader values must be explicitly written literals`:
+
+```js
+const F = '/../public/fonts';
+{ path: `${F}/inter-latin-400-normal.woff2` }   // ✗ built from a variable
+{ path: `../public/fonts/inter-latin-400-normal.woff2` }  // ✗ template literal (backticks)
+{ path: '../public/fonts/inter-latin-400-normal.woff2' }  // ✓ plain single quotes
+```
+
+`scripts/check.js` now fails if a font path is not a plain string, and if a woff2 the layout
+names is not actually in the repo.
+
+## Verified
+
+`npm run build` — **the real one, no mock** — now completes. That is the exact command Vercel
+runs. 9 woff2 files land in `.next/static/media/` (344 KB).
+
+Gates: `check` 410/0 · `typecheck` clean · `npm test` green (107 v38 checks, including 7 new font
+ones) · `npm run build` green.
