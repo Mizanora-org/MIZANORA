@@ -84,8 +84,9 @@ export default function AdminTv() {
       setExpected(j.recorded != null ? Number(j.recorded) || 0 : (j.cfg && Number(j.cfg.count)) || 0);
       setSelected(new Set());
       setPage(0);
-      if (j.cfg && j.cfg.count > 0 && !(j.cfg.channels || []).length) {
-        setLoadErr(`The database says it holds ${j.cfg.count.toLocaleString('en-PK')} channels, but none came back. Do NOT press Save until this is sorted - saving an empty list would delete them.`);
+      if (!j.legacy && Number(j.recorded) > (j.cfg?.channels || []).length) {
+        const loaded = (j.cfg?.channels || []).length;
+        setLoadErr(`The database says it holds ${Number(j.recorded).toLocaleString('en-PK')} channels, but ${loaded ? `only ${loaded.toLocaleString('en-PK')}` : 'none'} came back. Do NOT press Save until this is sorted - saving an incomplete list would delete channels.`);
       } else {
         setLoadErr('');
       }
@@ -111,6 +112,10 @@ export default function AdminTv() {
   }, [cfg, find]);
 
   const groups = useMemo(() => (cfg ? channelGroups(cfg.channels, 60) : []), [cfg]);
+  const deadIndexes = useMemo(() => (cfg?.channels || []).map((c, i) => {
+    const urls = channelSources(c);
+    return urls.length > 0 && urls.every((url) => health[url] && !health[url].ok) ? i : -1;
+  }).filter((i) => i >= 0), [cfg, health]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const rows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -159,7 +164,7 @@ export default function AdminTv() {
       merge(j.channels, j.skipped || 0, 'link');
       setLink('');
     } catch (err) { setMsg(`Could not load: ${err.message}`); }
-    setBusy('');
+    finally { setBusy(''); }
   };
   const addOne = () => {
     const c = { name: one.name.trim(), url: one.url.trim(), group: one.group.trim(), logo: '', sources: [], off: false };
@@ -178,27 +183,26 @@ export default function AdminTv() {
   const addAd = (slug) => { if (!slug || cfg.ads.slugs.includes(slug)) return; setAds('slugs', [...cfg.ads.slugs, slug].slice(0, 30)); };
 
   const allSourcesDead = (c) => { const urls = channelSources(c); return urls.length > 0 && urls.every((url) => health[url] && !health[url].ok); };
-  const deadIndexes = useMemo(() => (cfg.channels || []).map((c, i) => (allSourcesDead(c) ? i : -1)).filter((i) => i >= 0), [cfg, health]);
   const deadCount = deadIndexes.length;
 
   const checkAll = async () => {
     setBusy('check'); setProg({ done: 0, total: cfg.channels.length, dead: 0 }); setMsg('');
-    const urls = [];
-    for (const c of cfg.channels) for (const u of channelSources(c)) if (!urls.includes(u)) urls.push(u);
-    const token = await authClient().currentUser.getIdToken();
+    const urls = [...new Set(cfg.channels.flatMap((c) => channelSources(c)))];
+    const authToken = await token();
+    if (!authToken) { setBusy(''); setMsg('You are signed out. Reload the page and sign in again.'); return; }
     const out = {};
     let dead = 0;
     for (let i = 0; i < urls.length; i += 12) {
       const part = urls.slice(i, i + 12);
       try {
-        const r = await fetch('/api/admin/tv-check', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ urls: part }) });
+        const r = await fetch('/api/admin/tv-check', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ urls: part }) });
         const j = await r.json().catch(() => ({}));
         Object.assign(out, j.results || {});
       } catch { /* a failed batch simply stays unknown */ }
       setProg({ done: Math.min(i + 12, urls.length), total: urls.length, dead });
     }
     setHealth(out);
-    dead = (cfg.channels || []).filter(allSourcesDead).length;
+    dead = cfg.channels.filter((c) => { const sources = channelSources(c); return sources.length > 0 && sources.every((url) => out[url] && !out[url].ok); }).length;
     setProg({ done: urls.length, total: urls.length, dead });
     setBusy('');
     setMsg(`${urls.length.toLocaleString('en-PK')} links checked, ${dead.toLocaleString('en-PK')} channel${dead === 1 ? '' : 's'} with nothing working.`);
@@ -212,6 +216,7 @@ export default function AdminTv() {
   };
 
   async function save() {
+    if (loadErr || busy === 'load') { setMsg('Cannot save until the existing TV settings have loaded successfully. Please try again.'); return; }
     setBusy('save'); setMsg('');
     // v39: the one mistake that cannot be undone. If the database remembers more channels than
     // this page is showing, the page may simply have failed to read the shards - and saving now
@@ -260,7 +265,7 @@ export default function AdminTv() {
     <div className="min-w-0 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div><h1 className="flex items-center gap-2 text-2xl font-extrabold"><Tv size={24} /> Live TV</h1><p className="text-sm text-dim">Channels from an M3U playlist, an Xtream Codes panel or one by one — plus the product ads shown while the visitor switches channel.</p></div>
-        <div className="flex gap-2"><Link href="/live" target="_blank" className="btn-ghost">Open /live</Link><button type="button" className="btn-gold" disabled={busy === 'save'} onClick={save}>{busy === 'save' ? 'Saving...' : 'Save'}</button></div>
+        <div className="flex gap-2"><Link href="/live" target="_blank" className="btn-ghost">Open /live</Link><button type="button" className="btn-gold" disabled={busy === 'save' || busy === 'load' || !!loadErr} onClick={save}>{busy === 'save' ? 'Saving...' : 'Save'}</button></div>
       </header>
       {msg && <p role="status" className="rounded-xl bg-raised p-3 text-sm font-semibold text-gold">{msg}</p>}
       {loadErr && (
@@ -306,7 +311,7 @@ export default function AdminTv() {
         {paste && <button type="button" className="btn-ghost" onClick={fromText}>Add from pasted text</button>}
 
         <div className="mt-3">
-          <XtreamImport
+          {!loadErr && busy !== 'load' && <XtreamImport
             max={MAX_CHANNELS}
             used={cfg.channels.length}
             onReload={load}
@@ -318,7 +323,7 @@ export default function AdminTv() {
               merge(incoming, 0, 'Xtream panel');
               return Math.min(fresh.size, room);
             }}
-          />
+          />}
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_2fr_1fr_auto]">
           <input className="input" placeholder="Channel name" value={one.name} onChange={(e) => setOne({ ...one, name: e.target.value })} />
@@ -414,8 +419,8 @@ export default function AdminTv() {
         {!cfg.channels.length && <p className="text-sm text-dim">No channels yet.</p>}
 
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-gold" disabled={busy === 'save'} onClick={save}>{busy === 'save' ? 'Saving...' : 'Save'}</button>
-          <button type="button" className="btn-ghost !border-red-400 !text-red-700" disabled={busy === 'clear' || !cfg.channels.length} onClick={clearAllChannels}>{busy === 'clear' ? 'Deleting...' : 'Delete all channels from the database'}</button>
+          <button type="button" className="btn-gold" disabled={busy === 'save' || busy === 'load' || !!loadErr} onClick={save}>{busy === 'save' ? 'Saving...' : 'Save'}</button>
+          <button type="button" className="btn-ghost !border-red-400 !text-red-700" disabled={busy === 'clear' || busy === 'load' || !!loadErr || !cfg.channels.length} onClick={clearAllChannels}>{busy === 'clear' ? 'Deleting...' : 'Delete all channels from the database'}</button>
         </div>
       </section>
     </div>

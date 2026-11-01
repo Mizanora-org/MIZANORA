@@ -3,7 +3,7 @@ import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { cleanTv, cleanChannel, MAX_CHANNELS } from '@/lib/liveTv';
 import { readTvAll, writeTvAll, clearTvChannels, packChannels } from '@/lib/liveTvStore';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -65,7 +65,7 @@ export async function POST(req) {
 
     if (action === 'clear') {
       const r = await clearTvChannels(adminDb());
-      try { revalidatePath('/live'); } catch (_) { /* ignore */ }
+      try { revalidateTag('livetv'); revalidatePath('/live'); } catch (_) { /* ignore */ }
       return json({ ok: true, removed: r.removed, message: `All channels deleted (${r.removed} shard${r.removed === 1 ? '' : 's'} removed).` });
     }
 
@@ -94,7 +94,7 @@ export async function POST(req) {
 
       const r = await writeTvAll(adminDb(), raw);
       const kept = r.channels.filter((c) => cleanChannel(c)).length;
-      try { revalidatePath('/live'); } catch (_) { /* ignore */ }
+      try { revalidateTag('livetv'); revalidatePath('/live'); } catch (_) { /* ignore */ }
       return json({
         ok: true,
         cfg: { ...r.config, channels: r.channels, parts: r.parts },
