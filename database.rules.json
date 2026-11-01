@@ -16,7 +16,7 @@
       "$metric": {
         "$bucket": {
           "$key": {
-            ".write": "(($metric === 'd' && ($key === 'views' || $key === 'uv')) || $metric === 'h' || $metric === 'pv' || $metric === 'cart' || $metric === 'src' || $metric === 'dev' || $metric === 'q' || $metric === 'q0' || ($metric === 'ev' && $key !== 'order')) && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && $key.length <= 100 && $bucket.length <= 16",
+            ".write": "(($metric === 'd' && ($key === 'views' || $key === 'uv')) || $metric === 'h' || $metric === 'pv' || $metric === 'cart' || $metric === 'src' || $metric === 'dev' || $metric === 'q' || $metric === 'q0' || $metric === 'pg' || ($metric === 'rt' && ($key === 'new' || $key === 'back')) || ($metric === 'ev' && $key !== 'order')) && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && $key.length <= 100 && $bucket.length <= 16",
             ".validate": "newData.isNumber()"
           }
         }

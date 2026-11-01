@@ -6,6 +6,7 @@ import { Trash2, Tv, Activity } from 'lucide-react';
 import { authClient, dbClient } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
 import { MAX_CHANNELS, MAX_TV_SOURCES, TV_DEFAULT, TV_DOC, TV_THEMES, channelSources, cleanChannel, cleanTv, parseM3U, TV_PRESETS } from '@/lib/liveTv';
+import XtreamImport from '@/components/XtreamImport';
 
 // Admin > Live TV: load channels (M3U file, M3U link, pasted text or one by one) and choose the PRODUCTS whose ad plays while a visitor
 // switches channel. Saved in Firestore siteMeta/liveTv; the /live page refreshes within seconds of pressing Save.
@@ -147,7 +148,7 @@ export default function AdminTv() {
   return (
     <div className="min-w-0 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="flex items-center gap-2 text-2xl font-extrabold"><Tv size={24} /> Live TV</h1><p className="text-sm text-dim">Channels from an M3U playlist and the product ads shown while the visitor switches channel.</p></div>
+        <div><h1 className="flex items-center gap-2 text-2xl font-extrabold"><Tv size={24} /> Live TV</h1><p className="text-sm text-dim">Channels from an M3U playlist, an Xtream Codes panel or one by one — plus the product ads shown while the visitor switches channel.</p></div>
         <div className="flex gap-2"><Link href="/live" target="_blank" className="btn-ghost">Open /live</Link><button type="button" className="btn-gold" disabled={busy === 'save'} onClick={save}>{busy === 'save' ? 'Saving...' : 'Save'}</button></div>
       </header>
       {msg && <p role="status" className="rounded-xl bg-raised p-3 text-sm font-semibold text-gold">{msg}</p>}
@@ -173,6 +174,22 @@ export default function AdminTv() {
         </div>
         <label className="block text-sm"><span className="label">Or paste the playlist text</span><textarea className="input font-mono text-xs" rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'#EXTM3U\n#EXTINF:-1 group-title="News",My Channel\nhttps://example.com/live.m3u8'} /></label>
         {paste && <button type="button" className="btn-ghost" onClick={fromText}>Add from pasted text</button>}
+
+        <div className="mt-3">
+          <XtreamImport
+            max={MAX_CHANNELS}
+            used={cfg.channels.length}
+            onChannels={(incoming) => {
+              // how many of these are actually new (merge() also de-duplicates and caps at MAX_CHANNELS)
+              const have = new Set(cfg.channels.map((c) => c.url));
+              const fresh = new Set();
+              for (const c of incoming) if (c && c.url && !have.has(c.url)) { have.add(c.url); fresh.add(c.url); }
+              const room = Math.max(0, MAX_CHANNELS - cfg.channels.length);
+              merge(incoming, 0, 'Xtream panel');
+              return Math.min(fresh.size, room);
+            }}
+          />
+        </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_2fr_1fr_auto]">
           <input className="input" placeholder="Channel name" value={one.name} onChange={(e) => setOne({ ...one, name: e.target.value })} />
           <input className="input" placeholder="https://... .m3u8 / YouTube live link" value={one.url} onChange={(e) => setOne({ ...one, url: e.target.value })} />
