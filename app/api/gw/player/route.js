@@ -1,3 +1,4 @@
+import { archiveDaysFor } from '@/lib/iptvCatchup';
 import { getGatewayCatalogue, groupsOf } from '@/lib/gateway/catalogue';
 import { verifyLine, checkDevice } from '@/lib/gateway/lines';
 import { clientIp, rateLimit, sealUrl, noStore } from '@/lib/gateway/security';
@@ -81,10 +82,12 @@ export async function GET(req) {
           stream_type: /m3u8/i.test(c.url) ? 'hls' : 'live',
           stream_id: Number(c.id) || c.id,
           stream_icon: c.logo ? `/api/gw/icon?t=${sealUrl(c.logo)}` : '',
-          epg_channel_id: '',
+          epg_channel_id: c.epg || `mz-${c.id}.tv`,
           added: '',
           category_id: String(gid.get(c.group) || '1'),
-          custom_sid: '', tv_archive: 0, direct_source: '', tv_archive_duration: 0,
+          custom_sid: '', direct_source: '',
+          tv_archive: archiveDaysFor(c) ? 1 : 0,
+          tv_archive_duration: archiveDaysFor(c),
         }));
       return noStore(rows);
     }

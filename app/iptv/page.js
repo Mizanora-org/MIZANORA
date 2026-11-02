@@ -78,6 +78,7 @@ export default async function IptvPage() {
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link href="/iptv/start" className="btn-gold">Free key — Google se foran <ArrowRight size={16} /></Link>
                 <Link href="/iptv/trial" className="btn-ghost">Trial form</Link>
+                <Link href="/iptv/player" className="btn-ghost"><Play size={15} /> Browser player</Link>
                 <Link href="#plans" className="btn-ghost">Plans dekhein</Link>
                 <Link href="/live" className="inline-flex items-center gap-1.5 px-2 py-2 text-sm font-semibold text-gold hover:underline">
                   <Play size={14} /> Free live TV pehle dekhein
@@ -107,6 +108,32 @@ export default async function IptvPage() {
                 </Link>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* v46: poora IPTV system — har page aik jagah se */}
+        <section className="rounded-2xl border border-line bg-surface p-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-faint">Poora system</p>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              ['/iptv/channels', 'Live channels', 'groups + logos'],
+              ['/iptv/guide', 'TV guide', 'now / next + 7d'],
+              ['/iptv/movies', 'Movies', 'posters + IMDb'],
+              ['/iptv/series', 'Series', 'seasons + episodes'],
+              ['/iptv/player', 'Browser player', 'no install'],
+              ['/iptv/apps', 'Apps & setup', 'TiviMate, MAG, VLC'],
+              ['/iptv/recharge', 'Recharge', 'JazzCash + unlock'],
+              ['/iptv/status', 'Status', 'live counts'],
+              ['/iptv/trial', 'Free trial', '24 hours'],
+              ['/iptv/reseller', 'Reseller', 'credit + margin'],
+              ['/iptv/start', 'Free key', 'Google sign-in'],
+              ['/live', 'Free live TV', 'alag feature'],
+            ].map(([href, label, note]) => (
+              <Link key={href} href={href} className="rounded-xl border border-line bg-raised px-2.5 py-2 transition hover:border-gold/40">
+                <p className="text-[11px] font-bold text-cream">{label}</p>
+                <p className="text-[10px] text-faint">{note}</p>
+              </Link>
+            ))}
           </div>
         </section>
 
@@ -232,6 +259,11 @@ export default async function IptvPage() {
               ['/blog/iptv-xtream-codes-setup-tivimate-smarters', 'Xtream Codes setup: TiviMate aur Smarters'],
               ['/blog/stalker-portal-mac-setup-mag-box', 'Stalker portal / MAC setup: MAG box'],
               ['/blog/iptv-reseller-pakistan-guide', 'Pakistan mein IPTV reseller business'],
+              ['/blog/iptv-browser-player-guide', 'Browser player: bina app install ke IPTV'],
+              ['/blog/iptv-epg-xmltv-guide-pakistan', 'EPG / XMLTV: guide khaali kyun aati hai'],
+              ['/blog/iptv-movies-series-library-guide', 'Movies aur series library ka guide'],
+              ['/blog/iptv-7-din-catchup-timeshift', '7-din catch-up (timeshift) ka tareeqa'],
+              ['/blog/iptv-ads-vs-ad-free', 'Ads vs ad-free: sasta plan ya premium'],
             ].map(([href, label]) => (
               <Link key={href} href={href} className="font-semibold text-gold underline underline-offset-4">{label}</Link>
             ))}

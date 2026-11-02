@@ -63,6 +63,46 @@ export async function POST(req) {
       return json({ ok: true, channels, skipped, stats: catalogueStats({ channels }) });
     }
 
+    // v45 BULK: ids par ek sath group badlo / off-on / delete — 5000 channels bhi aik click.
+    if (action === 'bulk') {
+      const current = cleanCatalogue(await readShardedDoc(IPTV_CATALOGUE.collection, IPTV_CATALOGUE.id, ['channels']));
+      const ids = new Set((Array.isArray(b.ids) ? b.ids : []).map((x) => String(x)));
+      if (!ids.size) return json({ ok: false, error: 'Pehle channels select karein.' }, 400);
+      const mode = String(b.mode || 'patch');
+
+      let channels = current.channels;
+      if (mode === 'delete') {
+        channels = channels.filter((c) => !ids.has(String(c.id)));
+      } else if (mode === 'patch') {
+        const group = typeof b.group === 'string' ? String(b.group).replace(/[<>]/g, '').slice(0, 40) : '';
+        const off = typeof b.off === 'boolean' ? b.off : null;
+        channels = channels.map((c) => (ids.has(String(c.id))
+          ? { ...c, ...(group ? { group } : {}), ...(off === null ? {} : { off }) }
+          : c));
+      } else {
+        return json({ ok: false, error: 'Mode samajh nahi aaya (patch|delete).' }, 400);
+      }
+
+      const next = cleanCatalogue({ ...current, channels, updatedAt: Date.now() });
+      const saved = await writeShardedDoc(IPTV_CATALOGUE.collection, IPTV_CATALOGUE.id, next, ['channels']);
+      revalidateTag('iptv');
+      return json({ ok: true, changed: ids.size, stats: catalogueStats(next), shards: saved.shards, channels: next.channels.slice(0, 400) });
+    }
+
+    // v45: manual channel add (aik ya kai) — M3U ke baghair bhi.
+    if (action === 'add') {
+      const current = cleanCatalogue(await readShardedDoc(IPTV_CATALOGUE.collection, IPTV_CATALOGUE.id, ['channels']));
+      const rows = Array.isArray(b.rows) ? b.rows : [b.row || b];
+      const clean = rows
+        .map((r) => ({ name: String(r.name || '').trim(), url: String(r.url || '').trim(), group: String(r.group || 'Other'), logo: String(r.logo || ''), epg: String(r.epg || '') }))
+        .filter((r) => r.name && /^https?:\/\//i.test(r.url));
+      if (!clean.length) return json({ ok: false, error: 'Naam aur http(s) link zaroori hai.' }, 400);
+      const next = cleanCatalogue({ ...current, channels: [...current.channels, ...clean], updatedAt: Date.now() });
+      const saved = await writeShardedDoc(IPTV_CATALOGUE.collection, IPTV_CATALOGUE.id, next, ['channels']);
+      revalidateTag('iptv');
+      return json({ ok: true, added: clean.length, stats: catalogueStats(next), shards: saved.shards });
+    }
+
     if (action === 'save') {
       const cat = cleanCatalogue({ ...b, updatedAt: Date.now() });
       if (!cat.channels.length) return json({ ok: false, error: 'Catalogue khali hai — pehle import karein.' }, 400);

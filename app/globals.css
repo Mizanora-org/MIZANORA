@@ -1104,3 +1104,40 @@ html[data-fx~="smooth"] a, html[data-fx~="smooth"] button { touch-action: manipu
 .mz-table-wrap th, .mz-table-wrap td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line, #23362d); }
 .mz-table-wrap thead th { font-weight: 800; background: var(--raised, #101a16); white-space: nowrap; }
 .mz-table-wrap tbody tr:last-child td { border-bottom: 0; }
+
+/* ==========================================================================
+   v46: recharge / premium unlock animation (pure CSS, no video asset)
+   ========================================================================== */
+.mz-unlock { isolation: isolate; }
+.mz-unlock-glow {
+  position: absolute; inset: -40%;
+  background: radial-gradient(circle at 30% 30%, rgba(212,160,23,.22), transparent 55%),
+              radial-gradient(circle at 75% 70%, rgba(16,185,129,.14), transparent 55%);
+  animation: mzUnlockGlow 7s ease-in-out infinite;
+  z-index: 1;
+}
+.mz-unlock::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(242,184,75,.22) 46%, rgba(255,255,255,.06) 50%, transparent 62%);
+  transform: translateX(-120%);
+  animation: mzUnlockShine 4.5s ease-in-out infinite;
+}
+.mz-lock { transition: transform .5s ease, box-shadow .5s ease; }
+.mz-lock-on { animation: mzLockPulse 1.6s ease-in-out infinite; }
+.mz-spark { animation: mzSparkIn .6s ease both; }
+.mz-marquee-track { display: inline-flex; white-space: nowrap; animation: mzMarquee 34s linear infinite; }
+.mz-marquee:hover .mz-marquee-track { animation-play-state: paused; }
+
+@keyframes mzUnlockGlow { 0%,100% { transform: translate3d(0,0,0) scale(1); opacity: .9; } 50% { transform: translate3d(2%, -2%, 0) scale(1.06); opacity: 1; } }
+@keyframes mzUnlockShine { 0% { transform: translateX(-120%); } 55%,100% { transform: translateX(120%); } }
+@keyframes mzLockPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(212,160,23,.35); transform: translateY(0) scale(1); }
+  50% { box-shadow: 0 0 0 10px rgba(212,160,23,0); transform: translateY(-3px) scale(1.04); }
+}
+@keyframes mzSparkIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes mzMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mz-unlock-glow, .mz-unlock::after, .mz-lock-on, .mz-spark, .mz-marquee-track { animation: none !important; }
+  .mz-marquee-track { transform: none; }
+}
