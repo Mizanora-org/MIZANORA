@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { IPTV, lineState, planById, pkr } from '@/lib/iptv';
 import IptvCatalogueAdmin from './IptvCatalogueAdmin';
+import IptvSourceAdmin from './IptvSourceAdmin';
 import { formatDate } from '@/lib/format';
 
 export default function AdminIptv() {
@@ -166,6 +167,8 @@ export default function AdminIptv() {
           </div>
         ) : <p className="text-xs text-dim">Abhi koi line nahi.</p>}
       </section>
+
+      <IptvSourceAdmin />
 
       <IptvCatalogueAdmin />
 
