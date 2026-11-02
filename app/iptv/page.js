@@ -78,6 +78,7 @@ export default async function IptvPage() {
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link href="/iptv/start" className="btn-gold">Free key — Google se foran <ArrowRight size={16} /></Link>
                 <Link href="/iptv/trial" className="btn-ghost">Trial form</Link>
+                <Link href="/iptv/player" className="btn-ghost"><Play size={15} /> Browser player</Link>
                 <Link href="#plans" className="btn-ghost">Plans dekhein</Link>
                 <Link href="/live" className="inline-flex items-center gap-1.5 px-2 py-2 text-sm font-semibold text-gold hover:underline">
                   <Play size={14} /> Free live TV pehle dekhein

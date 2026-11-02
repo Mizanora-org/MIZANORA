@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { authClient } from '@/lib/firebase-client';
 import {
   Tv, Users, Wallet, CheckCircle2, RefreshCw, Ban, Loader2, Info, Smartphone, MonitorSmartphone,
+  BarChart3, Radio, ListVideo, Clapperboard, CalendarClock, Megaphone, Database,
 } from 'lucide-react';
 import { IPTV, lineState, planById, pkr } from '@/lib/iptv';
 import IptvCatalogueAdmin from './IptvCatalogueAdmin';
@@ -12,6 +13,7 @@ import IptvOpsAdmin from './IptvOpsAdmin';
 import IptvStatsAdmin from './IptvStatsAdmin';
 import IptvLinesAdmin from './IptvLinesAdmin';
 import IptvToolsAdmin from './IptvToolsAdmin';
+import IptvEpgAdmin from './IptvEpgAdmin';
 import { formatDate } from '@/lib/format';
 
 export default function AdminIptv() {
@@ -19,6 +21,7 @@ export default function AdminIptv() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
+  const [tab, setTab] = useState('overview');
 
   const token = useCallback(async () => {
     try { const u = authClient().currentUser; return u ? await u.getIdToken() : null; } catch { return null; }
@@ -85,6 +88,32 @@ export default function AdminIptv() {
         </p>
       )}
       {msg && <p className="rounded-xl border border-gold/30 bg-gold/[0.06] px-3 py-2 text-xs font-semibold text-gold">{msg}</p>}
+
+      {/* v45: professional tabs — har kaam apni jagah */}
+      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-line bg-raised p-1.5">
+        {[
+          ['overview', 'Overview', BarChart3],
+          ['analytics', 'Analytics', BarChart3],
+          ['live', 'Live now', Radio],
+          ['users', 'Xtream users', Users],
+          ['channels', 'Channels', ListVideo],
+          ['movies', 'Movies & series', Clapperboard],
+          ['epg', 'EPG guide', CalendarClock],
+          ['tools', 'Ads & archive', Megaphone],
+          ['source', 'Backup source', Database],
+        ].map(([id, label, Icon]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11.5px] font-bold transition ${tab === id ? 'bg-gold text-white shadow-sm' : 'text-dim hover:bg-surface'}`}
+          >
+            <Icon size={13} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'overview' && (<>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -173,19 +202,16 @@ export default function AdminIptv() {
         ) : <p className="text-xs text-dim">Abhi koi line nahi.</p>}
       </section>
 
-      <IptvStatsAdmin />
+      </>)}
 
-      <IptvOpsAdmin />
-
-      <IptvLinesAdmin />
-
-      <IptvCatalogueAdmin />
-
-      <IptvVodAdmin />
-
-      <IptvToolsAdmin />
-
-      <IptvSourceAdmin />
+      {tab === 'analytics' && <IptvStatsAdmin />}
+      {tab === 'live' && <IptvOpsAdmin />}
+      {tab === 'users' && <IptvLinesAdmin />}
+      {tab === 'channels' && <IptvCatalogueAdmin />}
+      {tab === 'movies' && <IptvVodAdmin />}
+      {tab === 'epg' && <IptvEpgAdmin />}
+      {tab === 'tools' && <IptvToolsAdmin />}
+      {tab === 'source' && <IptvSourceAdmin />}
 
       <section className="card">
         <div className="mb-2 flex items-center justify-between">

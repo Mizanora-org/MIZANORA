@@ -17,7 +17,8 @@
 | **v43** | Owner panel: apna content, dono protocol | movies/series import, **Stalker portal** (`/portal.php`, `/c/`, MAC), live tracking, export | ✅ **ban chuka** |
 | **v41b** | Billing engine (auto 1–10) | 1–10 cycle khud chale: invoice, reminders, suspend, receipt | ⏳ agla |
 | **v44** | IMDb + bara catalogue + user manager | Cinemeta metadata, Firestore shards, lines ka poora edit/renew/delete, analytics, GitHub archive, ads | ✅ **ban chuka** |
-| **v43b** | EPG + ad stitching + public VOD | har channel ka guide, HLS ad stitch, `/iptv` par movies/series browse | ⏳ |
+| **v45** | EPG + ads-in-stream + player + bulk | XMLTV guide, channel par ad (stream ki jagah), `/iptv/player`, bulk channels, tabbed panel | ✅ **ban chuka** |
+| **v45b** | Premium unlock + public VOD + catch-up | recharge animation, public movies/series pages, 7-din archive | ⏳ |
 | **v43** | White-label apps | Android TV / Fire TV app, QR activation | optional |
 
 **Aaj ki haqeeqat (saaf baat):** v43 ke baad Mizanora **apna panel** hai — admin M3U ya manual se channels/movies/series daalta hai, aur wohi content **Xtream apps** aur **Stalker (MAG)** dono ko milta hai, admin aur reseller ki lines par. Baqi: EPG har channel ke liye, ads, public movies/series pages (`v43b`), billing engine (`v41b`).
