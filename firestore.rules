@@ -24,7 +24,8 @@ service cloud.firestore {
     match /siteMeta/{id} {
       // v43: iptvCatalogue (channel URLs) aur iptvVod (movies/series URLs) bhi server-only hain —
       // asli stream links browser ko kabhi nahi milte. Xtream/Stalker gateway hi inhe padhta hai.
-      allow read: if id != 'iptvSource' && id != 'iptvCatalogue' && id != 'iptvVod';
+      // v47: iptvAccess (blacklist/whitelist) bhi server-only — IP list public nahi honi chahiye.
+      allow read: if id != 'iptvSource' && id != 'iptvCatalogue' && id != 'iptvVod' && id != 'iptvAccess';
       allow write: if isAdmin();
     }
     // v39: the Live TV channel shards live in a SUBCOLLECTION of siteMeta/liveTv. Firestore
@@ -48,6 +49,10 @@ service cloud.firestore {
     match /iptvResellerApps/{id} { allow read, write: if false; }
     // v42/v43: gateway sessions (device + tracking), event log aur MAC index — sirf server.
     match /iptvSessions/{id} { allow read, write: if false; }
+    // v47: brute-force lockout counters (username -> fail count / lock until) — sirf server.
+    match /iptvLockouts/{id} { allow read, write: if false; }
+    // v47: payment log (renewals, reseller top-ups) — sirf server, admin panel API se padhta hai.
+    match /iptvPayments/{id} { allow read, write: if false; }
     match /iptvEvents/{id} { allow read, write: if false; }
     match /iptvResellers/{id} {
       allow read: if isAdmin() || (request.auth != null && request.auth.uid == id);

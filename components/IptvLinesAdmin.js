@@ -31,6 +31,7 @@ export default function IptvLinesAdmin() {
   const [err, setErr] = useState('');
   const [edit, setEdit] = useState(null);
   const [form, setForm] = useState({});
+  const [sel, setSel] = useState([]);        // v47: bulk ke liye chuni hui lines
 
   const call = useCallback(async (body, method = 'POST') => {
     const u = authClient().currentUser;
@@ -45,6 +46,17 @@ export default function IptvLinesAdmin() {
       return await r.json().catch(() => ({ ok: false, error: `Server ${r.status}` }));
     } catch (e) { return { ok: false, error: e.message }; }
   }, []);
+
+  const toggleSel = (id) => setSel((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
+  const bulk = async (mode, extra = {}) => {
+    if (!sel.length) return;
+    if (mode === 'delete' && !window.confirm(`${sel.length} lines delete karni hain? Yeh wapas nahi aayengi.`)) return;
+    setBusy(`bulk-${mode}`); setMsg(''); setErr('');
+    const j = await call({ action: 'bulk', ids: sel, mode, ...extra });
+    setMsg(j.ok ? `${mode}: ${j.done}/${j.total} lines ho gayi${j.failed ? ` · ${j.failed} fail` : ''}` : (j.error || 'Bulk nahi hua.'));
+    setBusy('');
+    if (j.ok) { setSel([]); setTimeout(() => load(q), 500); }
+  };
 
   const load = useCallback(async (term = q) => {
     setBusy('load'); setErr('');
@@ -113,14 +125,37 @@ export default function IptvLinesAdmin() {
       {msg && <p className="rounded-xl border border-gold/30 bg-gold/[0.06] px-3 py-2 text-xs font-semibold text-gold">{msg}</p>}
       {err && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{err}</p>}
 
+      {sel.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-gold/40 bg-gold/[0.07] px-2.5 py-2 text-[11px] font-bold">
+          <span className="text-gold">{sel.length} selected</span>
+          <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => bulk('extend', { days: 30 })} disabled={!!busy}>
+            {busy === 'bulk-extend' ? <Loader2 size={11} className="animate-spin" /> : null} +30 din
+          </button>
+          <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => bulk('extend', { days: 7 })} disabled={!!busy}>+7 din</button>
+          <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => bulk('suspend')} disabled={!!busy}>Suspend</button>
+          <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => bulk('resume')} disabled={!!busy}>Resume</button>
+          <button type="button" className="btn-ghost !px-2 !py-1 text-red-600" onClick={() => bulk('delete')} disabled={!!busy}>Delete</button>
+          <button type="button" className="ml-auto text-faint hover:text-cream" onClick={() => setSel([])}>clear</button>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[52rem] text-left text-sm">
           <thead className="text-[10px] uppercase tracking-wider text-faint">
-            <tr><th className="py-1">Line</th><th>Client</th><th>Plan</th><th>Dev</th><th>Price</th><th>Expiry</th><th>Last device</th><th>Status</th><th /></tr>
+            <tr>
+              <th className="py-1">
+                <input type="checkbox" aria-label="Select all"
+                  checked={lines.length > 0 && sel.length === Math.min(60, lines.length)}
+                  onChange={(e) => setSel(e.target.checked ? lines.slice(0, 60).map((l) => l.id) : [])} />
+              </th>
+              <th className="py-1">Line</th><th>Client</th><th>Plan</th><th>Dev</th><th>Price</th><th>Expiry</th><th>Last device</th><th>Status</th><th /></tr>
           </thead>
           <tbody>
             {lines.slice(0, 60).map((l) => (
-              <tr key={l.id} className="border-t border-line/60">
+              <tr key={l.id} className={`border-t border-line/60 ${sel.includes(l.id) ? 'bg-gold/[0.05]' : ''}`}>
+                <td className="py-1.5">
+                  <input type="checkbox" aria-label={`select ${l.username}`} checked={sel.includes(l.id)} onChange={() => toggleSel(l.id)} />
+                </td>
                 <td className="py-1.5">
                   <p className="font-mono text-xs font-semibold text-cream">{l.username}</p>
                   <p className="font-mono text-[10px] text-faint">{l.mac || l.password}</p>
@@ -150,7 +185,7 @@ export default function IptvLinesAdmin() {
                 </td>
               </tr>
             ))}
-            {!lines.length && <tr><td colSpan={9} className="py-3 text-xs text-faint">Koi line nahi mili. Search khali karein ya reseller se line banwayein.</td></tr>}
+            {!lines.length && <tr><td colSpan={10} className="py-3 text-xs text-faint">Koi line nahi mili. Search khali karein ya reseller se line banwayein.</td></tr>}
           </tbody>
         </table>
       </div>
