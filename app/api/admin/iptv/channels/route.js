@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { IPTV_CATALOGUE, cleanCatalogue, catalogueStats, fromM3U } from '@/lib/iptvCatalogue';
+import { readShardedDoc, writeShardedDoc, shardInfo } from '@/lib/gateway/shards';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,9 +22,12 @@ export async function GET(req) {
   if (!a.ok) return json({ ok: false, error: a.error }, a.status);
   if (!adminReady()) return json({ ok: true, demo: true, channels: [], stats: { total: 0, live: 0, off: 0, groups: 0 } });
 
-  const snap = await adminDb().collection(IPTV_CATALOGUE.collection).doc(IPTV_CATALOGUE.id).get();
-  const cat = cleanCatalogue(snap.exists ? snap.data() : {});
-  return json({ ok: true, ...cat, stats: catalogueStats(cat) });
+  const [data, shards] = await Promise.all([
+    readShardedDoc(IPTV_CATALOGUE.collection, IPTV_CATALOGUE.id, ['channels']),
+    shardInfo(IPTV_CATALOGUE.collection, IPTV_CATALOGUE.id),
+  ]);
+  const cat = cleanCatalogue(data || {});
+  return json({ ok: true, ...cat, shards, stats: catalogueStats(cat) });
 }
 
 export async function POST(req) {
@@ -62,15 +66,13 @@ export async function POST(req) {
     if (action === 'save') {
       const cat = cleanCatalogue({ ...b, updatedAt: Date.now() });
       if (!cat.channels.length) return json({ ok: false, error: 'Catalogue khali hai — pehle import karein.' }, 400);
-      await adminDb().collection(IPTV_CATALOGUE.collection).doc(IPTV_CATALOGUE.id).set(cat, { merge: false });
+      const saved = await writeShardedDoc(IPTV_CATALOGUE.collection, IPTV_CATALOGUE.id, cat, ['channels']);
       revalidateTag('iptv');
-      return json({ ok: true, stats: catalogueStats(cat) });
+      return json({ ok: true, stats: catalogueStats(cat), shards: saved.shards });
     }
 
     if (action === 'clear') {
-      await adminDb().collection(IPTV_CATALOGUE.collection).doc(IPTV_CATALOGUE.id).set(
-        cleanCatalogue({ enabled: false, updatedAt: Date.now() }), { merge: false },
-      );
+      await writeShardedDoc(IPTV_CATALOGUE.collection, IPTV_CATALOGUE.id, cleanCatalogue({ enabled: false, updatedAt: Date.now() }), ['channels']);
       revalidateTag('iptv');
       return json({ ok: true });
     }

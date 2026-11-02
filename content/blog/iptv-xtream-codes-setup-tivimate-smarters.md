@@ -16,7 +16,7 @@ Neeche har device ka tareeqa hai.
 Reseller aap ko aisa message bhejta hai:
 
 ```
-Server:   http://dns.mizanora.tv:8080
+Server:   https://mizanora.vercel.app
 Username: mz123456
 Password: 8f2k1q
 ```
@@ -56,7 +56,7 @@ MAG box par Xtream nahi chalta — **portal + MAC** chahiye:
 
 1. Box ki setting → **Portals**.
 2. Portal naam 1: `Mizanora`.
-3. Portal URL: `http://dns.mizanora.tv/c/` (reseller se confirm karein).
+3. Portal URL: `https://mizanora.vercel.app/c/` (reseller se confirm karein).
 4. Box ka MAC address (00:1A:79:xx:xx:xx) reseller ko bhejein.
 5. Box restart — channels aa jayengi.
 

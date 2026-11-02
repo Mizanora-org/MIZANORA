@@ -1,17 +1,15 @@
-import { getSource, sourceReady } from '@/lib/gateway/source';
-import { getCatalogue, readUpstreamJson, groupsOf } from '@/lib/gateway/catalogue';
+import { getGatewayCatalogue, groupsOf } from '@/lib/gateway/catalogue';
 import { verifyLine, checkDevice } from '@/lib/gateway/lines';
 import { clientIp, rateLimit, sealUrl, noStore } from '@/lib/gateway/security';
+import { touchSession, trackEvent } from '@/lib/gateway/track';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 20;
 
-// Xtream Codes ka dil: player_api.php
-// Rewrite (next.config.js): /player_api.php -> /api/gw/player
-//
-// Sirf server par: upstream source, aur line ka password. Client ko sirf apni info.
-// Vanilla apps (TiviMate, Smarters, XCIPTV, OTT Navigator) isi jawab se login karte hain.
+// Xtream Codes ka dil: player_api.php  ->  /api/gw/player (next.config rewrite)
+// Sab jawab HAMARE catalogue se bante hain (admin ki M3U/manual entries).
+// Client ko sirf apni line + channel ids milti hain, asli URLs kabhi nahi.
 
 const baseUrlOf = (req) => {
   const proto = req.headers.get('x-forwarded-proto') || 'https';
@@ -19,24 +17,27 @@ const baseUrlOf = (req) => {
   return `${proto}://${host}`;
 };
 
+const CATEGORY = (list) => {
+  const g = groupsOf(list.map((x) => ({ group: x.group, off: false })));
+  return g;
+};
+
 export async function GET(req) {
   const q = new URL(req.url).searchParams;
-  const username = q.get('username') || '';
-  const password = q.get('password') || '';
   const action = String(q.get('action') || '').toLowerCase();
 
   if (!rateLimit(clientIp(req), 'gw-player', 180, 60_000)) return noStore({ user_info: { auth: 0 } }, 429);
 
-  const v = await verifyLine(username, password);
-  if (!v.ok) {
-    return noStore({ user_info: { auth: 0, status: v.error, message: v.error }, server_info: {} }, v.status);
-  }
+  const v = await verifyLine(q.get('username') || '', q.get('password') || '');
+  if (!v.ok) return noStore({ user_info: { auth: 0, status: v.error, message: v.error }, server_info: {} }, v.status);
 
   const dev = await checkDevice(v.line, req);
   if (!dev.ok) return noStore({ user_info: { auth: 0, status: dev.error, message: dev.error } }, 403);
 
-  const source = await getSource();
-  const cat = await getCatalogue();
+  if (!action) {
+    touchSession(v.line, req, { kind: 'login', force: true });
+    trackEvent('login', v.line, req);
+  }
 
   const userInfo = {
     username: v.line.username,
@@ -53,73 +54,120 @@ export async function GET(req) {
   };
   const serverInfo = {
     url: baseUrlOf(req).replace(/^https?:\/\//, '').split(':')[0],
-    port: '443',
-    https_port: '443',
-    server_protocol: 'https',
-    rtmp_port: '',
+    port: '443', https_port: '443', server_protocol: 'https', rtmp_port: '',
     timezone: 'Asia/Karachi',
     timestamp_now: Math.floor(Date.now() / 1000),
     time_now: new Date().toISOString().slice(0, 19).replace('T', ' '),
   };
 
   try {
-    // default / get.php wala basic call
+    const cat = await getGatewayCatalogue();
+
     if (!action) return noStore({ user_info: userInfo, server_info: serverInfo });
 
-    // ---- categories
+    // ---------------- LIVE
     if (action === 'get_live_categories') {
-      if (source.mode === 'xtream' && sourceReady(source)) {
-        const up = await readUpstreamJson(source, '&action=get_live_categories');
-        if (Array.isArray(up)) return noStore(up);
-      }
       return noStore(cat.groups.map((g) => ({ category_id: g.id, category_name: g.name, parent_id: 0 })));
     }
 
-    // ---- live streams
     if (action === 'get_live_streams') {
       const wanted = String(q.get('category_id') || '');
-      const groups = groupsOf(cat.channels);
-      const groupId = new Map(groups.map((g) => [g.name, g.id]));
+      const gid = new Map(cat.groups.map((g) => [g.name, g.id]));
       const rows = cat.channels
-        .filter((c) => !wanted || groupId.get(c.group) === wanted)
+        .filter((c) => !wanted || gid.get(c.group) === wanted)
         .map((c) => ({
           num: Number(c.id) || 0,
           name: c.name,
-          stream_type: c.ext === 'm3u8' ? 'hls' : 'live',
+          stream_type: /m3u8/i.test(c.url) ? 'hls' : 'live',
           stream_id: Number(c.id) || c.id,
           stream_icon: c.logo ? `/api/gw/icon?t=${sealUrl(c.logo)}` : '',
-          epg_channel_id: c.epg || '',
+          epg_channel_id: '',
           added: '',
-          category_id: String(groupId.get(c.group) || '1'),
-          custom_sid: '',
-          tv_archive: 0,
-          direct_source: '',
-          tv_archive_duration: 0,
+          category_id: String(gid.get(c.group) || '1'),
+          custom_sid: '', tv_archive: 0, direct_source: '', tv_archive_duration: 0,
         }));
       return noStore(rows);
     }
 
-    // ---- short EPG (app ke andar ka guide)
-    if (action === 'get_short_epg' || action === 'get_simple_data_table') {
-      if (source.mode === 'xtream' && sourceReady(source)) {
-        const qs = `&action=${action}&stream_id=${encodeURIComponent(q.get('stream_id') || '')}${q.get('limit') ? `&limit=${Number(q.get('limit'))}` : ''}`;
-        const up = await readUpstreamJson(source, qs);
-        if (up) return noStore(up);
-      }
-      return noStore({ epg_listings: [] });
+    // ---------------- MOVIES
+    if (action === 'get_vod_categories') {
+      return noStore(CATEGORY(cat.movies).map((g) => ({ category_id: g.id, category_name: g.name, parent_id: 0 })));
     }
 
-    // ---- VOD / series: upstream se seedha (sirf xtream mode)
-    if (['get_vod_streams', 'get_series', 'get_vod_categories', 'get_series_categories', 'get_vod_info', 'get_series_info'].includes(action)) {
-      if (source.mode === 'xtream' && sourceReady(source)) {
-        const extra = ['get_vod_info', 'get_series_info'].includes(action)
-          ? `&vod_id=${encodeURIComponent(q.get('vod_id') || '')}&series_id=${encodeURIComponent(q.get('series_id') || '')}`
-          : q.get('category_id') ? `&category_id=${encodeURIComponent(q.get('category_id'))}` : '';
-        const up = await readUpstreamJson(source, `&action=${action}${extra}`);
-        if (up) return noStore(up);
-      }
-      return noStore([]);
+    if (action === 'get_vod_streams') {
+      const groups = CATEGORY(cat.movies);
+      const gid = new Map(groups.map((g) => [g.name, g.id]));
+      const rows = cat.movies.map((m) => ({
+        num: Number(String(m.id).replace(/\D/g, '')) || 0,
+        name: m.name,
+        stream_type: 'movie',
+        stream_id: m.id,
+        stream_icon: m.poster ? `/api/gw/icon?t=${sealUrl(m.poster)}` : '',
+        rating: String(m.rating || ''),
+        rating_5based: m.rating ? (m.rating / 2).toFixed(1) : '',
+        added: '',
+        category_id: String(gid.get(m.group) || '1'),
+        container_extension: m.ext,
+        custom_sid: '', direct_source: '',
+      }));
+      return noStore(rows);
     }
+
+    if (action === 'get_vod_info') {
+      const id = String(q.get('vod_id') || '');
+      const m = cat.movies.find((x) => x.id === id);
+      if (!m) return noStore({ info: {}, movie_data: {} });
+      return noStore({
+        info: { name: m.name, plot: m.plot || '', releasedate: m.year ? `${m.year}-01-01` : '', rating: m.rating || '', cover_big: m.poster ? `/api/gw/icon?t=${sealUrl(m.poster)}` : '' },
+        movie_data: { stream_id: m.id, name: m.name, added: '', category_id: '', container_extension: m.ext, custom_sid: '', direct_source: '' },
+      });
+    }
+
+    // ---------------- SERIES
+    if (action === 'get_series_categories') {
+      return noStore(CATEGORY(cat.series).map((g) => ({ category_id: g.id, category_name: g.name, parent_id: 0 })));
+    }
+
+    if (action === 'get_series') {
+      const groups = CATEGORY(cat.series);
+      const gid = new Map(groups.map((g) => [g.name, g.id]));
+      return noStore(cat.series.map((s) => ({
+        num: Number(String(s.id).replace(/\D/g, '')) || 0,
+        name: s.name,
+        series_id: s.id,
+        cover: s.poster ? `/api/gw/icon?t=${sealUrl(s.poster)}` : '',
+        plot: s.plot || '',
+        cast: '', director: '', genre: s.group || '',
+        releaseDate: '', rating: '', rating_5based: '',
+        backdrop_path: [], youtube_trailer: '', episode_run_time: '', category_id: String(gid.get(s.group) || '1'),
+      })));
+    }
+
+    if (action === 'get_series_info') {
+      const id = String(q.get('series_id') || '');
+      const s = cat.series.find((x) => x.id === id);
+      if (!s) return noStore({ seasons: [], info: {}, episodes: {} });
+      const episodes = {};
+      for (const season of s.seasons) {
+        episodes[String(season.n)] = season.episodes.map((e) => ({
+          id: `${s.id}-${season.n}-${e.n}`,
+          episode_num: e.n,
+          title: e.title || `Episode ${e.n}`,
+          season: season.n,
+          container_extension: e.ext,
+          info: { name: e.title || '', plot: '', duration: '', rating: '' },
+          custom_sid: '', added: '', direct_source: '',
+        }));
+      }
+      return noStore({
+        seasons: s.seasons.map((x) => ({ season_number: x.n, name: `Season ${x.n}`, cover: '', cover_big: '', episode_count: x.episodes.length })),
+        info: { name: s.name, plot: s.plot || '', cover: s.poster ? `/api/gw/icon?t=${sealUrl(s.poster)}` : '', genre: s.group || '' },
+        episodes,
+      });
+    }
+
+    // ---------------- EPG (apni list abhi guide ke baghair; app ko khaali array theek lagta hai)
+    if (action === 'get_short_epg' || action === 'get_simple_data_table') return noStore({ epg_listings: [] });
 
     return noStore({ user_info: userInfo, server_info: serverInfo });
   } catch (e) {

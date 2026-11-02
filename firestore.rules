@@ -22,7 +22,9 @@ service cloud.firestore {
     // v42: siteMeta/iptvSource mein upstream panel ka username/password hota hai — browser kabhi
     // nahi padh sakta. Baqi siteMeta jaisa pehle tha (public).
     match /siteMeta/{id} {
-      allow read: if id != 'iptvSource';
+      // v43: iptvCatalogue (channel URLs) aur iptvVod (movies/series URLs) bhi server-only hain —
+      // asli stream links browser ko kabhi nahi milte. Xtream/Stalker gateway hi inhe padhta hai.
+      allow read: if id != 'iptvSource' && id != 'iptvCatalogue' && id != 'iptvVod';
       allow write: if isAdmin();
     }
     // v39: the Live TV channel shards live in a SUBCOLLECTION of siteMeta/liveTv. Firestore
@@ -44,8 +46,9 @@ service cloud.firestore {
     }
     // v40: reseller applications — browser se kuch nahi, sirf server (Admin SDK).
     match /iptvResellerApps/{id} { allow read, write: if false; }
-    // v42: gateway sessions (device limit) — sirf server.
+    // v42/v43: gateway sessions (device + tracking), event log aur MAC index — sirf server.
     match /iptvSessions/{id} { allow read, write: if false; }
+    match /iptvEvents/{id} { allow read, write: if false; }
     match /iptvResellers/{id} {
       allow read: if isAdmin() || (request.auth != null && request.auth.uid == id);
       allow write: if isAdmin();

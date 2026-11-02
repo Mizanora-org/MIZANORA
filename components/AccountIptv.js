@@ -110,7 +110,7 @@ export default function AccountIptv() {
         </div>
 
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <Info label="Xtream server" value={line.server || 'http://dns.mizanora.tv:8080'} onCopy={line.server ? () => copy(line.server, 'Server') : null} copied={copied === 'Server'} />
+          <Info label="Xtream server" value={line.server || 'https://mizanora.vercel.app'} onCopy={line.server ? () => copy(line.server, 'Server') : null} copied={copied === 'Server'} />
           <Info label="MAC (Stalker)" value={line.mac || '—'} onCopy={line.mac ? () => copy(line.mac, 'MAC') : null} copied={copied === 'MAC'} />
         </div>
 

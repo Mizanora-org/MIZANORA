@@ -3,7 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { SOURCE_DOC, cleanSource, sourceReady } from '@/lib/gateway/source';
-import { upstreamLive, m3uLive, readUpstreamJson } from '@/lib/gateway/catalogue';
+import { upstreamLive, m3uLive, readUpstreamJson } from '@/lib/gateway/upstream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
