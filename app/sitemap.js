@@ -7,7 +7,6 @@ import { TOOLS } from '@/lib/tools';
 import { getTvConfig } from '@/lib/liveTvServer';
 import { channelSlugs } from '@/lib/liveTv';
 import { getMuaazImages } from '@/lib/imagesServer';
-import { getPublicLibrary } from '@/lib/iptvPublic';
 import { FOUNDER } from '@/lib/team';
 import { founderPhotoUrls } from '@/lib/founderPhotos';
 
@@ -25,13 +24,6 @@ export default async function sitemap() {
   // the old third-party links and any Admin > Images links follow.
   const muaazImgs = (await getMuaazImages().catch(() => [])).map((i) => i.url).filter(Boolean);
   const muaazPageImgs = [...founderPhotoUrls(absUrl('/')), ...FOUNDER.photos, ...muaazImgs].filter(Boolean).slice(0, 20);
-  // v46: public IPTV library detail pages (movies/series) — top items only, sitemap space bachane ke liye.
-  let lib = { movies: [], series: [] };
-  try { lib = await getPublicLibrary(); } catch { /* catalogue not ready */ }
-  const iptvVod = [
-    ...lib.movies.slice(0, 120).map((m) => ({ url: absUrl(`/iptv/movies/${m.id}`), changeFrequency: 'monthly', priority: 0.5 })),
-    ...lib.series.slice(0, 80).map((x) => ({ url: absUrl(`/iptv/series/${x.id}`), changeFrequency: 'monthly', priority: 0.5 })),
-  ];
   let tv = [];
   try { const cfg = await getTvConfig(); if (cfg.enabled) { const sl = channelSlugs(cfg.channels); // v38: the shop can hold 100,000 channels now, so the old 800-channel cap in the sitemap was
 // leaving almost all of them invisible to Google. A sitemap file may hold 50,000 addresses,
@@ -45,7 +37,7 @@ export default async function sitemap() {
     ['/stats', 0.5, 'daily'],
     // v37: the news desk (world / science / technology dispatches) and its own RSS feed
     ['/news', 0.8, 'daily'],
-    ['/returns', 0.3, 'yearly'], ['/shipping', 0.5, 'monthly'], ['/size-guide', 0.5, 'monthly'], ['/islamic', 0.6, 'weekly'], ['/deals', 0.9, 'daily'], ['/quran', 0.7, 'monthly'], ['/hadith', 0.7, 'monthly'], ['/live', 0.7, 'daily'], ['/iptv', 0.9, 'weekly'], ['/iptv/channels', 0.7, 'weekly'], ['/iptv/guide', 0.7, 'daily'], ['/iptv/movies', 0.8, 'daily'], ['/iptv/series', 0.8, 'daily'], ['/iptv/player', 0.6, 'monthly'], ['/iptv/apps', 0.6, 'monthly'], ['/iptv/recharge', 0.6, 'monthly'], ['/iptv/status', 0.4, 'daily'], ['/iptv/reseller', 0.7, 'monthly'], ['/iptv/trial', 0.6, 'monthly'], ['/iptv/start', 0.8, 'weekly'], ['/tools', 0.9, 'weekly'], ['/reviews', 0.7, 'daily'], ['/muaaz-iqbal', 0.8, 'monthly'], ['/winter', 0.7, 'weekly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'],
+    ['/returns', 0.3, 'yearly'], ['/shipping', 0.5, 'monthly'], ['/size-guide', 0.5, 'monthly'], ['/islamic', 0.6, 'weekly'], ['/deals', 0.9, 'daily'], ['/quran', 0.7, 'monthly'], ['/hadith', 0.7, 'monthly'], ['/live', 0.7, 'daily'], ['/tools', 0.9, 'weekly'], ['/reviews', 0.7, 'daily'], ['/muaaz-iqbal', 0.8, 'monthly'], ['/winter', 0.7, 'weekly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'],
   ].map(([p, priority, changeFrequency]) => ({ url: absUrl(p), lastModified: now, changeFrequency, priority }));
   // v31: /muaaz-iqbal carries its images in the sitemap (Google Images / search)
   const fixedWithImgs = muaazPageImgs.length
@@ -60,8 +52,6 @@ export default async function sitemap() {
     ...archived.slice(0, Math.max(0, 40000 - products.length - cats.length - tv.length)).map((c) => ({ url: absUrl(`/product/${c.slug}`), lastModified: new Date(c.createdAt || now), changeFrequency: 'monthly', priority: 0.6 })),
     ...TOOLS.map((t) => ({ url: absUrl(`/tools/${t.slug}`), lastModified: now, changeFrequency: 'monthly', priority: 0.8 })),
     ...tv.map((x) => ({ url: absUrl(`/live/${x.s}`), lastModified: now, changeFrequency: 'weekly', priority: 0.5 })),
-    // v46: IPTV movies + series detail pages
-    ...iptvVod.map((x) => ({ ...x, lastModified: now })),
     // v31: blog posts advertise their image (front matter "image: https://...")
     // v36: a sitemap must hold ABSOLUTE image addresses. A guide may name a local picture
     // (image: /img/muaaz/...), and that used to be written out as a bare path Google rejects.

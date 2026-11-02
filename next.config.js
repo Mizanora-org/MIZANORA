@@ -21,31 +21,6 @@ const nextConfig = {
     // Product images can come from ImgBB, Cloudinary, etc.
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
-  async rewrites() {
-    // IPTV GATEWAY (v42) — Xtream players apne aap in paths ko maangte hain, is liye
-    // /player_api.php, /get.php, /xmltv.php aur /live/<user>/<pass>/<id>.m3u8 ko hamare
-    // API routes par bhej diya jata hai. /live/<slug> (free TV) par koi asar nahi: rewrite
-    // sirf teen hisson wale path par lagta hai.
-    return [
-      { source: '/player_api.php', destination: '/api/gw/player' },
-      { source: '/panel_api.php', destination: '/api/gw/player' },
-      { source: '/get.php', destination: '/api/gw/playlist' },
-      { source: '/xmltv.php', destination: '/api/gw/epg' },
-      { source: '/portal.php', destination: '/api/gw/portal' },
-      { source: '/server/load.php', destination: '/api/gw/portal' },
-      { source: '/stalker_portal/server/load.php', destination: '/api/gw/portal' },
-      // MAG box portal root: /c/ aur /magload.php bhi isi handler par (MAC se auth hota hai).
-      { source: '/c/:path*', destination: '/api/gw/portal' },
-      { source: '/magload.php', destination: '/api/gw/portal' },
-      { source: '/stalker_portal/c/:path*', destination: '/api/gw/portal' },
-      { source: '/live/:u/:p/:f', destination: '/api/gw/x/live/:u/:p/:f' },
-      { source: '/movie/:u/:p/:f', destination: '/api/gw/x/movie/:u/:p/:f' },
-      { source: '/series/:u/:p/:f', destination: '/api/gw/x/series/:u/:p/:f' },
-      // v46: 7-din catch-up. Path wala raasta app/timeshift/[...parts]/route.js khud parhta hai;
-      // yahan sirf query-style .php entry point hai.
-      { source: '/streaming/timeshift.php', destination: '/api/gw/timeshift' },
-    ];
-  },
   async redirects() {
     // Old store URLs -> new pages (keeps Google rankings and old links alive).
     // v28: /search is NO LONGER here. It is the real site-wide search page (tools, TV, Quran, guides);
@@ -55,6 +30,12 @@ const nextConfig = {
       ...toProducts.map((s) => ({ source: `/${s}`, destination: '/products', permanent: true })),
       { source: '/order-success', destination: '/thank-you', permanent: true },
       { source: '/track-order', destination: '/track', permanent: true },
+      // v48: the IPTV section is gone for good. Old links (Google, WhatsApp, printed cards)
+      // land on Live TV instead of a 404, so nothing that once worked now looks broken.
+      { source: '/iptv', destination: '/live', permanent: true },
+      { source: '/iptv/:path*', destination: '/live', permanent: true },
+      { source: '/reseller', destination: '/live', permanent: true },
+      { source: '/account/iptv', destination: '/account', permanent: true },
     ];
   },
   async headers() {

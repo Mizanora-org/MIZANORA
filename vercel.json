@@ -2,11 +2,5 @@
   "framework": "nextjs",
   "installCommand": "npm install",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "crons": [
-    {
-      "path": "/api/cron/iptv",
-      "schedule": "0 3 * * *"
-    }
-  ]
+  "outputDirectory": ".next"
 }

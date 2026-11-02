@@ -30,8 +30,6 @@
 | FIREBASE_CLIENT_EMAIL | `client_email` from the JSON |
 | FIREBASE_PRIVATE_KEY | `private_key` from the JSON, in double quotes, keep the `\n` |
 | ADMIN_UID | the admin User UID (only needed for the email login) |
-| IPTV_GW_SECRET | 32+ chars — sealed stream links (v42+) |
-| CRON_SECRET | 32+ chars — `/api/cron/iptv` (daily billing / auto-suspend, v47) |
 | IMGBB_API_KEY | your ImgBB API key (secret, Vercel only). Lets /admin upload photos from your gallery |
 | NEXT_PUBLIC_ANNOUNCEMENT | optional text for the gold bar at the top of every page |
 | NEXT_PUBLIC_META_PIXEL_ID | your Pixel ID |

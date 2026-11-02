@@ -34,7 +34,7 @@ jobs:
       - name: Check
         run: npm run check
 
-      # 25 test files: shop, reels, ads, live TV, the animated README, GitHub, archive
+      # 22 test files: shop, reels, ads, live TV, the animated README, GitHub, archive, and v48 (IPTV removed)
       - name: Tests
         run: npm test
 

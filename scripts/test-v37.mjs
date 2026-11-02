@@ -100,7 +100,7 @@ for (const slug of NEWS_CATEGORIES) {
   const n = posts.filter((p) => p.category === slug).length;
   ok(`blog: the ${slug} shelf has at least two dispatches (${n})`, n >= 2);
 }
-const newsSlugs = ['world-economy-2026-what-it-means-for-pakistani-shoppers', 'oil-prices-and-your-delivery-charge-pakistan-2026', 'global-trade-tariffs-2026-why-imports-cost-what-they-do', 'science-of-space-2026-five-discoveries-explained', 'mars-life-clues-2026-what-curiosity-actually-found', 'ai-data-centres-energy-2026-why-it-reaches-your-phone', 'chip-shortage-2026-gadget-prices-pakistan', 'muaaz-iqbal-projects-map-2026', 'muaaz-iqbal-personality-trust-why-people-believe-him', 'barakatwave-tv-xtream-codes-setup-guide', 'siravex-multi-view-iptv-player-guide'];
+const newsSlugs = ['world-economy-2026-what-it-means-for-pakistani-shoppers', 'oil-prices-and-your-delivery-charge-pakistan-2026', 'global-trade-tariffs-2026-why-imports-cost-what-they-do', 'science-of-space-2026-five-discoveries-explained', 'mars-life-clues-2026-what-curiosity-actually-found', 'ai-data-centres-energy-2026-why-it-reaches-your-phone', 'chip-shortage-2026-gadget-prices-pakistan', 'muaaz-iqbal-projects-map-2026', 'muaaz-iqbal-personality-trust-why-people-believe-him'];
 const bySlug = new Map(posts.map((p) => [p.slug, p]));
 for (const s of newsSlugs) ok(`blog: "${s}" is published`, bySlug.has(s));
 for (const s of newsSlugs) {
@@ -110,8 +110,6 @@ for (const s of newsSlugs) {
   const raw = read('content/blog/' + p.file.replace(/^.*\//, ''));
   ok(`blog "${s}": it links to at least two other pages`, ((raw || '').match(/\]\(\/[a-z0-9\-\/]+\)/g) || []).length >= 2);
 }
-ok('blog: the BarakatWave guide names the real site', /barakatwave\.vercel\.app/.test(src('content/blog/barakatwave-tv-xtream-codes-setup-guide.md')));
-ok('blog: the SIRAVEX guide names the real site', /siravex\.vercel\.app/.test(src('content/blog/siravex-multi-view-iptv-player-guide.md')));
 ok('blog: the project map names BarakatWave, SIRAVEX and Asaan Lang', /barakatwave/i.test(src('content/blog/muaaz-iqbal-projects-map-2026.md')) && /siravex/i.test(src('content/blog/muaaz-iqbal-projects-map-2026.md')) && /asaan/i.test(src('content/blog/muaaz-iqbal-projects-map-2026.md')));
 
 // every /blog/<slug> link in every post points at a real post (category links are routes, not posts)
