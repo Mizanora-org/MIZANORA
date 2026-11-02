@@ -9,6 +9,9 @@ import IptvCatalogueAdmin from './IptvCatalogueAdmin';
 import IptvSourceAdmin from './IptvSourceAdmin';
 import IptvVodAdmin from './IptvVodAdmin';
 import IptvOpsAdmin from './IptvOpsAdmin';
+import IptvStatsAdmin from './IptvStatsAdmin';
+import IptvLinesAdmin from './IptvLinesAdmin';
+import IptvToolsAdmin from './IptvToolsAdmin';
 import { formatDate } from '@/lib/format';
 
 export default function AdminIptv() {
@@ -170,11 +173,17 @@ export default function AdminIptv() {
         ) : <p className="text-xs text-dim">Abhi koi line nahi.</p>}
       </section>
 
+      <IptvStatsAdmin />
+
       <IptvOpsAdmin />
+
+      <IptvLinesAdmin />
 
       <IptvCatalogueAdmin />
 
       <IptvVodAdmin />
+
+      <IptvToolsAdmin />
 
       <IptvSourceAdmin />
 

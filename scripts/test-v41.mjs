@@ -67,7 +67,8 @@ ok('catalogue: enabled flag is kept', cat.enabled === true);
 ok('catalogue: groups are counted', catalogueGroups(cat.channels).length === 2);
 ok('catalogue: stats count the live channels', catalogueStats(cat).live === 2);
 ok('catalogue: an empty group becomes "Other"', cleanCatalogue({ channels: [{ name: 'X', url: 'http://a/x.m3u8' }] }).channels[0].group === 'Other');
-ok('catalogue: size is capped', MAX_IPTV_CHANNELS === 5000);
+// v44: cap 4,80,000 tak barh gaya — data ab Firestore shards mein jata hai (lib/shardPlan.js).
+ok('catalogue: size is capped', MAX_IPTV_CHANNELS >= 5000 && MAX_IPTV_CHANNELS <= 1000000);
 
 const m3u = '#EXTM3U\n#EXTINF:-1 tvg-logo="http://l/1.png" group-title="News",Geo News\nhttp://a/1.m3u8\n#EXTINF:-1 group-title="Kids",Cartoon\nhttp://a/2.m3u8\n';
 const parsed = fromM3U(m3u);

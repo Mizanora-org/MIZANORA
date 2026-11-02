@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { VOD_DOC, cleanVod, cleanMovie, cleanSeries, findVod, parseVodM3U, vodStats } from '@/lib/iptvVod';
+import { readShardedDoc, writeShardedDoc, shardInfo } from '@/lib/gateway/shards';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,9 +25,12 @@ export async function GET(req) {
   if (!a.ok) return json({ ok: false, error: a.error }, a.status);
   if (!adminReady()) return json({ ok: true, demo: true, movies: [], series: [], stats: { movies: 0, series: 0, episodes: 0, groups: 0 } });
 
-  const snap = await adminDb().collection(VOD_DOC.collection).doc(VOD_DOC.id).get();
-  const vod = cleanVod(snap.exists ? snap.data() : {});
-  return json({ ok: true, ...vod, stats: vodStats(vod) });
+  const [data, shards] = await Promise.all([
+    readShardedDoc(VOD_DOC.collection, VOD_DOC.id, ['movies', 'series']),
+    shardInfo(VOD_DOC.collection, VOD_DOC.id),
+  ]);
+  const vod = cleanVod(data || {});
+  return json({ ok: true, ...vod, shards, stats: vodStats(vod) });
 }
 
 export async function POST(req) {
@@ -39,6 +43,8 @@ export async function POST(req) {
   const action = String(b.action || '');
   const db = adminDb();
   const ref = db.collection(VOD_DOC.collection).doc(VOD_DOC.id);
+  const readVod = async () => cleanVod(await readShardedDoc(VOD_DOC.collection, VOD_DOC.id, ['movies', 'series']) || {});
+  const saveVod = (v) => writeShardedDoc(VOD_DOC.collection, VOD_DOC.id, v, ['movies', 'series']);
 
   try {
     if (action === 'import') {
@@ -68,71 +74,63 @@ export async function POST(req) {
 
     if (action === 'save' || action === 'append') {
       let base = { movies: [], series: [] };
-      if (action === 'append') {
-        const snap = await ref.get();
-        base = snap.exists ? cleanVod(snap.data()) : base;
-      }
+      if (action === 'append') base = await readVod();
       const incoming = cleanVod({ movies: b.movies || [], series: b.series || [] });
       const movies = mergeById(base.movies, incoming.movies);
       const series = mergeSeries(base.series, incoming.series);
       const vod = cleanVod({ movies, series, updatedAt: Date.now() });
       if (!vod.movies.length && !vod.series.length) return json({ ok: false, error: 'List khali hai.' }, 400);
-      await ref.set(vod, { merge: false });
+      await saveVod(vod);
       revalidateTag('iptv');
       return json({ ok: true, stats: vodStats(vod) });
     }
 
     if (action === 'toggle') {
       const kind = b.kind === 'series' ? 'series' : 'movies';
-      const snap = await ref.get();
-      const vod = cleanVod(snap.exists ? snap.data() : {});
+      const vod = await readVod();
       const list = vod[kind].map((x) => (String(x.id) === String(b.id) ? { ...x, off: !x.off } : x));
-      await ref.set(cleanVod({ ...vod, [kind]: list, updatedAt: Date.now() }), { merge: false });
+      await saveVod(cleanVod({ ...vod, [kind]: list, updatedAt: Date.now() }));
       revalidateTag('iptv');
       return json({ ok: true, stats: vodStats({ ...vod, [kind]: list }) });
     }
 
     if (action === 'remove') {
       const kind = b.kind === 'series' ? 'series' : 'movies';
-      const snap = await ref.get();
-      const vod = cleanVod(snap.exists ? snap.data() : {});
+      const vod = await readVod();
       const list = vod[kind].filter((x) => String(x.id) !== String(b.id));
-      await ref.set(cleanVod({ ...vod, [kind]: list, updatedAt: Date.now() }), { merge: false });
+      await saveVod(cleanVod({ ...vod, [kind]: list, updatedAt: Date.now() }));
       revalidateTag('iptv');
       return json({ ok: true, stats: vodStats({ ...vod, [kind]: list }) });
     }
 
     if (action === 'addMovie') {
-      const snap = await ref.get();
-      const vod = cleanVod(snap.exists ? snap.data() : {});
+      const vod = await readVod();
       const movie = cleanMovie({ ...b.movie, id: nextId(vod.movies, 'm') }, vod.movies.length);
       if (!movie.name || !movie.url) return json({ ok: false, error: 'Naam aur link zaroori hai.' }, 400);
       const movies = mergeById(vod.movies, [movie]);
-      await ref.set(cleanVod({ ...vod, movies, updatedAt: Date.now() }), { merge: false });
+      await saveVod(cleanVod({ ...vod, movies, updatedAt: Date.now() }));
       revalidateTag('iptv');
       return json({ ok: true, movie, stats: vodStats({ ...vod, movies }) });
     }
 
     if (action === 'addSeries') {
-      const snap = await ref.get();
-      const vod = cleanVod(snap.exists ? snap.data() : {});
+      const vod = await readVod();
       const s = cleanSeries({ ...b.series, id: nextId(vod.series, 's') }, vod.series.length);
       if (!s.name) return json({ ok: false, error: 'Series ka naam zaroori hai.' }, 400);
       const series = mergeSeries(vod.series, [s]);
-      await ref.set(cleanVod({ ...vod, series, updatedAt: Date.now() }), { merge: false });
+      await saveVod(cleanVod({ ...vod, series, updatedAt: Date.now() }));
       revalidateTag('iptv');
       return json({ ok: true, series: s, stats: vodStats({ ...vod, series }) });
     }
 
     if (action === 'clear') {
-      await ref.set(cleanVod({ updatedAt: Date.now() }), { merge: false });
+      await saveVod(cleanVod({ updatedAt: Date.now() }));
       revalidateTag('iptv');
       return json({ ok: true });
     }
 
     if (action === 'find') {
-      const snap = await ref.get();
-      const vod = cleanVod(snap.exists ? snap.data() : {});
+      const vod = await readVod();
       return json({ ok: true, item: findVod(vod, b.kind === 'series' ? 'series' : 'movie', String(b.id || '')) });
     }
 

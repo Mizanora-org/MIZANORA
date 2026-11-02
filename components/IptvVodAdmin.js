@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { authClient } from '@/lib/firebase-client';
-import { Clapperboard, DownloadCloud, Film, Loader2, Plus, RefreshCw, Save, Trash2, Tv2 } from 'lucide-react';
+import { Clapperboard, DownloadCloud, Film, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, Tv2 } from 'lucide-react';
 
 // Admin > IPTV > Movies & Series (VOD).
 // M3U file/link se import (naam mein (2023) ya S01E02 ho to khud pehchanta hai),
@@ -16,6 +16,7 @@ export default function IptvVodAdmin() {
   const [tab, setTab] = useState('movies');
   const [manual, setManual] = useState({ name: '', url: '', group: '', poster: '' });
   const [showManual, setShowManual] = useState(false);
+  const [imdb, setImdb] = useState(null);
 
   const call = useCallback(async (body, method = 'POST') => {
     const u = authClient().currentUser;
@@ -39,7 +40,27 @@ export default function IptvVodAdmin() {
     setBusy('');
   }, [call]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadImdb = useCallback(async () => {
+    const u = authClient().currentUser;
+    if (!u) return;
+    try {
+      const token = await u.getIdToken();
+      const r = await fetch('/api/admin/iptv/meta', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+      const j = await r.json();
+      if (j.ok) setImdb(j);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { load(); loadImdb(); }, [load, loadImdb]);
+
+  async function fillImdb(kind) {
+    setBusy(`imdb:${kind}`); setMsg(''); setErr('');
+    const j = await call({ action: 'enrich', kind, limit: 16 });
+    setBusy('');
+    if (!j.ok) { setErr(j.error || 'IMDb se data nahi aaya.'); return; }
+    setMsg(`IMDb se ${j.filled} items bhare (${j.scanned} scanned)${j.done ? ' — sab complete' : ` — ${j.misses.length ? `${j.misses.length} match nahi mile` : 'aur baqi hain'}`}.`);
+    load(); loadImdb();
+  }
 
   async function doImport() {
     setBusy('import'); setMsg(''); setErr('');
@@ -133,6 +154,12 @@ export default function IptvVodAdmin() {
         <button type="button" className="btn-ghost" onClick={clearAll} disabled={!!busy || (!state.movies.length && !state.series.length)}>
           <Trash2 size={14} /> Clear VOD
         </button>
+        <button type="button" className="btn-ghost" onClick={() => fillImdb('movies')} disabled={!!busy || !state.movies.length}>
+          {busy === 'imdb:movies' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} IMDb — movies
+        </button>
+        <button type="button" className="btn-ghost" onClick={() => fillImdb('series')} disabled={!!busy || !state.series.length}>
+          {busy === 'imdb:series' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} IMDb — series
+        </button>
       </div>
 
       {showManual && (
@@ -147,6 +174,11 @@ export default function IptvVodAdmin() {
         </div>
       )}
 
+      {imdb && (
+        <p className="text-[11px] text-faint">
+          IMDb metadata: {imdb.missing?.movies || 0} movies / {imdb.missing?.series || 0} series adhoori — poster, rating, plot, cast IMDb (Cinemeta) se aata hai.
+        </p>
+      )}
       {msg && <p className="rounded-xl border border-gold/30 bg-gold/[0.06] px-3 py-2 text-xs font-semibold text-gold">{msg}</p>}
       {err && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{err}</p>}
       {state.loading && <p className="flex items-center gap-2 text-xs text-dim"><Loader2 size={13} className="animate-spin" /> Load ho raha hai…</p>}
