@@ -19,13 +19,9 @@ service cloud.firestore {
     match /productCosts/{id} { allow read, write: if isAdmin(); }
     // Products hidden because their photos do not load (the server writes them; only the admin reads / clears them).
     // Website status (shut down / high alert + reason). Anyone may read it, only the admin changes it.
-    // v42: siteMeta/iptvSource mein upstream panel ka username/password hota hai — browser kabhi
-    // nahi padh sakta. Baqi siteMeta jaisa pehle tha (public).
+    // siteMeta holds the shop's settings (Live TV, the live channel, site images...). It is public.
     match /siteMeta/{id} {
-      // v43: iptvCatalogue (channel URLs) aur iptvVod (movies/series URLs) bhi server-only hain —
-      // asli stream links browser ko kabhi nahi milte. Xtream/Stalker gateway hi inhe padhta hai.
-      // v47: iptvAccess (blacklist/whitelist) bhi server-only — IP list public nahi honi chahiye.
-      allow read: if id != 'iptvSource' && id != 'iptvCatalogue' && id != 'iptvVod' && id != 'iptvAccess';
+      allow read: if true;
       allow write: if isAdmin();
     }
     // v39: the Live TV channel shards live in a SUBCOLLECTION of siteMeta/liveTv. Firestore
@@ -34,30 +30,6 @@ service cloud.firestore {
     // Admin SDK touches them (server-side, rules do not apply), but the rule makes it safe.
     match /siteMeta/{id}/channels/{part} { allow read: if true; allow write: if isAdmin(); }
 
-    // v39: IPTV (Mizanora IPTV section).
-    //   iptvTrials   -> the public trial form; ONLY the server writes (Admin SDK bypasses rules).
-    //   iptvLines    -> a signed-in customer may read their own line; the admin reads all.
-    //   iptvResellers-> a reseller reads their own document; the admin reads all.
-    // Passwords on a line are never shown to anyone except the owner and the admin.
-    match /iptvTrials/{id} { allow read, write: if false; }
-    match /iptvLines/{id} {
-      // owner (client) ya uska reseller padh sakta hai; likhna sirf admin/server.
-      allow read: if isAdmin() || (request.auth != null && (resource.data.uid == request.auth.uid || resource.data.resellerId == request.auth.uid));
-      allow write: if isAdmin();
-    }
-    // v40: reseller applications — browser se kuch nahi, sirf server (Admin SDK).
-    match /iptvResellerApps/{id} { allow read, write: if false; }
-    // v42/v43: gateway sessions (device + tracking), event log aur MAC index — sirf server.
-    match /iptvSessions/{id} { allow read, write: if false; }
-    // v47: brute-force lockout counters (username -> fail count / lock until) — sirf server.
-    match /iptvLockouts/{id} { allow read, write: if false; }
-    // v47: payment log (renewals, reseller top-ups) — sirf server, admin panel API se padhta hai.
-    match /iptvPayments/{id} { allow read, write: if false; }
-    match /iptvEvents/{id} { allow read, write: if false; }
-    match /iptvResellers/{id} {
-      allow read: if isAdmin() || (request.auth != null && request.auth.uid == id);
-      allow write: if isAdmin();
-    }
     // v29: SECRETS (YouTube stream key). Nobody can read or write these from a browser - only the server (Admin SDK) can.
     // siteMeta above is PUBLIC, so a stream key must never be stored there.
     match /adminSecrets/{id} { allow read, write: if false; }

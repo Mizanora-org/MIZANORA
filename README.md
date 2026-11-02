@@ -225,11 +225,30 @@ state, so every combination is shareable and every page is static.
 ```bash
 npm ci
 npm run check      # scripts/check.js  +  scripts/typecheck.js
-npm test           # 24 test files, including v33 live badges + GitHub
+npm test           # 22 test files, including v48 (IPTV removed) and v38 (Live TV)
 npm run build:offline
 ```
 Both feeds are paged (each part stays under ~4 MB):
 `/api/feed?part=N`, `/api/feed/google?part=N`, `/catalog.json?part=N`.
+
+## v48 upgrade (IPTV khatam — sirf Live TV)
+
+The whole IPTV business was removed in one go: the 15 customer pages, the 16 admin routes, the
+reseller panel, the **Xtream / Stalker gateway** (`player_api.php`, `get.php`, `xmltv.php`,
+`portal.php`, `server/load.php`, `/live|movie|series/<u>/<p>/<id>`, `timeshift.php`), the
+movies/series library, EPG, catch-up, billing, the daily cron job, every `lib/iptv*` and
+`lib/gateway/*` file, all 20 `Iptv*` components, the IPTV Firestore rules, 16 blog guides and
+the IPTV entries in the header, footer, admin sidebar and sitemap.
+
+**Live TV was never part of it and is untouched:** `/live`, `/live/<channel>`,
+`/live-channel`, Admin → Live TV (100,000 channels, M3U file/link, bulk tools, product ads)
+and Admin → Live Channel. The admin-only **Xtream Codes channel importer** in Admin → Live TV
+stays: it does not create IPTV lines, it just pulls a channel list into Live TV.
+
+Old addresses keep working through permanent redirects: `/iptv` and `/iptv/*` → `/live`,
+`/reseller` → `/live`, `/account/iptv` → `/account`. `scripts/test-v48.mjs` (65 checks) runs in
+`npm test` so none of it can quietly come back. Full notes and the three one-time clean-up
+steps (Vercel env vars, old Firestore collections, Search Console): [UPGRADE-v48.md](UPGRADE-v48.md).
 
 ## v38 upgrade (100,000 Live TV channels, bulk import, editing tools)
 
@@ -281,8 +300,7 @@ Full notes: [UPGRADE-v38.md](UPGRADE-v38.md).
   import live TV / movies / series. The call is admin-only, refuses private and loopback
   addresses, follows no redirects, caps the body at 8 MB, and never stores or logs the
   password. Free credentials to try it: [BarakatWave TV](https://barakatwave.vercel.app) →
-  *Generate My Free Xtream Server*. Walkthrough:
-  [the setup guide](/blog/barakatwave-tv-xtream-codes-setup-guide).
+  *Generate My Free Xtream Server*.
 - **Analytics got deeper, and part of it went public.** The dashboard now keeps up to **90
   days** and reports most-read pages, new vs returning visitors, traffic by hour and by
   weekday, and all-time totals. New **`/stats`** is open to anyone — no sign-in — with a live
