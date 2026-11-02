@@ -41,6 +41,9 @@ const nextConfig = {
       { source: '/live/:u/:p/:f', destination: '/api/gw/x/live/:u/:p/:f' },
       { source: '/movie/:u/:p/:f', destination: '/api/gw/x/movie/:u/:p/:f' },
       { source: '/series/:u/:p/:f', destination: '/api/gw/x/series/:u/:p/:f' },
+      // v46: 7-din catch-up. Path wala raasta app/timeshift/[...parts]/route.js khud parhta hai;
+      // yahan sirf query-style .php entry point hai.
+      { source: '/streaming/timeshift.php', destination: '/api/gw/timeshift' },
     ];
   },
   async redirects() {

@@ -1,3 +1,4 @@
+import { archiveDaysFor } from '@/lib/iptvCatchup';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { getGatewayCatalogue, groupsOf } from '@/lib/gateway/catalogue';
 import { checkDevice } from '@/lib/gateway/lines';
@@ -125,7 +126,10 @@ async function handle(req) {
       cmd: `ffmpeg ${base}/live/${u}/${p}/${c.id}.${ext(c)}`,
       logo: c.logo ? `${base}/api/gw/icon?t=${sealUrl(c.logo)}` : '',
       tv_genre_id: gidOf.get(c.group) || '1',
-      censored: 0, status: 1, hd: 0, archive: 0, tv_archive_duration: 0,
+      censored: 0, status: 1, hd: 0,
+      archive: archiveDaysFor(c) ? 1 : 0,
+      tv_archive_duration: archiveDaysFor(c),
+      allow_timeshift: archiveDaysFor(c) ? 1 : 0,
     }));
     touchSession(line, req, { kind: 'stalker' });
     return json({ js: { total_items: filtered.length, max_page_items: perPage, data }, text: 'ok' });

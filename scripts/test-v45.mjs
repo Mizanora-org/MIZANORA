@@ -134,7 +134,7 @@ ok('admin: users tab', has('components/AdminIptv.js', /tab === 'users' && <IptvL
 ok('admin: tools tab', has('components/AdminIptv.js', /tab === 'tools' && <IptvToolsAdmin/));
 
 // ---------------------------------------------------------------- 8. version + docs
-ok('version: package is 45.0.0', /"version": "45\.0\.0"/.test(read('package.json')));
+ok('version: package is 45 or later', /"version": "(45|46|47)\.0\.0"/.test(read('package.json')));
 ok('docs: v45 notes exist', existsSync(join(root, 'UPGRADE-v45.md')));
 ok('docs: notes explain EPG', /EPG|XMLTV/i.test(read('UPGRADE-v45.md')));
 ok('docs: notes list what is still missing', /baqi|NAHI/i.test(read('UPGRADE-v45.md')));
