@@ -76,7 +76,8 @@ export default async function IptvPage() {
                 wohi channels, wohi guide. Koi dish nahi, koi cable nahi.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
-                <Link href="/iptv/trial" className="btn-gold">Free 24h trial <ArrowRight size={16} /></Link>
+                <Link href="/iptv/start" className="btn-gold">Free key — Google se foran <ArrowRight size={16} /></Link>
+                <Link href="/iptv/trial" className="btn-ghost">Trial form</Link>
                 <Link href="#plans" className="btn-ghost">Plans dekhein</Link>
                 <Link href="/live" className="inline-flex items-center gap-1.5 px-2 py-2 text-sm font-semibold text-gold hover:underline">
                   <Play size={14} /> Free live TV pehle dekhein

@@ -37,7 +37,7 @@ export default async function sitemap() {
     ['/stats', 0.5, 'daily'],
     // v37: the news desk (world / science / technology dispatches) and its own RSS feed
     ['/news', 0.8, 'daily'],
-    ['/returns', 0.3, 'yearly'], ['/shipping', 0.5, 'monthly'], ['/size-guide', 0.5, 'monthly'], ['/islamic', 0.6, 'weekly'], ['/deals', 0.9, 'daily'], ['/quran', 0.7, 'monthly'], ['/hadith', 0.7, 'monthly'], ['/live', 0.7, 'daily'], ['/iptv', 0.9, 'weekly'], ['/iptv/channels', 0.7, 'weekly'], ['/iptv/reseller', 0.7, 'monthly'], ['/iptv/trial', 0.6, 'monthly'], ['/tools', 0.9, 'weekly'], ['/reviews', 0.7, 'daily'], ['/muaaz-iqbal', 0.8, 'monthly'], ['/winter', 0.7, 'weekly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'],
+    ['/returns', 0.3, 'yearly'], ['/shipping', 0.5, 'monthly'], ['/size-guide', 0.5, 'monthly'], ['/islamic', 0.6, 'weekly'], ['/deals', 0.9, 'daily'], ['/quran', 0.7, 'monthly'], ['/hadith', 0.7, 'monthly'], ['/live', 0.7, 'daily'], ['/iptv', 0.9, 'weekly'], ['/iptv/channels', 0.7, 'weekly'], ['/iptv/reseller', 0.7, 'monthly'], ['/iptv/trial', 0.6, 'monthly'], ['/iptv/start', 0.8, 'weekly'], ['/tools', 0.9, 'weekly'], ['/reviews', 0.7, 'daily'], ['/muaaz-iqbal', 0.8, 'monthly'], ['/winter', 0.7, 'weekly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'],
   ].map(([p, priority, changeFrequency]) => ({ url: absUrl(p), lastModified: now, changeFrequency, priority }));
   // v31: /muaaz-iqbal carries its images in the sitemap (Google Images / search)
   const fixedWithImgs = muaazPageImgs.length

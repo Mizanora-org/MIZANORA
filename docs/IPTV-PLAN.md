@@ -13,7 +13,8 @@
 | **v39** | Section + money + SEO | `/iptv` aur uske saare public pages, admin module, plans, trial, reseller, 5 blog guides, sitemap | ✅ **ban chuka** |
 | **v40** | Reseller panel + reseller website | `/reseller` dashboard, apply form, admin approvals, credit, 4 naye guides | ✅ **ban chuka** |
 | **v40b** | Gateway (Xtream + M3U) | asli streaming endpoints — `player_api.php`, `get.php`, `xmltv.php` | ⏳ agla |
-| **v41** | Billing engine (auto 1–10) | 1–10 cycle khud chale: invoice, reminders, suspend, receipt | ⏳ |
+| **v41** | Self-service IPTV | `/iptv/start` free key, reseller auto-approve, IPTV ka apna catalogue | ✅ **ban chuka** |
+| **v41b** | Billing engine (auto 1–10) | 1–10 cycle khud chale: invoice, reminders, suspend, receipt | ⏳ agla |
 | **v42** | Stalker/MAC + catch-up | `portal.php`, MAG box support, 7-din archive | ⏳ |
 | **v43** | White-label apps | Android TV / Fire TV app, QR activation | optional |
 
@@ -138,7 +139,7 @@ Reseller ke paas       Rs 30
 | **13–15** | Grace follow-up, reactivation on payment | admin/reseller | "Payment mila, line chalu" |
 | **28** | Next cycle ki taiyari, reseller ki collection ka hisaab | admin | — |
 
-**Paisa kis ko:** client apne **reseller** ko deta hai (reseller apna JazzCash/Easypaisa/bank chunta hai). Reseller **Mizanora** ko 1–10 ke darmiyan deta hai — JazzCash **0306-2015326**. Admin `paidThisCycle` update karta hai (phase v41 mein khud).
+**Paisa kis ko:** client apne **reseller** ko deta hai (reseller apna JazzCash/Easypaisa/bank chunta hai). Reseller **Mizanora** ko 1–10 ke darmiyan deta hai — JazzCash **0306-2015326**. Admin `paidThisCycle` update karta hai (phase v41b mein khud).
 
 **Screenshot rule:** client/ reseller screenshot WhatsApp par bhejta hai → admin panel se "paid" mark. Sirf screenshot par bharosa nahi — JazzCash statement se milaya jata hai (section 21, risk R6).
 

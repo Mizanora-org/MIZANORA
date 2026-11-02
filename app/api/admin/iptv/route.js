@@ -59,6 +59,23 @@ export async function POST(req) {
         return m;
       }, {});
 
+      // Self-service accounts: har line jis par uid hai, us account ke neeche jama.
+      const usersMap = new Map();
+      for (const l of allLines) {
+        if (!l.uid) continue;
+        const u = usersMap.get(l.uid) || {
+          uid: l.uid, email: l.email || '', name: l.clientName || l.name || '',
+          lines: 0, active: 0, trial: false, lastAt: 0,
+        };
+        u.lines += 1;
+        if ((Number(l.expiresAt) || 0) > Date.now() && l.status !== 'cancelled') u.active += 1;
+        if (l.trial === true) u.trial = true;
+        if (!u.email && l.email) u.email = l.email;
+        u.lastAt = Math.max(u.lastAt, Number(l.createdAt) || 0);
+        usersMap.set(l.uid, u);
+      }
+      const users = [...usersMap.values()].sort((a, b) => b.lastAt - a.lastAt);
+
       const resellers = (resSnap?.docs || []).map((d) => {
         const r = d.data();
         return {
@@ -97,6 +114,7 @@ export async function POST(req) {
         trials,
         lines: lines.slice(0, 150),
         apps,
+        users,
         resellers,
         collection,
       });
@@ -226,6 +244,10 @@ function demo() {
       { id: 'l3', username: 'mz100243', plan: 'premium', resellerName: 'Madina Digital', expiresAt: now + 45 * DAY },
       { id: 'l4', username: 'mz100244', plan: 'starter', resellerName: 'Ali Traders', expiresAt: now - 2 * DAY },
       { id: 'l5', username: 'mz100245', plan: 'family', resellerName: 'Pak Vision HD', expiresAt: now + 11 * DAY },
+    ],
+    users: [
+      { uid: 'u_demo1', email: 'ali.raza@gmail.com', name: 'Ali Raza', lines: 1, active: 1, trial: false, lastAt: now - 3 * DAY },
+      { uid: 'u_demo2', email: 'sana.malik@gmail.com', name: 'Sana Malik', lines: 1, active: 1, trial: true, lastAt: now - 6 * 3600e3 },
     ],
     apps: [
       { id: 'a1', name: 'Hamza Cable', phone: '0301-2233445', city: 'Gujranwala', experience: 'cable', at: now - 2 * 3600e3 },

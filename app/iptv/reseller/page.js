@@ -16,8 +16,8 @@ export const metadata = pageMeta({
 });
 
 const FAQ = [
-  ['Reseller banne ka kitna kharcha hai?', 'Registration free hai. Starter pack Rs 1,000 (10 connections) se shuru hota hai — trial reseller ke liye 2 connections 7 din free.'],
-  ['Main kitne clients bana sakta hoon?', 'Jitne chahiye. Register hone ke baad koi limit nahi — har active line ka Rs 100 mahina Mizanora ko jata hai.'],
+  ['Reseller banne ka kitna kharcha hai?', 'Registration free hai — sign in kar ke apply karein to panel foran chalu ho jata hai (10 lines credit ke saath). Credit barhana ho to WhatsApp par baat karein.'],
+  ['Main kitne clients bana sakta hoon?', 'Aap ke credit jitni lines (shuru mein 10, admin se barhwa sakte hain). Har active line ka Rs 100 mahina Mizanora ko jata hai — baqi aap ka.'],
   ['Mujhe client se kitna lena hai?', `Rs ${IPTV.fee.total} connection fee (pehla month shamil) aur uske baad Rs ${IPTV.cap} mahina — cap se zyada system khud rok deta hai.`],
   ['Payment kab tak karni hai?', `Har mahine ${IPTV.cycle.from} se ${IPTV.cycle.to} tareekh tak, JazzCash ${'0306-2015326'} par. ${IPTV.suspendDay} tareekh tak na aaye to aap ki lines auto-suspend ho jati hain.`],
   ['Client kaise pay karega?', 'Aap panel mein apna JazzCash / Easypaisa / bank number set karte hain. Client ko recharge screen par wohi naam aur number dikhta hai.'],
