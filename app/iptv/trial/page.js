@@ -24,6 +24,15 @@ export default function TrialPage() {
         crumbs={[['/', 'Home'], ['/iptv', 'IPTV'], [null, 'Free trial']]}
       />
 
+      <div className="mx-auto max-w-5xl px-4 pt-6">
+        <div className="card flex flex-wrap items-center justify-between gap-2 border-gold/40 bg-gold/[0.05]">
+          <p className="text-sm text-dim">
+            <b className="text-cream">Jaldi chahiye?</b> Google se sign in karein aur key <b>foran</b> lein — admin ka intezaar bina.
+          </p>
+          <Link href="/iptv/start" className="btn-gold">Instant free key</Link>
+        </div>
+      </div>
+
       <div className="mx-auto grid max-w-5xl gap-4 px-4 py-8 lg:grid-cols-[1.15fr_.85fr]">
         <IptvTrialForm />
 

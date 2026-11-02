@@ -4,6 +4,7 @@ import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import { getTvConfig } from '@/lib/liveTvServer';
+import { getIptvCatalogue } from '@/lib/iptvCatalogueServer';
 import { channelSlugs } from '@/lib/liveTv';
 
 export const revalidate = 600;
@@ -16,8 +17,17 @@ export const metadata = pageMeta({
 });
 
 export default async function IptvChannelsPage() {
+  // IPTV ka apna catalogue pehle; jab tak admin apni list save na kare, free Live TV ki list se kaam chalta hai.
   let channels = [];
-  try { const cfg = await getTvConfig(); channels = (cfg?.channels || []).filter((c) => !c.off); } catch { /* no config */ }
+  let source = 'live';
+  try {
+    const cat = await getIptvCatalogue();
+    const own = (cat?.channels || []).filter((c) => !c.off);
+    if (cat?.enabled && own.length) { channels = own; source = 'iptv'; }
+  } catch { /* no catalogue */ }
+  if (!channels.length) {
+    try { const cfg = await getTvConfig(); channels = (cfg?.channels || []).filter((c) => !c.off); } catch { /* no config */ }
+  }
   const slugs = channelSlugs(channels);
 
   const grouped = channels.reduce((map, c, i) => {
@@ -33,8 +43,8 @@ export default async function IptvChannelsPage() {
       <PageHead
         title="Channel list"
         intro={channels.length
-          ? `${channels.length} channels — ${groups.length} groups. Har line par 7-din EPG guide aur favourites.`
-          : 'Channels admin panel se add hote hain. Neeche list khali hai matlab abhi TV config set nahi hua.'}
+          ? `${channels.length} channels — ${groups.length} groups. Har line par 7-din EPG guide aur favourites.${source === 'iptv' ? '' : ' (Filhal free Live TV ki list chal rahi hai — IPTV catalogue Admin > IPTV se banti hai.)'}`
+          : 'Channels admin panel se add hote hain. Neeche list khali hai matlab abhi IPTV catalogue set nahi hua.'}
         crumbs={[['/', 'Home'], ['/iptv', 'IPTV'], [null, 'Channels']]}
       />
 

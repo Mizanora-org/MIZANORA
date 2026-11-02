@@ -19,7 +19,12 @@ service cloud.firestore {
     match /productCosts/{id} { allow read, write: if isAdmin(); }
     // Products hidden because their photos do not load (the server writes them; only the admin reads / clears them).
     // Website status (shut down / high alert + reason). Anyone may read it, only the admin changes it.
-    match /siteMeta/{id} { allow read: if true; allow write: if isAdmin(); }
+    // v42: siteMeta/iptvSource mein upstream panel ka username/password hota hai — browser kabhi
+    // nahi padh sakta. Baqi siteMeta jaisa pehle tha (public).
+    match /siteMeta/{id} {
+      allow read: if id != 'iptvSource';
+      allow write: if isAdmin();
+    }
     // v39: the Live TV channel shards live in a SUBCOLLECTION of siteMeta/liveTv. Firestore
     // rules do not cascade into subcollections, so without this a browser-side read would be
     // denied with no error at all - it would just look like "zero channels". Today only the
@@ -39,6 +44,8 @@ service cloud.firestore {
     }
     // v40: reseller applications — browser se kuch nahi, sirf server (Admin SDK).
     match /iptvResellerApps/{id} { allow read, write: if false; }
+    // v42: gateway sessions (device limit) — sirf server.
+    match /iptvSessions/{id} { allow read, write: if false; }
     match /iptvResellers/{id} {
       allow read: if isAdmin() || (request.auth != null && request.auth.uid == id);
       allow write: if isAdmin();

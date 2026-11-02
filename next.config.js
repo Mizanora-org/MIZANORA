@@ -21,6 +21,21 @@ const nextConfig = {
     // Product images can come from ImgBB, Cloudinary, etc.
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
+  async rewrites() {
+    // IPTV GATEWAY (v42) — Xtream players apne aap in paths ko maangte hain, is liye
+    // /player_api.php, /get.php, /xmltv.php aur /live/<user>/<pass>/<id>.m3u8 ko hamare
+    // API routes par bhej diya jata hai. /live/<slug> (free TV) par koi asar nahi: rewrite
+    // sirf teen hisson wale path par lagta hai.
+    return [
+      { source: '/player_api.php', destination: '/api/gw/player' },
+      { source: '/panel_api.php', destination: '/api/gw/player' },
+      { source: '/get.php', destination: '/api/gw/playlist' },
+      { source: '/xmltv.php', destination: '/api/gw/epg' },
+      { source: '/live/:u/:p/:f', destination: '/api/gw/x/live/:u/:p/:f' },
+      { source: '/movie/:u/:p/:f', destination: '/api/gw/x/movie/:u/:p/:f' },
+      { source: '/series/:u/:p/:f', destination: '/api/gw/x/series/:u/:p/:f' },
+    ];
+  },
   async redirects() {
     // Old store URLs -> new pages (keeps Google rankings and old links alive).
     // v28: /search is NO LONGER here. It is the real site-wide search page (tools, TV, Quran, guides);

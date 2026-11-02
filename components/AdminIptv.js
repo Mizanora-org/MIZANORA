@@ -5,6 +5,8 @@ import {
   Tv, Users, Wallet, CheckCircle2, RefreshCw, Ban, Loader2, Info, Smartphone, MonitorSmartphone,
 } from 'lucide-react';
 import { IPTV, lineState, planById, pkr } from '@/lib/iptv';
+import IptvCatalogueAdmin from './IptvCatalogueAdmin';
+import IptvSourceAdmin from './IptvSourceAdmin';
 import { formatDate } from '@/lib/format';
 
 export default function AdminIptv() {
@@ -67,6 +69,7 @@ export default function AdminIptv() {
   const collection = data?.collection || [];
   const apps = data?.apps || [];
   const resellers = data?.resellers || [];
+  const users = data?.users || [];
 
   return (
     <div className="space-y-4">
@@ -163,6 +166,38 @@ export default function AdminIptv() {
             </table>
           </div>
         ) : <p className="text-xs text-dim">Abhi koi line nahi.</p>}
+      </section>
+
+      <IptvSourceAdmin />
+
+      <IptvCatalogueAdmin />
+
+      <section className="card">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-display text-base font-bold">IPTV users</h2>
+          <span className="text-[11px] text-faint">{users.length} accounts</span>
+        </div>
+        {users.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[40rem] text-left text-sm">
+              <thead><tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint"><th className="py-2">Account</th><th>Lines</th><th>Active</th><th>Trial</th><th /></tr></thead>
+              <tbody>
+                {users.slice(0, 25).map((x) => (
+                  <tr key={x.uid} className="border-b border-line/60">
+                    <td className="py-2">
+                      <b className="block truncate">{x.email || x.name || x.uid.slice(0, 10)}</b>
+                      <span className="text-[11px] text-faint">{x.uid.slice(0, 16)}…</span>
+                    </td>
+                    <td className="text-dim">{x.lines}</td>
+                    <td className="text-dim">{x.active}</td>
+                    <td>{x.trial ? <span className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-[10px] font-bold text-gold">free key</span> : <span className="text-[11px] text-faint">—</span>}</td>
+                    <td className="text-right text-[11px] text-faint">{x.lastAt ? formatDate(x.lastAt) : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="text-xs text-dim">Abhi koi self-service account nahi (Google se sign in kar ke /iptv/start par key lein).</p>}
       </section>
 
       <section className="card">
