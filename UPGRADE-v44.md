@@ -74,6 +74,11 @@ Sab `iptvEvents` + `iptvSessions` se; koi alag mahnga analytics service nahi.
 
 ---
 
+## 4b. Reseller panel mein search
+
+Reseller apne clients mein naam / username / phone / MAC / plan se search kar sakta hai (client-side
+filter — koi extra read nahi). Counter "kitne dikh rahe / total" bata deta hai.
+
 ## 5. GitHub archive (aap ke token se, private repo mein)
 
 `POST /api/admin/iptv/archive { action:'push', repo, branch, token? }`

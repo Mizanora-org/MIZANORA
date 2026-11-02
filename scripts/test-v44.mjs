@@ -154,6 +154,8 @@ ok('ui: tools card exists', existsSync(join(root, 'components/IptvToolsAdmin.js'
 ok('ui: all v44 cards are on the IPTV admin page', has('components/AdminIptv.js', /IptvLinesAdmin/) && has('components/AdminIptv.js', /IptvStatsAdmin/) && has('components/AdminIptv.js', /IptvToolsAdmin/));
 ok('ui: movies card has the IMDb button', has('components/IptvVodAdmin.js', /enrich/));
 ok('ui: lines manager shows last device', has('components/IptvLinesAdmin.js', /activity\?\.app/));
+ok('ui: reseller panel can search its own clients', has('components/ResellerPanel.js', /q\.trim\(\)\.toLowerCase\(\)/));
+ok('ui: reseller search filters the table', has('components/ResellerPanel.js', /const lines = term/));
 
 // ---------------------------------------------------------------- 8. version + docs
 ok('version: package is 44.0.0', /"version": "44\.0\.0"/.test(read('package.json')));

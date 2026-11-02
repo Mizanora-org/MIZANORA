@@ -24,6 +24,7 @@ export default function ResellerPanel() {
   const [busy, setBusy] = useState('');
   const [created, setCreated] = useState(null);
   const [copied, setCopied] = useState('');
+  const [q, setQ] = useState('');
 
   const call = useCallback(async (body) => {
     try {
@@ -105,9 +106,14 @@ export default function ResellerPanel() {
     );
   }
 
-  const { reseller, lines, stats, cycle } = state.data;
+  const { reseller, lines: allLines, stats, cycle } = state.data;
   const credit = Number(reseller.credit) || 0;
-  const used = lines.filter((l) => l.status !== 'cancelled').length;
+  // v44: apne clients mein search — username, naam, phone, MAC ya reseller note se.
+  const term = q.trim().toLowerCase();
+  const lines = term
+    ? allLines.filter((l) => `${l.username || ''} ${l.clientName || l.name || ''} ${l.phone || ''} ${l.mac || ''} ${l.plan || ''}`.toLowerCase().includes(term))
+    : allLines;
+  const used = allLines.filter((l) => l.status !== 'cancelled').length;
   const remaining = Math.max(0, credit - used);
 
   return (
@@ -161,9 +167,17 @@ export default function ResellerPanel() {
       />
 
       <section className="card">
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-base font-bold">Clients</h2>
-          <span className="text-[11px] text-faint">{lines.length} total</span>
+          <div className="flex items-center gap-2">
+            <input
+              className="input !w-52 !py-1.5 text-xs"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search — naam, username, MAC"
+            />
+            <span className="text-[11px] text-faint">{lines.length} / {allLines.length}</span>
+          </div>
         </div>
         {lines.length ? (
           <div className="overflow-x-auto">
@@ -216,7 +230,7 @@ export default function ResellerPanel() {
             </table>
           </div>
         ) : (
-          <p className="text-xs text-dim">Abhi koi client nahi — upar se pehla client banayein. Credit: {remaining} lines baqi.</p>
+          <p className="text-xs text-dim">{term ? `"${q}" se koi client nahi mila.` : `Abhi koi client nahi — upar se pehla client banayein. Credit: ${remaining} lines baqi.`}</p>
         )}
       </section>
 
