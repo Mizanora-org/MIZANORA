@@ -195,6 +195,21 @@ karne ke liye add karna behtar.
 
 ---
 
+## 5b. v47 mein kya fix ho gaya (Nov 2026)
+
+| Finding | Halat |
+|---|---|
+| 🔴 adminAuth ka `orders` probe | ✅ `productCosts` (sirf admin) + Admin SDK pehle |
+| 🔴 rules ke placeholders | ✅ guide + audit mein warning (user ko publish karna hai) |
+| 🟠 per-username lockout | ✅ 8 fail → 15 min (`iptvLockouts`) |
+| 🟠 admin audit trail | ✅ `admin_action` events + panel list |
+| 🟠 MFA / IP allowlist | 🟡 MFA docs mein, **IP allowlist ab blacklist/whitelist se** (`/admin/iptv → Access rules`) |
+| 🟡 trial abuse | 🟡 IP limit hai; CAPTCHA abhi baqi |
+| 🟡 CSP | ❌ baqi |
+| Billing engine | ✅ cycle 1–10, invoice, reminder text, cron auto-suspend, panel |
+| Bulk lines | ✅ suspend/resume/delete/extend/plan |
+| Bouquets / health check / sub-reseller / tickets | ❌ v48 |
+
 ## 6. Roadmap (tajweez)
 
 | Version | Kaam | Waqt |

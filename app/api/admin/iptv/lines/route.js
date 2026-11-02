@@ -5,6 +5,7 @@ import { IPTV, cleanMac, lineState, planById } from '@/lib/iptv';
 import { clientPrice } from '@/lib/iptvReseller';
 import { lineActivity, overview } from '@/lib/iptvStats';
 import { trackEvent } from '@/lib/gateway/track';
+import { logAdmin } from '@/lib/gateway/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -98,9 +99,47 @@ export async function POST(req) {
   try { b = await req.json(); } catch { return json({ ok: false, error: 'Bad request' }, 400); }
   const action = String(b.action || 'save');
   const id = String(b.id || '');
-  if (!id) return json({ ok: false, error: 'Line id missing.' }, 400);
-
   const db = adminDb();
+
+  // ---------------------------------------------------------------- v47: BULK (aik sath kai lines)
+  // { action:'bulk', ids:[], mode:'suspend'|'resume'|'delete'|'extend'|'plan', days?, plan? }
+  if (action === 'bulk') {
+    const ids = [...new Set((Array.isArray(b.ids) ? b.ids : []).map((x) => String(x || '').trim()).filter(Boolean))].slice(0, 200);
+    if (!ids.length) return json({ ok: false, error: 'Kam az kam aik line chunein.' }, 400);
+    const mode = String(b.mode || '');
+    if (!['suspend', 'resume', 'delete', 'extend', 'plan'].includes(mode)) return json({ ok: false, error: 'Mode ghalat hai.' }, 400);
+    const days = Math.min(365, Math.max(1, Number(b.days) || 30));
+    const plan = ['starter', 'family', 'premium', 'trial'].includes(String(b.plan)) ? String(b.plan) : '';
+
+    let done = 0;
+    const failed = [];
+    for (const lid of ids) {
+      try {
+        const ref = db.collection('iptvLines').doc(lid);
+        const snap = await ref.get();
+        if (!snap.exists) { failed.push(lid); continue; }
+        const line = snap.data() || {};
+        if (mode === 'delete') {
+          await ref.delete();
+          await db.collection('iptvSessions').doc(line.username || lid).delete().catch(() => {});
+        } else if (mode === 'suspend' || mode === 'resume') {
+          await ref.update({ status: mode === 'suspend' ? 'suspended' : 'active', statusAt: Date.now(), bulkAt: Date.now() });
+        } else if (mode === 'extend') {
+          const from = Math.max(Date.now(), Number(line.expiresAt) || 0);
+          await ref.update({ expiresAt: from + days * 86400e3, status: 'active', bulkAt: Date.now() });
+        } else if (mode === 'plan') {
+          if (!plan) { failed.push(lid); continue; }
+          await ref.update({ plan, bulkAt: Date.now() });
+        }
+        done += 1;
+      } catch { failed.push(lid); }
+    }
+    await logAdmin(req, a.uid, `line_bulk_${mode}`, { count: done, ids: ids.slice(0, 20), days, plan });
+    trackEvent('admin_bulk', { id: 'bulk', username: `bulk-${mode}` }, req, { count: done, mode });
+    return json({ ok: true, mode, done, failed: failed.length, total: ids.length });
+  }
+
+  if (!id) return json({ ok: false, error: 'Line id missing.' }, 400);
   const ref = db.collection('iptvLines').doc(id);
 
   try {
@@ -111,12 +150,14 @@ export async function POST(req) {
     if (action === 'delete') {
       await ref.delete();
       await db.collection('iptvSessions').doc(line.username || id).delete().catch(() => {});
+      await logAdmin(req, a.uid, 'line_delete', { id, username: line.username });
       return json({ ok: true, deleted: true });
     }
 
     if (action === 'suspend' || action === 'resume') {
       const status = action === 'suspend' ? 'suspended' : 'active';
       await ref.update({ status, statusAt: Date.now() });
+      await logAdmin(req, a.uid, `line_${action}`, { id, username: line.username });
       return json({ ok: true, status });
     }
 
@@ -126,6 +167,7 @@ export async function POST(req) {
       const d = new Date(from);
       d.setMonth(d.getMonth() + months);
       await ref.update({ expiresAt: d.getTime(), status: 'active', renewedAt: Date.now() });
+      await logAdmin(req, a.uid, 'line_renew', { id, username: line.username, months });
       return json({ ok: true, expiresAt: d.getTime(), months });
     }
 
@@ -133,11 +175,13 @@ export async function POST(req) {
       let password = '';
       for (let i = 0; i < 8; i++) password += ALPHA[Math.floor(Math.random() * ALPHA.length)];
       await ref.update({ password, passwordChangedAt: Date.now() });
+      await logAdmin(req, a.uid, 'line_reset_password', { id, username: line.username });
       return json({ ok: true, username: line.username, password });
     }
 
     if (action === 'note') {
       await ref.update({ note: String(b.note || '').slice(0, 300) });
+      await logAdmin(req, a.uid, 'line_note', { id, username: line.username });
       return json({ ok: true });
     }
 
@@ -180,6 +224,7 @@ export async function POST(req) {
     patch.updatedAt = Date.now();
     await ref.update(patch);
     trackEvent('line_edited', line, req, { by: 'admin', fields: Object.keys(patch).join(',') }).catch(() => {});
+    await logAdmin(req, a.uid, 'line_edit', { id, username: line.username, fields: Object.keys(patch).join(',') });
 
     return json({ ok: true, patch });
   } catch (e) {

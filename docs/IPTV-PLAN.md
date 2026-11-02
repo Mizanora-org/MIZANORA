@@ -20,7 +20,9 @@
 | **v45** | EPG + ads-in-stream + player + bulk | XMLTV guide, channel par ad (stream ki jagah), `/iptv/player`, bulk channels, tabbed panel | ✅ **ban chuka** |
 | **v45b** | Premium unlock + public VOD + catch-up | recharge animation, public movies/series pages, 7-din archive | ✅ **ban chuka (v46)** |
 | **v46** | Poora system + guides + catch-up | movies/series list + detail, guide/apps/status/recharge pages, unlock animation, `/timeshift`, 5 naye blogs | ✅ **ban chuka** |
-| **v46b** | 1M items + billing engine | object storage/CDN, auto 1–10 invoices, reminders, suspend | ⏳ |
+| **v46b** | 1M items | object storage/CDN par catalogue | ⏳ |
+| **v47** | Billing + security + admin tools | access blacklist/whitelist, lockout, audit log, bulk lines, billing cron, adminAuth fix | ✅ **ban chuka** |
+| **v47b** | Reseller power | trial line, sub-reseller, bulk clients, CSV, statement, low-credit alert | ⏳ |
 | **v43** | White-label apps | Android TV / Fire TV app, QR activation | optional |
 
 **Aaj ki haqeeqat (saaf baat):** v43 ke baad Mizanora **apna panel** hai — admin M3U ya manual se channels/movies/series daalta hai, aur wohi content **Xtream apps** aur **Stalker (MAG)** dono ko milta hai, admin aur reseller ki lines par. Baqi: EPG har channel ke liye, ads, public movies/series pages (`v43b`), billing engine (`v41b`).

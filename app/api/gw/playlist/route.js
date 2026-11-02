@@ -1,5 +1,6 @@
 import { getGatewayCatalogue } from '@/lib/gateway/catalogue';
 import { verifyLine } from '@/lib/gateway/lines';
+import { accessDenied } from '@/lib/gateway/access';
 import { clientIp, rateLimit, sealUrl } from '@/lib/gateway/security';
 import { touchSession, trackEvent } from '@/lib/gateway/track';
 
@@ -15,6 +16,9 @@ export async function GET(req) {
   const type = String(q.get('type') || 'm3u_plus');
 
   if (!rateLimit(clientIp(req), 'gw-playlist', 30, 60_000)) return new Response('Too many requests', { status: 429 });
+
+  const ipAccess = await accessDenied({ ip: clientIp(req) });
+  if (ipAccess.blocked) return new Response(`#EXTM3U\n# Access blocked\n`, { status: 403, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'audio/x-mpegurl; charset=utf-8' } });
 
   const v = await verifyLine(q.get('username') || '', q.get('password') || '');
   const headers = { 'Cache-Control': 'no-store', 'Content-Type': 'audio/x-mpegurl; charset=utf-8' };

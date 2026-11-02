@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { authClient } from '@/lib/firebase-client';
 import {
   Tv, Users, Wallet, CheckCircle2, RefreshCw, Ban, Loader2, Info, Smartphone, MonitorSmartphone,
-  BarChart3, Radio, ListVideo, Clapperboard, CalendarClock, Megaphone, Database,
+  BarChart3, Radio, ListVideo, Clapperboard, CalendarClock, Megaphone, Database, ShieldCheck,
 } from 'lucide-react';
 import { IPTV, lineState, planById, pkr } from '@/lib/iptv';
 import IptvCatalogueAdmin from './IptvCatalogueAdmin';
@@ -14,6 +14,8 @@ import IptvStatsAdmin from './IptvStatsAdmin';
 import IptvLinesAdmin from './IptvLinesAdmin';
 import IptvToolsAdmin from './IptvToolsAdmin';
 import IptvEpgAdmin from './IptvEpgAdmin';
+import IptvAccessAdmin from './IptvAccessAdmin';
+import IptvBillingAdmin from './IptvBillingAdmin';
 import { formatDate } from '@/lib/format';
 
 export default function AdminIptv() {
@@ -99,6 +101,8 @@ export default function AdminIptv() {
           ['channels', 'Channels', ListVideo],
           ['movies', 'Movies & series', Clapperboard],
           ['epg', 'EPG guide', CalendarClock],
+          ['billing', 'Billing', Wallet],
+          ['access', 'Access rules', ShieldCheck],
           ['tools', 'Ads & archive', Megaphone],
           ['source', 'Backup source', Database],
         ].map(([id, label, Icon]) => (
@@ -210,6 +214,8 @@ export default function AdminIptv() {
       {tab === 'channels' && <IptvCatalogueAdmin />}
       {tab === 'movies' && <IptvVodAdmin />}
       {tab === 'epg' && <IptvEpgAdmin />}
+      {tab === 'billing' && <IptvBillingAdmin />}
+      {tab === 'access' && <IptvAccessAdmin />}
       {tab === 'tools' && <IptvToolsAdmin />}
       {tab === 'source' && <IptvSourceAdmin />}
 

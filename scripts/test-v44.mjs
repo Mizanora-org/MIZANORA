@@ -158,7 +158,7 @@ ok('ui: reseller panel can search its own clients', has('components/ResellerPane
 ok('ui: reseller search filters the table', has('components/ResellerPanel.js', /const lines = term/));
 
 // ---------------------------------------------------------------- 8. version + docs
-ok('version: package is 44+', /"version": "(44|45|46)\.0\.0"/.test(read('package.json')));
+ok('version: package is 44+', /"version": "(44|45|46|47|48)\.0\.0"/.test(read('package.json')));
 ok('docs: v44 notes exist', existsSync(join(root, 'UPGRADE-v44.md')));
 ok('docs: notes name the IMDb source', /Cinemeta|IMDb/i.test(read('UPGRADE-v44.md')));
 ok('docs: notes list what is still missing', /baqi|NAHI/i.test(read('UPGRADE-v44.md')));

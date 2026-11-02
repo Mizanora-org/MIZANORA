@@ -163,7 +163,7 @@ ok('landing lists the new guides', ip.includes('/blog/iptv-browser-player-guide'
 
 // ---------------------------------------------------------------- 6. version + docs
 const pkg = JSON.parse(read('package.json'));
-ok('version is 46.0.0', pkg.version === '46.0.0');
+ok('version is 46 or later', /^(46|47|48)\.0\.0$/.test(pkg.version));
 ok('test script includes v46', String(pkg.scripts.test).includes('test-v46.mjs'));
 ok('upgrade notes v46', read('UPGRADE-v46.md').length > 500);
 ok('plan doc mentions v46', has('docs/IPTV-PLAN.md', 'v46'));

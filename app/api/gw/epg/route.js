@@ -1,6 +1,7 @@
 import { getGatewayCatalogue } from '@/lib/gateway/catalogue';
 import { getEpg, guideForChannels } from '@/lib/gateway/epg';
 import { verifyLine } from '@/lib/gateway/lines';
+import { accessDenied } from '@/lib/gateway/access';
 import { clientIp, rateLimit } from '@/lib/gateway/security';
 import { toXmltv } from '@/lib/iptvEpg';
 
@@ -18,6 +19,9 @@ export async function GET(req) {
   const q = new URL(req.url).searchParams;
 
   if (!rateLimit(clientIp(req), 'gw-epg', 12, 60_000)) return xml('<?xml version="1.0"?><tv/>', 429);
+
+  const ipAccess = await accessDenied({ ip: clientIp(req) });
+  if (ipAccess.blocked) return xml('<?xml version="1.0"?><tv/>', 403);
 
   const v = await verifyLine(q.get('username') || '', q.get('password') || '');
   if (!v.ok) return xml(`<?xml version="1.0" encoding="UTF-8"?>\n<!-- ${v.error} -->\n<tv/>`, v.status);
