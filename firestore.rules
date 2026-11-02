@@ -33,9 +33,12 @@ service cloud.firestore {
     // Passwords on a line are never shown to anyone except the owner and the admin.
     match /iptvTrials/{id} { allow read, write: if false; }
     match /iptvLines/{id} {
-      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      // owner (client) ya uska reseller padh sakta hai; likhna sirf admin/server.
+      allow read: if isAdmin() || (request.auth != null && (resource.data.uid == request.auth.uid || resource.data.resellerId == request.auth.uid));
       allow write: if isAdmin();
     }
+    // v40: reseller applications — browser se kuch nahi, sirf server (Admin SDK).
+    match /iptvResellerApps/{id} { allow read, write: if false; }
     match /iptvResellers/{id} {
       allow read: if isAdmin() || (request.auth != null && request.auth.uid == id);
       allow write: if isAdmin();

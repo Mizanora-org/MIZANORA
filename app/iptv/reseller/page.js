@@ -4,6 +4,7 @@ import { pageMeta, breadcrumbJsonLd, faqJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import IptvResellerCalc from '@/components/IptvResellerCalc';
+import ResellerApply from '@/components/ResellerApply';
 import { IPTV, RESELLER_PACKS, RESELLER_RULES, pkr } from '@/lib/iptv';
 import { waLink } from '@/lib/config';
 
@@ -89,19 +90,22 @@ export default function ResellerPage() {
         <section className="card border-gold/30 bg-gold/[0.05]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-display text-xl font-extrabold">Reseller banne ke liye</h2>
+              <h2 className="font-display text-xl font-extrabold">Pehle se reseller hain?</h2>
               <p className="mt-1 text-sm text-dim">
-                WhatsApp par apna naam, shehr aur JazzCash number bhejein — OTP se verify ho kar panel 1 din mein chalu.
+                Apna panel kholain — clients, lines, price aur kamai wahan hai. Sign in wohi Mizanora account se.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <a className="btn-gold" href={waLink('Assalam o Alaikum, mujhe Mizanora IPTV reseller banna hai.')} target="_blank" rel="noreferrer">
-                Apply karein
+              <Link className="btn-gold" href="/reseller">Reseller panel</Link>
+              <a className="btn-ghost" href={waLink('Assalam o Alaikum, mujhe Mizanora IPTV reseller banna hai.')} target="_blank" rel="noreferrer">
+                WhatsApp
               </a>
-              <Link className="btn-ghost" href="/iptv">Plans dekhein</Link>
             </div>
           </div>
         </section>
+
+        {/* apply */}
+        <ResellerApply />
 
         {/* faq */}
         <section>

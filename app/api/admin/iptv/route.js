@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
+import { adminApp } from '@/lib/firebase-admin';
 import { IPTV, lineState } from '@/lib/iptv';
+import { addMonths, clientPrice, credentials, canAddLine } from '@/lib/iptvReseller';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,10 +37,11 @@ export async function POST(req) {
 
   try {
     if (action === 'list') {
-      const [trialsSnap, linesSnap, resSnap] = await Promise.all([
+      const [trialsSnap, linesSnap, resSnap, appsSnap] = await Promise.all([
         db.collection('iptvTrials').where('status', '==', 'new').limit(50).get().catch(() => null),
-        db.collection('iptvLines').limit(200).get().catch(() => null),
+        db.collection('iptvLines').limit(400).get().catch(() => null),
         db.collection('iptvResellers').limit(100).get().catch(() => null),
+        db.collection('iptvResellerApps').where('status', '==', 'new').limit(50).get().catch(() => null),
       ]);
 
       const trials = (trialsSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() }))
@@ -45,16 +49,37 @@ export async function POST(req) {
 
       const lines = (linesSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() }));
 
-      const collection = (resSnap?.docs || []).map((d) => {
+      const apps = (appsSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() }))
+        .sort((x, y) => (Number(y.createdAt) || 0) - (Number(x.createdAt) || 0));
+
+      const allLines = (linesSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() }));
+      const byReseller = allLines.reduce((m, l) => {
+        if (!l.resellerId) return m;
+        m[l.resellerId] = (m[l.resellerId] || 0) + 1;
+        return m;
+      }, {});
+
+      const resellers = (resSnap?.docs || []).map((d) => {
         const r = d.data();
-        const connections = Number(r.connections) || 0;
         return {
-          reseller: r.name || d.id,
-          connections,
-          due: connections * IPTV.wholesale,
-          paid: Number(r.paidThisCycle) || 0,
+          id: d.id,
+          name: r.name || d.id,
+          phone: r.phone || '',
+          credit: Number(r.credit) || 0,
+          price: clientPrice(r.price),
+          status: r.status || 'approved',
+          used: byReseller[d.id] || 0,
+          paidThisCycle: Number(r.paidThisCycle) || 0,
         };
-      });
+      }).sort((a, b) => b.used - a.used);
+
+      const collection = resellers.map((r) => ({
+        id: r.id,
+        reseller: r.name,
+        connections: r.used,
+        due: r.used * IPTV.wholesale,
+        paid: r.paidThisCycle,
+      }));
 
       const active = lines.filter((l) => lineState(l.expiresAt).state !== 'expired');
       const collected = collection.reduce((s, c) => s + c.paid, 0);
@@ -70,7 +95,9 @@ export async function POST(req) {
           collected: due ? Math.round((collected / due) * 100) : 0,
         },
         trials,
-        lines: lines.slice(0, 100),
+        lines: lines.slice(0, 150),
+        apps,
+        resellers,
         collection,
       });
     }
@@ -115,6 +142,67 @@ export async function POST(req) {
       return json({ ok: true });
     }
 
+    if (action === 'approveReseller') {
+      const appRef = db.collection('iptvResellerApps').doc(id);
+      const appSnap = await appRef.get();
+      if (!appSnap.exists) return json({ ok: false, error: 'Application nahi mili.' }, 404);
+      const a = appSnap.data();
+      const credit = Math.min(500, Math.max(1, Number(b.credit) || 10));
+      const docId = String(a.uid || '').trim() || db.collection('iptvResellers').doc().id;
+      await db.collection('iptvResellers').doc(docId).set({
+        name: a.name || '', phone: a.phone || '', whatsapp: a.whatsapp || a.phone || '',
+        city: a.city || '', credit, price: IPTV.cap, status: 'approved',
+        payment: {}, approvedAt: Date.now(), paidThisCycle: 0,
+      }, { merge: true });
+      await appRef.update({ status: 'approved', approvedAt: Date.now(), resellerId: docId });
+      return json({ ok: true, resellerId: docId, credit, linked: Boolean(a.uid) });
+    }
+
+    if (action === 'rejectReseller') {
+      await db.collection('iptvResellerApps').doc(id).update({ status: 'rejected', rejectedAt: Date.now() });
+      return json({ ok: true });
+    }
+
+    if (action === 'addCredit') {
+      const add = Math.min(200, Math.max(1, Number(b.n) || 10));
+      const ref = db.collection('iptvResellers').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return json({ ok: false, error: 'Reseller nahi mila.' }, 404);
+      const credit = (Number(snap.data().credit) || 0) + add;
+      await ref.update({ credit });
+      return json({ ok: true, credit });
+    }
+
+    if (action === 'markPaid') {
+      const ref = db.collection('iptvResellers').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return json({ ok: false, error: 'Reseller nahi mila.' }, 404);
+      const amount = Math.max(0, Number(b.amount) || 0);
+      const paidThisCycle = (Number(snap.data().paidThisCycle) || 0) + amount;
+      await ref.update({ paidThisCycle, lastPaidAt: Date.now() });
+      await db.collection('iptvPayments').add({ resellerId: id, amount, at: Date.now(), kind: 'reseller_to_admin' }).catch(() => {});
+      return json({ ok: true, paidThisCycle });
+    }
+
+    if (action === 'createLine') {
+      const email = String(b.email || '').trim().toLowerCase();
+      const plan = ['starter', 'family', 'premium'].includes(b.plan) ? b.plan : 'starter';
+      const months = [1, 3, 12].includes(Number(b.months)) ? Number(b.months) : 1;
+      const price = clientPrice(b.price);
+      let uid = '';
+      if (email) { try { const u = await getAuth(adminApp()).getUserByEmail(email); uid = u.uid; } catch { uid = ''; } }
+      const { username, password } = credentials();
+      const doc = {
+        uid, email, clientName: String(b.name || '').slice(0, 60), phone: String(b.phone || '').replace(/\D/g, '').slice(0, 11),
+        username, password, mac: '', server: process.env.NEXT_PUBLIC_IPTV_SERVER || 'http://dns.mizanora.tv:8080',
+        plan, maxDevices: plan === 'starter' ? 1 : plan === 'family' ? 2 : 3,
+        price, months, locked: true, expiresAt: addMonths(Date.now(), months),
+        status: 'active', trial: false, createdAt: Date.now(), resellerId: 'admin', resellerName: 'Mizanora',
+      };
+      const ref = await db.collection('iptvLines').add(doc);
+      return json({ ok: true, line: { id: ref.id, ...doc } });
+    }
+
     return json({ ok: false, error: 'Unknown action' }, 400);
   } catch (e) {
     return json({ ok: false, error: e.message || 'Server error' }, 500);
@@ -138,6 +226,15 @@ function demo() {
       { id: 'l3', username: 'mz100243', plan: 'premium', resellerName: 'Madina Digital', expiresAt: now + 45 * DAY },
       { id: 'l4', username: 'mz100244', plan: 'starter', resellerName: 'Ali Traders', expiresAt: now - 2 * DAY },
       { id: 'l5', username: 'mz100245', plan: 'family', resellerName: 'Pak Vision HD', expiresAt: now + 11 * DAY },
+    ],
+    apps: [
+      { id: 'a1', name: 'Hamza Cable', phone: '0301-2233445', city: 'Gujranwala', experience: 'cable', at: now - 2 * 3600e3 },
+      { id: 'a2', name: 'Rizwan Digital', phone: '0345-7788990', city: 'Sialkot', experience: 'mobile', at: now - 20 * 3600e3 },
+    ],
+    resellers: [
+      { id: 'r1', name: 'Barakat Vision', phone: '0300-1112223', credit: 100, used: 86, price: 200, status: 'approved', paidThisCycle: 8600 },
+      { id: 'r2', name: 'Sky Link Cable', phone: '0321-4445556', credit: 80, used: 62, price: 180, status: 'approved', paidThisCycle: 6200 },
+      { id: 'r3', name: 'Madina Digital', phone: '0333-7778889', credit: 90, used: 71, price: 200, status: 'approved', paidThisCycle: 3200 },
     ],
     collection: [
       { reseller: 'Barakat Vision', connections: 86, due: 8600, paid: 8600 },

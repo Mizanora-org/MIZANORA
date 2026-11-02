@@ -39,9 +39,9 @@ export default function AdminIptv() {
 
   useEffect(() => { load(); }, [load]);
 
-  const act = async (action, id, label) => {
+  const act = async (action, id, label, extra = {}) => {
     setBusy(id); setMsg('');
-    const j = await call({ action, id });
+    const j = await call({ action, id, ...extra });
     setMsg(j.ok ? `${label} — ho gaya` : (j.error || 'Nahi hua'));
     setBusy('');
     if (j.ok) setTimeout(load, 600);
@@ -65,6 +65,8 @@ export default function AdminIptv() {
   const trials = data?.trials || [];
   const lines = data?.lines || [];
   const collection = data?.collection || [];
+  const apps = data?.apps || [];
+  const resellers = data?.resellers || [];
 
   return (
     <div className="space-y-4">
@@ -161,6 +163,79 @@ export default function AdminIptv() {
             </table>
           </div>
         ) : <p className="text-xs text-dim">Abhi koi line nahi.</p>}
+      </section>
+
+      <section className="card">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-display text-base font-bold">Reseller applications</h2>
+          <span className="text-[11px] text-faint">{apps.length} nayi</span>
+        </div>
+        {apps.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[42rem] text-left text-sm">
+              <thead><tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint"><th className="py-2">Naam</th><th>Phone</th><th>Shehr</th><th>Experience</th><th>Kab</th><th /></tr></thead>
+              <tbody>
+                {apps.map((a) => (
+                  <tr key={a.id} className="border-b border-line/60">
+                    <td className="py-2 font-semibold">{a.name}</td>
+                    <td className="tabular-nums text-dim">{a.phone}</td>
+                    <td className="text-dim">{a.city}</td>
+                    <td className="text-dim">{a.experience || '—'}</td>
+                    <td className="text-[11px] text-faint">{a.at ? formatDate(a.at) : '—'}</td>
+                    <td className="text-right">
+                      <div className="inline-flex gap-1">
+                        <button className="btn-gold btn-sm" disabled={busy === a.id} onClick={() => act('approveReseller', a.id, 'Reseller approve (10 lines credit)')}>
+                          {busy === a.id ? <Loader2 size={12} className="animate-spin" /> : 'Approve'}
+                        </button>
+                        <button className="btn-ghost btn-sm" disabled={busy === a.id} onClick={() => act('rejectReseller', a.id, 'Application reject')} title="Reject">
+                          <Ban size={12} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="text-xs text-dim">Koi nayi application nahi.</p>}
+        <p className="mt-2 text-[11px] text-faint">Approve karne par reseller ka uid bound hota hai — woh sidha <code>/reseller</code> panel khol sakta hai. Credit badalna ho to neeche se barhayein.</p>
+      </section>
+
+      <section className="card">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-display text-base font-bold">Resellers</h2>
+          <span className="text-[11px] text-faint">{resellers.length} approved</span>
+        </div>
+        {resellers.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[44rem] text-left text-sm">
+              <thead><tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint"><th className="py-2">Reseller</th><th>Credit</th><th>Price</th><th>Paid is cycle</th><th /></tr></thead>
+              <tbody>
+                {resellers.map((r) => (
+                  <tr key={r.id} className="border-b border-line/60">
+                    <td className="py-2">
+                      <b className="block">{r.name}</b>
+                      <span className="text-[11px] text-faint">{r.phone || ''}</span>
+                    </td>
+                    <td className="text-dim">{r.used}/{r.credit}</td>
+                    <td className="tabular-nums text-dim">{pkr(r.price)}</td>
+                    <td className="tabular-nums text-dim">{pkr(r.paidThisCycle)}</td>
+                    <td className="text-right">
+                      <div className="inline-flex gap-1">
+                        <button className="btn-ghost btn-sm" disabled={busy === r.id} onClick={() => act('addCredit', r.id, '+10 credit', { n: 10 })}>
+                          {busy === r.id ? <Loader2 size={12} className="animate-spin" /> : '+10'}
+                        </button>
+                        <button className="btn-ghost btn-sm" disabled={busy === r.id} onClick={() => act('markPaid', r.id, 'Payment record ho gayi', { amount: IPTV.wholesale * (r.used || 0) })}>
+                          Paid
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="text-xs text-dim">Abhi koi reseller approve nahi hua.</p>}
       </section>
 
       <section className="card">

@@ -11,8 +11,9 @@
 | Phase | Naam | Kya nikalta hai | Halat |
 |---|---|---|---|
 | **v39** | Section + money + SEO | `/iptv` aur uske saare public pages, admin module, plans, trial, reseller, 5 blog guides, sitemap | ✅ **ban chuka** |
-| **v40** | Gateway (Xtream + M3U) | asli streaming endpoints — `player_api.php`, `get.php`, `xmltv.php` | ⏳ agla |
-| **v41** | Billing engine | 1–10 cycle khud chale: invoice, reminders, suspend, receipt | ⏳ |
+| **v40** | Reseller panel + reseller website | `/reseller` dashboard, apply form, admin approvals, credit, 4 naye guides | ✅ **ban chuka** |
+| **v40b** | Gateway (Xtream + M3U) | asli streaming endpoints — `player_api.php`, `get.php`, `xmltv.php` | ⏳ agla |
+| **v41** | Billing engine (auto 1–10) | 1–10 cycle khud chale: invoice, reminders, suspend, receipt | ⏳ |
 | **v42** | Stalker/MAC + catch-up | `portal.php`, MAG box support, 7-din archive | ⏳ |
 | **v43** | White-label apps | Android TV / Fire TV app, QR activation | optional |
 
