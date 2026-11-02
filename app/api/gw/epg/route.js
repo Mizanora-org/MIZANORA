@@ -1,5 +1,5 @@
 import { apiBase, getSource, sourceReady } from '@/lib/gateway/source';
-import { getCatalogue } from '@/lib/gateway/catalogue';
+import { getGatewayCatalogue } from '@/lib/gateway/catalogue';
 import { verifyLine } from '@/lib/gateway/lines';
 import { clientIp, rateLimit } from '@/lib/gateway/security';
 import { fetchPublic } from '@/lib/tvProxy';
@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 45;
 
 // xmltv.php — EPG. Line ke baghair koi ise nahi khol sakta.
-// Xtream source ho to upstream ki guide pass-through hoti hai; M3U mode mein channel list
-// ka khaali (magar valid) XMLTV banta hai, taake player error na de.
+// v43: guide hamare apne channels se banti hai. Channel-wise EPG mapping abhi baqi hai
+// (item 1 in UPGRADE-v43.md), is liye filhaal valid magar khali guide jati hai.
 
 const xml = (body, status = 200, cache = 'no-store') => new Response(body, {
   status, headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': cache },
@@ -43,7 +43,7 @@ export async function GET(req) {
   }
 
   // Fallback: valid XMLTV with our channel ids (guide khali, magar app khush).
-  const cat = await getCatalogue();
+  const cat = await getGatewayCatalogue();
   const rows = (cat.channels || []).slice(0, 3000).map((c) =>
     `  <channel id="${String(c.epg || c.id).replace(/"/g, '')}"><display-name>${String(c.name).replace(/[<>&]/g, '')}</display-name></channel>`);
   return xml(`<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Mizanora IPTV">\n${rows.join('\n')}\n</tv>`, 200, 'public, max-age=300');

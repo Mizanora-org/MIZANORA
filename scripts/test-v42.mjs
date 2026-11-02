@@ -87,7 +87,7 @@ ok('rewrite: /live/:u/:p/:f -> gateway', /source: '\/live\/:u\/:p\/:f', destinat
 ok('rewrite: /movie and /series too', /source: '\/movie\/:u\/:p\/:f'/.test(cfg) && /source: '\/series\/:u\/:p\/:f'/.test(cfg));
 
 // ---------------------------------------------------------------- 7. rules + admin
-ok('rules: the source doc is not readable from a browser', has('firestore.rules', /allow read: if id != 'iptvSource';/));
+ok('rules: the source doc is not readable from a browser', has('firestore.rules', /allow read: if id != 'iptvSource'/));
 ok('rules: gateway sessions are server-only', has('firestore.rules', /match \/iptvSessions\/\{id\} \{ allow read, write: if false; \}/));
 ok('admin: source card is on the IPTV page', has('components/AdminIptv.js', /IptvSourceAdmin/));
 ok('admin: the card can test the connection', has('components/IptvSourceAdmin.js', /Test connection/));

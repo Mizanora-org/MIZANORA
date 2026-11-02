@@ -14,11 +14,12 @@
 | **v40** | Reseller panel + reseller website | `/reseller` dashboard, apply form, admin approvals, credit, 4 naye guides | ✅ **ban chuka** |
 | **v42** | Gateway (Xtream + M3U, VPS ke baghair) | `/player_api.php`, `/get.php`, `/xmltv.php`, `/live` — sealed tokens, device limit | ✅ **ban chuka** |
 | **v41** | Self-service IPTV | `/iptv/start` free key, reseller auto-approve, IPTV ka apna catalogue | ✅ **ban chuka** |
+| **v43** | Owner panel: apna content, dono protocol | movies/series import, **Stalker portal** (`/portal.php`, `/c/`, MAC), live tracking, export | ✅ **ban chuka** |
 | **v41b** | Billing engine (auto 1–10) | 1–10 cycle khud chale: invoice, reminders, suspend, receipt | ⏳ agla |
-| **v42** | Stalker/MAC + catch-up | `portal.php`, MAG box support, 7-din archive | ⏳ |
+| **v43b** | EPG + ads + public VOD pages | har channel ka guide, channel-wise ads, `/iptv` par movies/series browse | ⏳ |
 | **v43** | White-label apps | Android TV / Fire TV app, QR activation | optional |
 
-**Aaj ki haqeeqat (saaf baat):** v39 mein line ka data, paisa, prices, pages aur UI sab mojood hai — magar **asli stream abhi Mizanora ke server se nahi nikalta**. Line banane par customer ko username/password milta hai, lekin usko chalane wala gateway v40 mein banta hai. Isi liye abhi lines **admin panel se manually** banti hain.
+**Aaj ki haqeeqat (saaf baat):** v43 ke baad Mizanora **apna panel** hai — admin M3U ya manual se channels/movies/series daalta hai, aur wohi content **Xtream apps** aur **Stalker (MAG)** dono ko milta hai, admin aur reseller ki lines par. Baqi: EPG har channel ke liye, ads, public movies/series pages (`v43b`), billing engine (`v41b`).
 
 ---
 

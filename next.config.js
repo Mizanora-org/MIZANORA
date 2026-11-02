@@ -31,6 +31,13 @@ const nextConfig = {
       { source: '/panel_api.php', destination: '/api/gw/player' },
       { source: '/get.php', destination: '/api/gw/playlist' },
       { source: '/xmltv.php', destination: '/api/gw/epg' },
+      { source: '/portal.php', destination: '/api/gw/portal' },
+      { source: '/server/load.php', destination: '/api/gw/portal' },
+      { source: '/stalker_portal/server/load.php', destination: '/api/gw/portal' },
+      // MAG box portal root: /c/ aur /magload.php bhi isi handler par (MAC se auth hota hai).
+      { source: '/c/:path*', destination: '/api/gw/portal' },
+      { source: '/magload.php', destination: '/api/gw/portal' },
+      { source: '/stalker_portal/c/:path*', destination: '/api/gw/portal' },
       { source: '/live/:u/:p/:f', destination: '/api/gw/x/live/:u/:p/:f' },
       { source: '/movie/:u/:p/:f', destination: '/api/gw/x/movie/:u/:p/:f' },
       { source: '/series/:u/:p/:f', destination: '/api/gw/x/series/:u/:p/:f' },

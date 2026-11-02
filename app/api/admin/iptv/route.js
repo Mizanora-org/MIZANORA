@@ -3,7 +3,7 @@ import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 import { adminApp } from '@/lib/firebase-admin';
-import { IPTV, lineState } from '@/lib/iptv';
+import { IPTV, lineState, cleanMac, randomMac } from '@/lib/iptv';
 import { addMonths, clientPrice, credentials, canAddLine } from '@/lib/iptvReseller';
 
 export const runtime = 'nodejs';
@@ -205,6 +205,9 @@ export async function POST(req) {
     if (action === 'createLine') {
       const email = String(b.email || '').trim().toLowerCase();
       const plan = ['starter', 'family', 'premium'].includes(b.plan) ? b.plan : 'starter';
+      const device = ['xtream', 'mag'].includes(b.device) ? b.device : 'xtream';
+      // MAG box MAC se login karta hai — admin khud de ya khud ban jaye.
+      const mac = device === 'mag' ? (cleanMac(b.mac) || randomMac()) : '';
       const months = [1, 3, 12].includes(Number(b.months)) ? Number(b.months) : 1;
       const price = clientPrice(b.price);
       let uid = '';
@@ -212,13 +215,14 @@ export async function POST(req) {
       const { username, password } = credentials();
       const doc = {
         uid, email, clientName: String(b.name || '').slice(0, 60), phone: String(b.phone || '').replace(/\D/g, '').slice(0, 11),
-        username, password, mac: '', server: process.env.NEXT_PUBLIC_IPTV_SERVER || 'http://dns.mizanora.tv:8080',
+        username, password, mac, device,
+        server: process.env.NEXT_PUBLIC_IPTV_SERVER || 'https://mizanora.vercel.app',
         plan, maxDevices: plan === 'starter' ? 1 : plan === 'family' ? 2 : 3,
         price, months, locked: true, expiresAt: addMonths(Date.now(), months),
         status: 'active', trial: false, createdAt: Date.now(), resellerId: 'admin', resellerName: 'Mizanora',
       };
       const ref = await db.collection('iptvLines').add(doc);
-      return json({ ok: true, line: { id: ref.id, ...doc } });
+      return json({ ok: true, line: { id: ref.id, ...doc }, login: { device, username, password, mac, portal: `${doc.server}/c/` } });
     }
 
     return json({ ok: false, error: 'Unknown action' }, 400);

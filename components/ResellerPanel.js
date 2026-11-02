@@ -299,7 +299,7 @@ function NewClient({ price, remaining, busy, onCreate }) {
 }
 
 function NewLineCard({ line, onClose, copy, copied }) {
-  const [server] = useState(line.server || 'http://dns.mizanora.tv:8080');
+  const [server] = useState(line.server || 'https://mizanora.vercel.app');
   const text = clientMessage({ ...line, name: line.clientName, server });
   const wa = `https://wa.me/92${String(line.phone || '').replace(/^0/, '').replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
   return (

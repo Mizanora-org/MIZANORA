@@ -26,7 +26,7 @@ Ye box ke **Settings → Network** ya box ke sticker par milta hai. `00:1A:79` h
 1. Box on karein → **Settings** → **System Settings** → **Servers** → **Portals**.
 2. **Portal 1** kholein:
    - **Name:** `Mizanora`
-   - **URL:** `http://dns.mizanora.tv/c/` *(reseller se exact URL lein — trailing slash zaroori hai)*
+   - **URL:** `https://mizanora.vercel.app/c/` *(reseller se exact URL lein — trailing slash zaroori hai)*
 3. **Save** karein, box restart karein.
 4. Pehli dafa boot par box MAC bhejta hai. Agar line whitelist nahi hui to screen khali rahegi.
 5. Apna MAC reseller ko WhatsApp karein → woh 2 minute mein whitelist kar deta hai.

@@ -76,7 +76,7 @@ export async function POST(req) {
         username,
         password,
         mac,
-        server: process.env.NEXT_PUBLIC_IPTV_SERVER || 'http://dns.mizanora.tv:8080',
+        server: process.env.NEXT_PUBLIC_IPTV_SERVER || 'https://mizanora.vercel.app',
         plan: c.data.plan,
         maxDevices: c.data.devices,
         price: c.data.price,              // is line ka rate lock — reseller badle to yeh nahi badalta

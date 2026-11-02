@@ -12,7 +12,7 @@ tags: tivimate, android tv, fire stick, xtream, m3u, iptv setup, mizanora
 ## Pehle yeh 3 cheezein ready rakhein
 
 1. Aap ka **username aur password** (reseller WhatsApp par bhejta hai)
-2. **Server ka pata** — misaal `http://dns.mizanora.tv:8080` (aakhir mein `/` nahi)
+2. **Server ka pata** — misaal `https://mizanora.vercel.app` (aakhir mein `/` nahi)
 3. TV par **internet** — 5 Mbps se kam nahi, HD ke liye 10 Mbps behtar
 
 ## Xtream Codes se add karna (recommended)
@@ -20,7 +20,7 @@ tags: tivimate, android tv, fire stick, xtream, m3u, iptv setup, mizanora
 1. TiviMate kholain → **Settings** → **Playlists** → **Add playlist**
 2. **Xtream Codes** chunein
 3. Teen khane bharein:
-   - **Server**: `http://dns.mizanora.tv` (ya jo aap ko mila ho, bina `/player_api.php`)
+   - **Server**: `https://mizanora.vercel.app` (ya jo aap ko mila ho, bina `/player_api.php`)
    - **Username**: aap ka `mz...` wala username
    - **Password**: wohi password
 4. **Next** dabayein — list load hone lagegi (10–60 second, list bari hoti hai)

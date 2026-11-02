@@ -64,10 +64,11 @@ export default function IptvSourceAdmin() {
     <section className="card space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="flex items-center gap-2 font-display text-base font-bold"><Database size={16} className="text-gold" /> Channel source (gateway)</h2>
+          <h2 className="flex items-center gap-2 font-display text-base font-bold"><Database size={16} className="text-gold" /> Upstream backup (optional)</h2>
           <p className="text-xs text-dim">
-            Jahan se asli channels aate hain. Yeh detail sirf server par rehti hai — client ko kabhi nahi dikhti.
-            Save ke baad aap ki lines Xtream / M3U apps mein chalengi.
+            v43 ke baad Mizanora apna panel hai — channels upar wali list se chaltay hain. Yeh card sirf tab
+            kaam ka hai jab aap kisi purane Xtream panel ya M3U se jaldi channels laana chahein (test/import).
+            Detail sirf server par rehti hai, client ko kabhi nahi dikhti.
           </p>
         </div>
         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${s?.ready ? 'border-gold/40 bg-gold/10 text-gold' : 'border-line bg-raised text-dim'}`}>
