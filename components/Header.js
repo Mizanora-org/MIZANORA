@@ -104,6 +104,7 @@ export default function Header({ categories = [], music = null }) {
           <li><Link href="/quran" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Quran</Link></li>
           <li><Link href="/hadith" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Hadith</Link></li>
           <li><Link href="/live" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Live TV</Link></li>
+          <li><Link href="/iptv" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">IPTV</Link></li>
           <li><Link href="/tools" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Tools</Link></li>
           <li><Link href="/reels" className="block whitespace-nowrap px-3 py-2.5 font-bold text-saffron hover:text-gold">Reels</Link></li>
           <li><Link href="/blog" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-dim hover:text-gold">Shopping blog</Link></li>
