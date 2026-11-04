@@ -89,7 +89,8 @@ const ct = T.cleanTv({ ads: { seconds: 999, skipAfter: -3, slugs: ['ok-slug', '.
 assert.equal(ct.ads.seconds, 20); assert.equal(ct.ads.skipAfter, 0); assert.deepEqual(ct.ads.slugs, ['ok-slug']); assert.equal(ct.enabled, false);
 ok('live tv: settings are cleaned (limits, safe slugs, off by default)');
 const imp2 = fs.readFileSync(path.join(root, 'app/api/admin/tv-import/route.js'), 'utf8');
-assert.ok(imp2.includes('verifyAdmin') && imp2.includes("redirect: 'error'") && imp2.includes('priv('));
+assert.ok(imp2.includes('verifyAdmin') && imp2.includes("redirect: 'manual'") && imp2.includes('priv(') && imp2.includes('assertPublic'));
+// v49: redirects are followed by hand, resolving + private-checking every hop (panel links redirect; refusing broke them).
 ok('live tv: playlist import is admin only and blocks private addresses');
 for (const f of ['muaaz-iqbal-biography-profile-projects-skills', 'muaaz-iqbal-noor-ai-assistant-quran-hadith-live-tv', 'hadith-reader-bukhari-muslim-urdu-english-arabic', 'live-quran-tilawat-urdu-translation-mizanora', 'mizanora-live-tv-channels-m3u-product-ads']) {
   const t = fs.readFileSync(path.join(root, 'content/blog', `${f}.md`), 'utf8');

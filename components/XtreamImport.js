@@ -35,12 +35,16 @@ export default function XtreamImport({ onChannels, onReload, max, used }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   async function call(body) {
+    // v49: a signed-out tab used to die here with "Cannot read properties of null" and no
+    // message at all. Say what actually happened instead.
+    const user = (() => { try { return authClient().currentUser; } catch { return null; } })();
+    if (!user) throw new Error('You are signed out. Reload the page and sign in again, then try the import.');
     const r = await fetch('/api/admin/tv/xtream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await authClient().currentUser.getIdToken()}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
       body: JSON.stringify(body),
     });
-    return { status: r.status, json: await r.json().catch(() => ({})) };
+    return { status: r.status, json: await r.json().catch(() => ({ ok: false, error: `The server answered ${r.status}.` })) };
   }
 
   async function runTest(e) {
@@ -89,7 +93,11 @@ export default function XtreamImport({ onChannels, onReload, max, used }) {
     setBusy('');
   }
 
-  const toggle = (name) => setPicked((p) => (p.includes(name) ? p.filter((x) => x !== name) : [...p, name]));
+  // v49: groups are picked by their panel category ID (the server filters by id; the bare
+  // display name matched nothing and imported zero). The name is only the label and the
+  // fallback for panels that publish no categories.
+  const groupKey = (g) => String((g && g.id) || (g && g.name) || '');
+  const toggle = (key) => setPicked((p) => (p.includes(key) ? p.filter((x) => x !== key) : [...p, key]));
   const busyNow = Boolean(busy);
 
   return (
@@ -146,13 +154,13 @@ export default function XtreamImport({ onChannels, onReload, max, used }) {
               <div className="flex items-center justify-between">
                 <span className="label">Groups {picked.length ? `(${picked.length} chosen)` : '(all)'}</span>
                 <div className="flex gap-2">
-                  <button type="button" className="text-xs font-bold text-gold underline" onClick={() => setPicked(test.groups.map((g) => g.name))}>all</button>
+                  <button type="button" className="text-xs font-bold text-gold underline" onClick={() => setPicked(test.groups.map((g) => groupKey(g)).filter(Boolean))}>all</button>
                   <button type="button" className="text-xs font-bold text-dim underline" onClick={() => setPicked([])}>none</button>
                 </div>
               </div>
               <div className="mt-1.5 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
                 {test.groups.map((g) => (
-                  <button key={g.name} type="button" onClick={() => toggle(g.name)} className={`mz-chip${picked.includes(g.name) ? ' is-on' : ''}`}>
+                  <button key={groupKey(g)} type="button" onClick={() => toggle(groupKey(g))} className={`mz-chip${picked.includes(groupKey(g)) ? ' is-on' : ''}`}>
                     {g.name} <i>{g.count}</i>
                   </button>
                 ))}
@@ -194,6 +202,16 @@ export default function XtreamImport({ onChannels, onReload, max, used }) {
               {done.partial ? <p className="mt-0.5 text-amber-800">Some groups did not answer, so this may be short. Try again with fewer groups ticked.</p> : null}
             </div>
           )}
+        </div>
+      )}
+
+      {!test && (
+        <div className="mt-3 rounded-lg border border-dashed border-line bg-surface/60 p-2.5">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-ghost !py-1.5" disabled title="Pehle Test connection dabayein">Add to the editor</button>
+            <button type="button" className="btn-gold !py-1.5" disabled title="Pehle Test connection dabayein">Straight into the shop</button>
+          </div>
+          <p className="mt-1.5 text-xs text-dim">Ye dono button hamesha yahin hain — pehle upar wala <b>Test connection</b> dabayein, phir ye khul jayenge. Server, username aur password apne panel wale se lein (wahi jo IPTV apps mein lagta hai).</p>
         </div>
       )}
 

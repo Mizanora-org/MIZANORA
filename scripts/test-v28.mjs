@@ -68,7 +68,7 @@ ok('search: no tuple destructuring, no redirect, product strip streams');
 
 // ---- player + server wiring -----------------------------------------------------------
 const player = read('components/LiveTvPlayer.js');
-assert.ok(/import\('hls\.js\/light'\)/.test(player));
+assert.ok(/import\('hls\.js'\)/.test(player)); // v49: full build (alternate audio tracks + embedded captions), still a local chunk
 assert.ok(!/cdnjs\.cloudflare\.com/.test(player));
 assert.ok(/setRelayIndex\(idx\)/.test(player) && /relayed/.test(player));
 assert.ok(/TV_QUALITY/.test(player) && /qualityLevel/.test(player));
