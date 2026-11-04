@@ -23,6 +23,10 @@ Channel badalte waqt Mizanora ke products ka chota ad chalta hai. Qeemat hamesha
 
 Admin > Live TV mein M3U file, M3U link ya iptv-org ki public lists (Pakistan, Islamic, News, Kids, Sports) ek tap se load hoti hain. Sirf wohi streams rakhein jin ko dikhane ka aap ko haq hai.
 
+## v49 update (November 2026)
+
+Live TV ab poori tarah naye andaaz mein hai: channels aik **khoobsurat rangon wale grid** mein aate hain, player apna custom hai, aur Settings mein **asal resolution (1080p/720p), audio tracks, captions aur photo capture** tak sab kuch hai. M3U link aur panel login se channels load hone wale purane masail bhi fix ho gaye hain. Tafseel ke liye parhein: [Mizanora Live TV v49 — naya player aur beautiful grid](/blog/mizanora-live-tv-v49-naya-player-beautiful-grid), [Quality, audio track aur capture guide](/blog/live-tv-video-quality-audio-track-capture-guide) aur [Channels load problem ki fix guide](/blog/live-tv-channels-load-problem-fix-guide).
+
 {{cta}}
 
 Dekhein: [Free tools](/tools), [Quran](/quran), [Hadith](/hadith).

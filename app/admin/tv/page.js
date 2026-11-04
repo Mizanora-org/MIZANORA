@@ -154,11 +154,22 @@ export default function AdminTv() {
     if (!r.channels.length) { setMsg(`No usable channel found. Stream links must start with http:// or https://${r.skipped ? ` (${r.skipped} lines were skipped)` : ''}.`); return; }
     merge(r.channels, r.skipped, 'file');
   };
-  const fromText = () => { const r = parseM3U(paste); if (!r.channels.length) { setMsg('No usable channel found in the pasted text.'); return; } merge(r.channels, r.skipped, 'pasted text'); setPaste(''); };
+  const fromText = () => {
+    if (!paste.trim()) { setMsg('Pehle neeche wale box mein playlist ka text paste karein (#EXTM3U se shuru hota hai).'); return; }
+    const r = parseM3U(paste);
+    if (!r.channels.length) { setMsg('No usable channel found in the pasted text. Stream links must start with http:// or https://.'); return; }
+    merge(r.channels, r.skipped, 'pasted text'); setPaste('');
+  };
   const fromLink = async () => {
-    setBusy('link'); setMsg('');
+    // v49: always clickable (an empty box explains itself), the token comes from the same
+    // null-safe helper as everything else here, and the wait is labelled - a big playlist
+    // can honestly take a while.
+    if (!link.trim()) { setMsg('Pehle playlist ka link likhein, ya upar kisi Quick list ko tap karein, phir Load dabayein.'); return; }
+    setBusy('link'); setMsg('Playlist load ho rahi hai — badi playlist mein kuch second lag sakte hain...');
     try {
-      const r = await fetch('/api/admin/tv-import', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await authClient().currentUser.getIdToken()}` }, body: JSON.stringify({ url: link }) });
+      const t = await token();
+      if (!t) { setMsg('You are signed out. Reload the page and sign in again.'); return; }
+      const r = await fetch('/api/admin/tv-import', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ url: link.trim() }) });
       const j = await r.json().catch(() => ({}));
       if (!j.ok || !j.channels) { setMsg(j.error || 'That link did not give a playlist.'); return; }
       merge(j.channels, j.skipped || 0, 'link');
@@ -304,18 +315,23 @@ export default function AdminTv() {
         <h2 className="text-lg font-extrabold">2. Add channels ({cfg.channels.length.toLocaleString('en-PK')}/{MAX_CHANNELS.toLocaleString('en-PK')})</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-sm"><span className="label">Upload an M3U / M3U8 file (up to 25 MB)</span><input type="file" accept=".m3u,.m3u8,.txt,audio/x-mpegurl,application/vnd.apple.mpegurl" className="input" onChange={fromFile} /></label>
-          <div className="text-sm"><span className="label">Quick lists (public iptv-org playlists): tap one, then press Load</span><div className="mb-2 flex flex-wrap gap-1.5">{TV_PRESETS.map(([n, u]) => <button key={u} type="button" className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-bold hover:border-gold" onClick={() => setLink(u)}>{n}</button>)}</div></div>
-          <div className="text-sm"><span className="label">Or an M3U link (https)</span><div className="flex gap-2"><input className="input" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://.../playlist.m3u" /><button type="button" className="btn-ghost" disabled={busy === 'link' || !link} onClick={fromLink}>{busy === 'link' ? '...' : 'Load'}</button></div></div>
+          <div className="text-sm"><span className="label">Quick lists (public iptv-org playlists): tap one, then press Load</span><div className="mb-2 flex flex-wrap gap-1.5">{TV_PRESETS.map(([n, u]) => <button key={u} type="button" className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-bold hover:border-gold" onClick={() => { setLink(u); setMsg(`"${n}" ka link lag gaya — ab neeche wala Load button dabayein.`); }}>{n}</button>)}</div></div>
+          <div className="text-sm"><span className="label">Or an M3U link (http / https — a panel get.php playlist link bhi chalega; redirects khud follow hote hain)</span><div className="flex gap-2"><input className="input" value={link} onChange={(e) => setLink(e.target.value)} placeholder="http://panel:8080/get.php?username=..&password=..&type=m3u_plus" /><button type="button" className="btn-gold shrink-0" disabled={busy === 'link'} onClick={fromLink}>{busy === 'link' ? 'Load ho raha hai...' : 'Load'}</button></div></div>
         </div>
         <label className="block text-sm"><span className="label">Or paste the playlist text</span><textarea className="input font-mono text-xs" rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'#EXTM3U\n#EXTINF:-1 group-title="News",My Channel\nhttps://example.com/live.m3u8'} /></label>
-        {paste && <button type="button" className="btn-ghost" onClick={fromText}>Add from pasted text</button>}
+        <button type="button" className="btn-ghost" onClick={fromText}>Add from pasted text</button>
 
         <div className="mt-3">
-          {!loadErr && busy !== 'load' && <XtreamImport
+          {/* v49: the panel importer is ALWAYS on screen now. It used to vanish whenever the
+              saved list failed to load - exactly when the admin came here to fix things - which
+              read as "the button is not there". "Straight into the shop" works regardless
+              (server-side); "Add to the editor" asks for a successful load first. */}
+          <XtreamImport
             max={MAX_CHANNELS}
             used={cfg.channels.length}
             onReload={load}
             onChannels={(incoming) => {
+              if (loadErr) { setMsg('List abhi sahi load nahi hui — pehle upar "Try again" dabayein, phir editor mein add karein. ("Straight into the shop" abhi bhi chal sakta hai.)'); return 0; }
               const have = new Set(cfg.channels.map((c) => c.url));
               const fresh = new Set();
               for (const c of incoming) if (c && c.url && !have.has(c.url)) { have.add(c.url); fresh.add(c.url); }
@@ -323,7 +339,7 @@ export default function AdminTv() {
               merge(incoming, 0, 'Xtream panel');
               return Math.min(fresh.size, room);
             }}
-          />}
+          />
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_2fr_1fr_auto]">
           <input className="input" placeholder="Channel name" value={one.name} onChange={(e) => setOne({ ...one, name: e.target.value })} />

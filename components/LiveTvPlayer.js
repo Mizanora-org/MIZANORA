@@ -2,28 +2,34 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Activity, ChevronLeft, ChevronRight, Clock3, Expand, Heart, LoaderCircle, PictureInPicture2,
-  Play, Radio, RefreshCw, Search, Share2, Shuffle, Tv, Volume2, VolumeX, X, Zap,
+  Activity, Camera, Check, ChevronLeft, ChevronRight, Clock3, Expand, Heart, LayoutGrid, List,
+  LoaderCircle, Pause, PictureInPicture2, Play, Radio, RefreshCw, Search, Settings, Share2,
+  Shuffle, Tv, Volume1, Volume2, VolumeX, X, Zap,
 } from 'lucide-react';
 import {
-  TV_QUALITY, filterChannels, qualityLevel, streamOrigin, tvClock, tvStatusLabel,
+  TV_QUALITY, audioLabel, channelHue, channelInitials, filterChannels, formatBitrate,
+  latencyLabel, menuLevels, normaliseLevels, qualityLevel, resLabel, sortChannels, streamOrigin,
+  subLabel, tvClock, tvStatusLabel,
 } from '@/lib/liveTvUi';
 import { TV_THEMES, channelGroups, channelSlugs, channelSources, channelTarget, pickAd, relayHref, stepIndex, tvTheme } from '@/lib/liveTv';
 import LiveBadge from './LiveBadge';
 
-// v30 LIVE TV: broadcast-style player and guide. hls.js (m3u8) and dash.js (mpd / MPEG-DASH) are local,
-// dynamically imported chunks — no third-party CDN. Every stream type plays in one player:
-// .m3u8 (HLS), .mpd (DASH), .mp4/.webm (plain video), .mp3/.aac (audio), and YouTube live.
-// Each channel keeps its own audio tracks, video qualities and subtitle-like quality menu, so the
-// visitor can pick the best audio language and the best video quality for every channel. Favourites,
-// recents, auto-skip, the signed relay, product ads and shareable /live/<channel> links all remain.
+// v49 LIVE TV: the rebuilt player (Tamasha-style channel grid below a big custom screen).
+// Everything streams in ONE player: .m3u8 (HLS), .mpd (DASH), .mp4/.webm (plain video),
+// .mp3/.aac (audio) and YouTube live, through the signed relay whenever a host says no.
+// New here: exact video-resolution capture (1080p/720p... with bitrate, not just "High"),
+// real HLS + DASH audio-track and caption/subtitle picking, a stats panel (resolution,
+// bandwidth, buffer, live latency, dropped frames) and a photo-capture button that saves
+// the current picture. The FULL hls.js build is loaded (not light): embedded CEA-608
+// captions and alternate audio live in it. Favourites, recents, auto-skip, backup streams,
+// product ads and shareable /live/<channel> links all stay.
 let hlsPromise = null;
 let HlsCtor = null;
 const loadHls = () => {
   if (typeof window === 'undefined') return Promise.resolve(null);
   if (HlsCtor) return Promise.resolve(HlsCtor);
   if (!hlsPromise) {
-    hlsPromise = import('hls.js/light')
+    hlsPromise = import('hls.js')
       .then((m) => { HlsCtor = m.default || m.Hls || null; if (!HlsCtor) hlsPromise = null; return HlsCtor; })
       .catch(() => { hlsPromise = null; return null; }); // a later channel can retry the chunk
   }
@@ -42,6 +48,19 @@ const loadDash = () => {
   }
   return dashPromise;
 };
+
+// dash.js v5: MediaPlayer is a factory function in some builds and an object in others.
+// Ask both shapes politely instead of assuming one (the old single shape silently failed).
+const createDash = (Dash) => {
+  try {
+    if (!Dash || !Dash.MediaPlayer) return null;
+    const factory = typeof Dash.MediaPlayer === 'function' ? Dash.MediaPlayer() : Dash.MediaPlayer;
+    if (factory && typeof factory.create === 'function') return factory.create();
+    if (typeof Dash.MediaPlayer.create === 'function') return Dash.MediaPlayer.create();
+  } catch (_) { /* not usable */ }
+  return null;
+};
+const dashEvents = (Dash, player) => (Dash && Dash.MediaPlayer && Dash.MediaPlayer.events) || (player && player.events) || {};
 
 // v29: a stream host that refused a direct connection once (CORS / mixed content / blocked) starts on the relay next time,
 // so the visitor does not wait for a failed direct try on every channel switch.
@@ -66,7 +85,8 @@ const SKIP_SECONDS = 3;
 const STALL_MS = 10000;
 const BUFFER_STUCK_MS = 12000; // playing, but frozen on the spinner this long -> recover, then relay, then give up
 const MAX_AUTO_SKIPS = 6;
-const PAGE_SIZE = 36;
+const PAGE_SIZE = 48;
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 function TvClock() {
   const [time, setTime] = useState('');
@@ -79,12 +99,17 @@ function TvClock() {
   return <span className="mztv-clock"><Clock3 size={13} aria-hidden="true" />{time || '--:--'} PKT</span>;
 }
 
-function ChannelLogo({ channel, large = false }) {
+function ChannelLogo({ channel, large = false, tile = false }) {
   const [bad, setBad] = useState(false);
   const src = channel?.logo ? logoSrc(channel.logo) : '';
   useEffect(() => { setBad(false); }, [src]);
-  if (!src || bad) return <span className={`mztv-logo ${large ? 'is-large' : ''}`} aria-hidden="true"><Tv size={large ? 30 : 17} /></span>;
-  return <img src={src} alt="" width={large ? 62 : 36} height={large ? 62 : 36} className={`mztv-logo has-img ${large ? 'is-large' : ''}`} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setBad(true)} />;
+  const cls = tile ? 'is-tile' : large ? 'is-large' : '';
+  if (!src || bad) {
+    return tile
+      ? <span className="mztv-logo is-tile is-initials" aria-hidden="true">{channelInitials(channel?.name)}</span>
+      : <span className={`mztv-logo ${cls}`} aria-hidden="true"><Tv size={large ? 30 : 17} /></span>;
+  }
+  return <img src={src} alt="" width={tile ? 96 : large ? 62 : 36} height={tile ? 96 : large ? 62 : 36} className={`mztv-logo has-img ${cls}`} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setBad(true)} />;
 }
 
 export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
@@ -112,10 +137,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const [recent, setRecent] = useState([]);
   const [autoSkip, setAutoSkip] = useState(true);
   const [skipIn, setSkipIn] = useState(0);
-  // The INDEX of the channel using the relay. Changing channel resets it in the same batch as idx,
-  // so the next channel never starts on the previous channel's relay and then restarts.
   const [relayIndex, setRelayIndex] = useState(-1);
-  // Session storage exists only in the browser. Wait until hydration before using its remembered hosts.
   const [relayReady, setRelayReady] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
   const [theme, setTheme] = useState(() => tvTheme(cfg?.theme));
@@ -123,27 +145,49 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const [buffering, setBuffering] = useState(false);
   const [toast, setToast] = useState('');
   const [muted, setMuted] = useState(true); // starts silent: browsers allow instant autoplay
-  const [quality, setQuality] = useState('auto');
-  const [levelCount, setLevelCount] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [quality, setQuality] = useState('auto'); // saved mode: auto / high / balanced / save
+  const [pinLevel, setPinLevel] = useState(null); // exact level pinned for THIS channel
+  const [levels, setLevels] = useState([]); // normalised exact resolutions of this stream
+  const [curLevel, setCurLevel] = useState(-1); // which level is on screen right now
+  const [audios, setAudios] = useState([]); // audio tracks of this stream
+  const [audioId, setAudioId] = useState(0);
+  const [subs, setSubs] = useState([]); // caption / subtitle tracks
+  const [subId, setSubId] = useState(-1); // -1 = off
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [showUi, setShowUi] = useState(true);
+  const [setOpen, setSetOpen] = useState(false);
+  const [setTab, setSetTab] = useState('quality');
+  const [speed, setSpeed] = useState(1);
+  const [statsOn, setStatsOn] = useState(false);
+  const [snap, setSnap] = useState(null); // stats snapshot, refreshed every second
+  const [behind, setBehind] = useState(0); // seconds behind the live edge
+  const [bar, setBar] = useState({ t: 0, d: 0 }); // playback position (VOD seek bar)
+  const [view, setView] = useState('grid');
+  const [sortMode, setSortMode] = useState('default');
   const [isFs, setIsFs] = useState(false);
 
   const frame = useRef(null);
   const video = useRef(null);
   const hls = useRef(null);
-  const dash = useRef(null); // dash.js player instance for .mpd streams
+  const dash = useRef(null);
+  const dashReps = useRef([]);
+  const dashAudios = useRef([]);
   const searchInput = useRef(null);
   const counter = useRef(1);
   const fails = useRef(0);
   const toastTimer = useRef(null);
+  const uiTimer = useRef(null);
+  const touch = useRef(null);
   const mutedRef = useRef(muted);
   const adRef = useRef(Boolean(ad));
   const qualityRef = useRef(quality);
+  const pinRef = useRef(pinLevel);
   const statusRef = useRef(status);
   const prefsLoaded = useRef(false);
   const stuckStep = useRef(0);
-  const [dashLevels, setDashLevels] = useState([]);
-  const [dashAudioLangs, setDashAudioLangs] = useState([]);
-  const [audioTrack, setAudioTrack] = useState(0);
+  const sentinel = useRef(null);
+  const warmed = useRef(new Set());
 
   const cur = chans[idx] || null;
   const curSlug = slugs[idx] || '';
@@ -161,15 +205,34 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   }, [base, sourceUrl, viaRelay]);
   const youtubeSrc = target?.kind === 'youtube' ? `${target.src}&mute=1` : '';
   const statusLabel = tvStatusLabel(status, buffering, target?.kind);
-  const filtered = useMemo(() => filterChannels(pool, { group, query: deferredQ, favs, recent }), [pool, group, deferredQ, favs, recent]);
+  const filtered = useMemo(
+    () => sortChannels(filterChannels(pool, { group, query: deferredQ, favs, recent }), group === 'Recent' ? 'default' : sortMode),
+    [pool, group, deferredQ, favs, recent, sortMode],
+  );
   const favCount = useMemo(() => pool.filter((c) => favs.includes(c.url)).length, [pool, favs]);
   const recentCount = useMemo(() => pool.filter((c) => recent.includes(c.url)).length, [pool, recent]);
   const canSkip = Boolean(ad) && adSeconds - left >= adSkipAfter;
+  const levelCount = levels.length;
+  const nowLevel = levels[curLevel] || null;
 
   const say = useCallback((message) => {
     setToast(message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(''), 2400);
+  }, []);
+
+  // Keep the custom control bar awake for a few seconds after the last touch / mouse move.
+  const poke = useCallback(() => {
+    setShowUi(true);
+    if (uiTimer.current) clearTimeout(uiTimer.current);
+    uiTimer.current = setTimeout(() => setShowUi(false), 3000);
+  }, []);
+  useEffect(() => { if (!isPlaying || setOpen || ad) { setShowUi(true); if (uiTimer.current) clearTimeout(uiTimer.current); } else poke(); }, [isPlaying, setOpen, ad, poke]);
+
+  const clearTracks = useCallback(() => {
+    setLevels([]); setCurLevel(-1); setPinLevel(null); pinRef.current = null;
+    setAudios([]); setAudioId(0); setSubs([]); setSubId(-1); setSnap(null); setBehind(0);
+    dashReps.current = []; dashAudios.current = [];
   }, []);
 
   const go = useCallback((to, auto = false) => {
@@ -183,12 +246,12 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setStatus('loading');
     setBuffering(false);
     setSkipIn(0);
-    setLevelCount(0);
     setRelayIndex(-1);
     setSourceIndex(0);
     stuckStep.current = 0;
+    clearTracks();
     setIdx(to);
-  }, [idx, chans, adsEnabled, adProducts, adSeconds]);
+  }, [idx, chans, adsEnabled, adProducts, adSeconds, clearTracks]);
 
   const next = useCallback(() => go(stepIndex(chans, idx, 1)), [go, chans, idx]);
   const prev = useCallback(() => go(stepIndex(chans, idx, -1)), [go, chans, idx]);
@@ -205,11 +268,11 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setStatus('loading');
     setBuffering(false);
     setSkipIn(0);
-    setLevelCount(0);
+    clearTracks();
     setRetryKey((n) => n + 1);
     if (cur) forgetRelays(channelSources(cur)); // Retry tries the primary directly, including after a reload
     say('Channel dobara load ho raha hai');
-  }, [say, cur]);
+  }, [say, cur, clearTracks]);
 
   // Try each backup on the same channel before declaring it dead or auto-skipping.
   const advanceSource = useCallback(() => {
@@ -218,43 +281,88 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setSourceIndex(sourceIndex + 1);
     setStatus('loading');
     setBuffering(false);
-    setLevelCount(0);
+    clearTracks();
     stuckStep.current = 0;
     say(`Backup stream ${sourceIndex + 1} connect ho rahi hai`);
     return true;
-  }, [sourceIndex, sources.length, say]);
+  }, [sourceIndex, sources.length, say, clearTracks]);
 
   const chooseSource = useCallback((n) => {
     if (n < 0 || n >= sources.length || n === sourceIndex) return;
     setRelayIndex(-1); setSourceIndex(n); setStatus('loading'); setBuffering(false);
-    setSkipIn(0); setLevelCount(0); fails.current = 0; stuckStep.current = 0;
-    setDashLevels([]); setDashAudioLangs([]); setAudioTrack(0);
-  }, [sourceIndex, sources.length]);
+    setSkipIn(0); fails.current = 0; stuckStep.current = 0;
+    clearTracks();
+  }, [sourceIndex, sources.length, clearTracks]);
 
-  const setDashQuality = useCallback((level) => {
+  // ---- exact quality / audio / captions, one face for every engine -------------------
+  const applyQuality = useCallback(() => {
+    const h = hls.current;
+    if (h && h.levels) {
+      // Pin (exact resolution or a fixed mode) must switch ABR off, or hls.js quietly
+      // wanders back to whatever it likes a few seconds later. Auto turns it on again.
+      const pinned = pinRef.current != null || qualityRef.current !== 'auto';
+      try { h.autoLevelEnabled = !pinned; } catch (_) { /* older shape */ }
+      h.currentLevel = pinRef.current != null ? pinRef.current : qualityLevel(h.levels, qualityRef.current);
+      return;
+    }
     const p = dash.current;
-    const abr = p && p.getAbrController ? p.getAbrController() : null;
-    if (!abr) return;
-    const reps = abr.getAvailableBitrateListFor('video');
-    const r = reps[level];
-    if (!r) return;
-    p.setCurrentQualityFor('video', level);
-    setBuffering(false);
-    say(`Video quality: ${r.height || 0}p`);
-  }, [say]);
+    if (p && typeof p.updateSettings === 'function') {
+      const reps = dashReps.current;
+      if (pinRef.current != null && reps[pinRef.current]) {
+        try {
+          p.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: false } } } });
+          p.setRepresentationForTypeByIndex('video', reps[pinRef.current].index, true);
+        } catch (_) { /* older shape */ }
+      } else {
+        try { p.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: true } } } }); } catch (_) { /* ignore */ }
+      }
+    }
+  }, []);
 
-  const selectAudioTrack = useCallback((lang) => {
+  const pickMode = useCallback((mode) => {
+    setQuality(mode);
+    qualityRef.current = mode;
+    setPinLevel(null);
+    pinRef.current = null;
+    applyQuality();
+    say(mode === 'auto' ? 'Quality: Auto (sab se tez)' : `Quality: ${(TV_QUALITY.find(([v]) => v === mode) || [])[1] || mode}`);
+  }, [applyQuality, say]);
+
+  const pickLevel = useCallback((n) => {
+    setPinLevel(n);
+    pinRef.current = n;
+    applyQuality();
+    const l = levels[n];
+    say(`Video quality: ${l ? l.label : resLabel(0)}`);
+  }, [applyQuality, levels, say]);
+
+  const pickAudio = useCallback((n) => {
+    setAudioId(n);
+    const h = hls.current;
+    if (h) { try { h.audioTrack = n; } catch (_) { /* gone */ } }
     const p = dash.current;
-    const abr = p && p.getAbrController ? p.getAbrController() : null;
-    if (!abr) return;
-    const reps = abr.getAvailableBitrateListFor('audio');
-    const idx2 = reps.findIndex((r) => String(r.lang || r.language || '').toUpperCase() === lang);
-    if (idx2 < 0) return;
-    p.setCurrentQualityFor('audio', idx2);
-    setAudioTrack(idx2);
-    say(`Awaaz: ${lang}`);
-  }, [say]);
+    if (p && dashAudios.current[n] && typeof p.setCurrentTrack === 'function') {
+      try { p.setCurrentTrack(dashAudios.current[n]); } catch (_) { /* ignore */ }
+    }
+    const v = video.current;
+    if (v && v.audioTracks && v.audioTracks[n]) {
+      for (let i = 0; i < v.audioTracks.length; i++) v.audioTracks[i].enabled = i === n;
+    }
+    say(`Awaaz: ${audioLabel(audios[n] || {}, n)}`);
+  }, [audios, say]);
 
+  const pickSub = useCallback((n) => {
+    setSubId(n);
+    const h = hls.current;
+    if (h) { try { h.subtitleTrack = n; } catch (_) { /* gone */ } }
+    const p = dash.current;
+    if (p && typeof p.setTextTrack === 'function') { try { p.setTextTrack(n); } catch (_) { /* ignore */ } }
+    const v = video.current;
+    if (v && v.textTracks) {
+      for (let i = 0; i < v.textTracks.length; i++) v.textTracks[i].mode = i === n ? 'showing' : 'hidden';
+    }
+    say(n < 0 ? 'Captions band' : `Captions: ${subLabel(subs[n] || {}, n)}`);
+  }, [subs, say]);
 
   const playNow = useCallback(() => {
     const v = video.current;
@@ -264,6 +372,13 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     const p = v.play();
     if (p && p.catch) p.catch((e) => { if (e && e.name === 'NotAllowedError') setStatus('blocked'); });
   }, []);
+
+  const togglePlay = useCallback(() => {
+    const v = video.current;
+    if (!v) return;
+    if (v.paused) playNow();
+    else { try { v.pause(); } catch (_) { /* gone */ } }
+  }, [playNow]);
 
   const jumpToLive = useCallback(() => {
     const v = video.current;
@@ -280,8 +395,10 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     if (!el) return;
     try {
       if (document.fullscreenElement) document.exitFullscreen();
-      else if (el.requestFullscreen) el.requestFullscreen();
-      else if (video.current && video.current.webkitEnterFullscreen) video.current.webkitEnterFullscreen();
+      else if (el.requestFullscreen) {
+        const p = el.requestFullscreen();
+        if (p && p.then) p.then(() => { try { if (window.screen && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (_) { /* desktop */ } }).catch(() => {});
+      } else if (video.current && video.current.webkitEnterFullscreen) video.current.webkitEnterFullscreen();
     } catch (_) { /* not allowed */ }
   }, []);
 
@@ -294,12 +411,40 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     } catch (_) { say('Picture in picture is not available here'); }
   }, [say]);
 
+  // Save the picture that is on screen right now (the "capture" button).
+  const capture = useCallback(() => {
+    const v = video.current;
+    if (!v || !v.videoWidth) { say('Abhi picture nahi aayi, capture nahi ho sakta'); return; }
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+      canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) { say('Is channel ki picture capture allow nahi (protected stream)'); return; }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `mizanora-${curSlug || 'live-tv'}-${v.videoWidth}x${v.videoHeight}.png`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        say(`Picture save ho gayi (${v.videoWidth}x${v.videoHeight})`);
+      }, 'image/png');
+    } catch (_) { say('Is channel ki picture capture allow nahi (protected stream)'); }
+  }, [curSlug, say]);
+
+  const setVol = useCallback((val) => {
+    const v = video.current;
+    const n = Math.min(1, Math.max(0, Number(val) || 0));
+    setVolume(n);
+    if (!v) return;
+    v.volume = n;
+    if (n > 0 && v.muted && !adRef.current) { v.muted = false; setMuted(false); mutedRef.current = false; }
+    if (n === 0) { v.muted = true; setMuted(true); mutedRef.current = true; }
+  }, []);
+
   const toggleMuted = useCallback(() => {
     const n = !muted;
     setMuted(n);
     mutedRef.current = n;
-    // Sound is intentionally NOT restored from localStorage: muted autoplay is reliable on phones.
-    // One tap is enough to turn it on for this visit.
     if (target?.kind === 'youtube' && !n) say('YouTube ki awaaz player ke speaker se on karein');
     else say(n ? 'Awaaz band' : 'Awaaz chaloo');
   }, [muted, target, say]);
@@ -329,6 +474,17 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     } catch (e) { if (!e || e.name !== 'AbortError') say('Link share nahi hua'); }
   }, [cur, curSlug, say]);
 
+  // Warm a channel's host before the tap: DNS + connection ready means a faster first picture.
+  const warmHost = useCallback((url) => {
+    const origin = streamOrigin(url);
+    if (!origin || warmed.current.has(origin) || typeof document === 'undefined') return;
+    if (window.location.protocol === 'https:' && origin.startsWith('http://')) return;
+    warmed.current.add(origin);
+    const link = document.createElement('link');
+    link.rel = 'preconnect'; link.href = origin; link.crossOrigin = '';
+    document.head.appendChild(link);
+  }, []);
+
   // Device preferences + warm the local HLS chunk as soon as the page opens.
   useEffect(() => {
     setFavs(readList('mz_tv_fav'));
@@ -338,6 +494,9 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     if (TV_QUALITY.some(([v]) => v === savedQuality)) setQuality(savedQuality);
     const savedTheme = readPref('mz_tv_theme', '');
     if (TV_THEMES.some(([v]) => v === savedTheme)) setTheme(savedTheme);
+    setStatsOn(readPref('mz_tv_stats', false) === true);
+    const savedView = readPref('mz_tv_view', 'grid');
+    if (savedView === 'list' || savedView === 'grid') setView(savedView);
     prefsLoaded.current = true;
     setRelayReady(true);
     loadHls();
@@ -346,21 +505,20 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   useEffect(() => { mutedRef.current = muted; }, [muted]);
   useEffect(() => { adRef.current = Boolean(ad); }, [ad]);
   useEffect(() => { statusRef.current = status; }, [status]);
-  useEffect(() => {
-    qualityRef.current = quality;
-    if (prefsLoaded.current) writePref('mz_tv_quality', quality);
-    const h = hls.current;
-    if (h) h.currentLevel = qualityLevel(h.levels, quality);
-  }, [quality]);
+  useEffect(() => { qualityRef.current = quality; if (prefsLoaded.current) writePref('mz_tv_quality', quality); }, [quality]);
+  useEffect(() => { if (prefsLoaded.current) writePref('mz_tv_stats', statsOn); }, [statsOn]);
+  useEffect(() => { if (prefsLoaded.current) writePref('mz_tv_view', view); }, [view]);
   useEffect(() => {
     const v = video.current;
-    if (v) v.muted = muted || Boolean(ad);
-  }, [muted, ad, target]);
+    if (v) { v.muted = muted || Boolean(ad); v.volume = volume; }
+  }, [muted, ad, volume, target]);
+  useEffect(() => { const v = video.current; if (v) v.playbackRate = speed; }, [speed, target]);
 
-  // Open the connection to the current AND next stream host early. No CDN script connection is needed now.
+  // Open the connection to the current, next and previous stream hosts early.
   const preconnectOrigins = useMemo(() => {
     const nextIndex = stepIndex(chans, idx, 1);
-    return [...new Set([sourceUrl, sources[sourceIndex + 1], chans[nextIndex]?.url].map(streamOrigin).filter(Boolean))].join('|');
+    const prevIndex = stepIndex(chans, idx, -1);
+    return [...new Set([sourceUrl, sources[sourceIndex + 1], chans[nextIndex]?.url, chans[prevIndex]?.url].map(streamOrigin).filter(Boolean))].join('|');
   }, [chans, idx, sourceUrl, sources, sourceIndex]);
   useEffect(() => {
     if (!preconnectOrigins || typeof document === 'undefined') return undefined;
@@ -384,7 +542,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     return () => document.removeEventListener('fullscreenchange', onFs);
   }, []);
 
-  // Remember the channel and keep the address bar shareable.
+  // Remember the channel, keep the address bar shareable, and tell the phone's lock screen what is on.
   useEffect(() => {
     if (!cur || !curSlug) return;
     setRecent((r) => {
@@ -395,7 +553,31 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     try {
       if (window.location.pathname !== `/live/${curSlug}`) window.history.replaceState(window.history.state, '', `/live/${curSlug}`);
     } catch (_) { /* history blocked */ }
-  }, [idx, cur, curSlug]);
+    try {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new window.MediaMetadata({
+          title: cur.name,
+          artist: cur.group || 'Mizanora Live TV',
+          album: 'Mizanora Live TV',
+          artwork: cur.logo ? [{ src: logoSrc(cur.logo), sizes: '256x256' }] : [],
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => prev());
+        navigator.mediaSession.setActionHandler('nexttrack', () => next());
+        navigator.mediaSession.setActionHandler('play', () => playNow());
+        navigator.mediaSession.setActionHandler('pause', () => { try { video.current && video.current.pause(); } catch (_) { /* gone */ } });
+      }
+    } catch (_) { /* not supported */ }
+  }, [idx, cur, curSlug, prev, next, playNow]);
+
+  // Keep the phone awake while a channel is playing on screen (best effort).
+  useEffect(() => {
+    if (status !== 'playing' || !isPlaying || typeof navigator === 'undefined' || !navigator.wakeLock) return undefined;
+    let lock = null; let stop = false;
+    const ask = () => { if (!stop && document.visibilityState === 'visible') navigator.wakeLock.request('screen').then((l) => { lock = l; }).catch(() => {}); };
+    ask();
+    document.addEventListener('visibilitychange', ask);
+    return () => { stop = true; document.removeEventListener('visibilitychange', ask); try { lock && lock.release(); } catch (_) { /* gone */ } };
+  }, [status, isPlaying]);
 
   // Ad countdown. The stream can keep loading behind the ad, but stays muted until the ad ends.
   useEffect(() => {
@@ -406,14 +588,34 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   useEffect(() => { if (ad && left <= 0) setAd(null); }, [ad, left]);
 
   useEffect(() => {
-    if (target?.kind === 'youtube') { setStatus('playing'); setBuffering(false); setLevelCount(0); }
+    if (target?.kind === 'youtube') { setStatus('playing'); setBuffering(false); }
     else if (!target && cur && !advanceSource()) setStatus('failed');
   }, [target, cur, advanceSource]);
+
+  // Native (Safari) track lists: read what the browser exposes once metadata lands.
+  const readNativeTracks = useCallback(() => {
+    const v = video.current;
+    if (!v || hls.current || dash.current) return;
+    try {
+      if (v.audioTracks && v.audioTracks.length) {
+        const list = Array.from(v.audioTracks).map((t, i) => ({ name: t.label || '', lang: t.language || '', i }));
+        setAudios(list);
+        const on = list.findIndex((_, i) => v.audioTracks[i].enabled);
+        if (on >= 0) setAudioId(on);
+      }
+    } catch (_) { /* not Safari */ }
+    try {
+      if (v.textTracks && v.textTracks.length) {
+        setSubs(Array.from(v.textTracks).map((t, i) => ({ name: t.label || '', lang: t.language || '', i })));
+      }
+    } catch (_) { /* ignore */ }
+  }, []);
 
   // Load one stream. A direct failure switches to the signed relay once; a relay failure shows retry.
   useEffect(() => {
     const v = video.current;
     if (hls.current) { try { hls.current.destroy(); } catch (_) { /* gone */ } hls.current = null; }
+    if (dash.current) { try { dash.current.reset(); } catch (_) { /* gone */ } dash.current = null; }
     if (!relayReady || !v || !target || target.kind === 'youtube') return undefined;
     let dead = false;
     let fallbackStarted = false;
@@ -442,7 +644,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     v.oncanplay = () => { if (!dead) setBuffering(false); };
     v.removeAttribute('src');
     v.load();
-    setLevelCount(0);
+    setLevels([]);
     const stall = setTimeout(() => {
       if (dead || statusRef.current !== 'loading' || v.readyState >= 3) return;
       fail();
@@ -452,44 +654,38 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       if (target.kind === 'dash') {
         const Dash = await loadDash();
         if (dead) return;
-        if (Dash && Dash.MediaPlayer && typeof Dash.MediaPlayer.create === 'function') {
-          const player = Dash.MediaPlayer.create();
+        const player = Dash && createDash(Dash);
+        if (player) {
           dash.current = player;
-          player.autoPlay(false);
-          player.setAutoSwitchQuality(false); // visitor picks the quality
-          player.setDebug(false);
-
-          // Wire up dash.js events -> our status / buffering UI.
-          player.on(Dash.MediaPlayer.events.MANIFEST_LOADED, (ev) => {
+          const EV = dashEvents(Dash, player);
+          const readDash = () => {
             if (dead) return;
-            const abr = player.getAbrController ? player.getAbrController() : null;
-            const videoReps = abr ? abr.getAvailableBitrateListFor('video') : [];
-            const levels = (videoReps || []).map((b) => ({ height: b ? (b.height || 0) : 0, bitrate: b ? b.bitrate || 0 : 0 }));
-            setDashLevels(levels);
-            const audioReps = abr ? abr.getAvailableBitrateListFor('audio') : [];
-            const langs = [];
-            for (const r of audioReps || []) {
-              const l = (r.lang || r.language || 'audio').toUpperCase();
-              if (!langs.includes(l)) langs.push(l);
-            }
-            setDashAudioLangs(langs.length ? langs : []);
-            setLevelCount(levels.length || 0);
-            setBuffering(false);
-            setStatus('playing');
-            ok();
-          });
-          player.on(Dash.MediaPlayer.events.ERROR, (ev) => {
-            if (dead) return;
-            console.error('dash error', ev);
-            fail();
-          });
-          player.on(Dash.MediaPlayer.events.BUFFER_EMPTY, () => { if (!dead) setBuffering(true); });
-          player.on(Dash.MediaPlayer.events.BUFFER_LOADED, () => { if (!dead) setBuffering(false); });
-          player.on(Dash.MediaPlayer.events.PLAYBACK_PLAYING, () => { if (!dead) { fails.current = 0; setBuffering(false); setStatus('playing'); } });
-
+            try {
+              const reps = (player.getRepresentationsByType ? player.getRepresentationsByType('video') : []) || [];
+              dashReps.current = reps.map((r, i) => ({ ...r, index: Number.isFinite(r.index) ? r.index : i }));
+              setLevels(normaliseLevels(reps.map((r) => ({ height: r.height, width: r.width, bitrate: r.bandwidth || (r.bitrateInKbit || 0) * 1000, frameRate: r.frameRate }))));
+              const curRep = player.getCurrentRepresentationForType ? player.getCurrentRepresentationForType('video') : null;
+              if (curRep) setCurLevel(reps.findIndex((r) => r.id === curRep.id));
+              const tracks = (player.getTracksFor ? player.getTracksFor('audio') : []) || [];
+              dashAudios.current = tracks;
+              setAudios(tracks.map((t, i) => ({ name: (t.roles && t.roles[0] && (t.roles[0].value || '')) || '', lang: t.lang || t.language || '', i })));
+              const curAudio = player.getCurrentTrackFor ? player.getCurrentTrackFor('audio') : null;
+              if (curAudio) setAudioId(Math.max(0, tracks.indexOf(curAudio)));
+              const texts = (player.getTracksFor ? player.getTracksFor('text') : []) || [];
+              setSubs(texts.map((t, i) => ({ name: t.label || '', lang: t.lang || t.language || '', i })));
+              applyQuality();
+            } catch (_) { /* the picture still plays */ }
+          };
+          try {
+            player.updateSettings({ debug: { logLevel: 0 }, streaming: { abr: { autoSwitchBitrate: { video: true, audio: true } }, buffer: { fastSwitchEnabled: true } } });
+          } catch (_) { /* defaults are fine */ }
+          if (EV.STREAM_INITIALIZED) player.on(EV.STREAM_INITIALIZED, readDash);
+          if (EV.REPRESENTATION_SWITCH) player.on(EV.REPRESENTATION_SWITCH, readDash);
+          if (EV.ERROR) player.on(EV.ERROR, () => { if (!dead) fail(); });
+          if (EV.BUFFER_EMPTY) player.on(EV.BUFFER_EMPTY, () => { if (!dead) setBuffering(true); });
+          if (EV.BUFFER_LOADED) player.on(EV.BUFFER_LOADED, () => { if (!dead) setBuffering(false); });
+          if (EV.PLAYBACK_PLAYING) player.on(EV.PLAYBACK_PLAYING, ok);
           player.initialize(v, target.src, autoplay);
-          setDashLevels([]); setDashAudioLangs([]);
-          setAudioTrack(0);
           return;
         }
         fail(); return;
@@ -499,14 +695,15 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
         const Hls = await loadHls();
         if (dead) return;
         if (Hls && Hls.isSupported()) {
-          // Short buffers and bounded retries = first picture quickly, no runaway requests.
-          // v29: a LIVE stream needs a real cushion. The old 12 s buffer rebuffered on every network wobble. Now: 30 s ahead
-          // (60 s max), a conservative bandwidth estimate for mobile data, a start at a low rung that climbs up, and a stalled-fragment nudge.
+          // Fast first picture + a real live cushion: bandwidth test on the first fragment, a
+          // connection-aware starting guess, 30 s ahead (60 s max), retries that stay bounded.
+          const conn = typeof navigator !== 'undefined' ? navigator.connection : null;
+          const estimate = conn && conn.downlink ? Math.max(500000, Math.min(8000000, Math.round(conn.downlink * 700000))) : 1200000;
           const h = new Hls({
-            enableWorker: true, lowLatencyMode: false, startFragPrefetch: true, capLevelToPlayerSize: true,
-            abrEwmaDefaultEstimate: 900000, abrBandWidthFactor: 0.8, abrBandWidthUpFactor: 0.6, startLevel: -1,
+            enableWorker: true, lowLatencyMode: false, startFragPrefetch: true, testBandwidth: true, capLevelToPlayerSize: true,
+            abrEwmaDefaultEstimate: estimate, abrEwmaFastLive: 2.5, abrEwmaSlowLive: 6, abrBandWidthFactor: 0.85, abrBandWidthUpFactor: 0.65, startLevel: -1,
             maxBufferLength: 30, maxMaxBufferLength: 60, backBufferLength: 20, maxBufferHole: 0.5,
-            liveSyncDurationCount: 4, liveMaxLatencyDurationCount: 12, maxLiveSyncPlaybackRate: 1.05,
+            liveSyncDurationCount: 3, liveMaxLatencyDurationCount: 10, maxLiveSyncPlaybackRate: 1.08,
             nudgeOffset: 0.2, nudgeMaxRetry: 6,
             manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 600,
             levelLoadingTimeOut: 8000, levelLoadingMaxRetry: 3, levelLoadingRetryDelay: 600,
@@ -517,13 +714,28 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
           let mediaTries = 0;
           h.on(Hls.Events.MANIFEST_PARSED, () => {
             if (dead) return;
-            setLevelCount(h.levels ? h.levels.length : 0);
-            h.currentLevel = qualityLevel(h.levels, qualityRef.current);
+            setLevels(normaliseLevels(h.levels || []));
+            applyQuality();
           });
+          h.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => {
+            if (dead || !data) return;
+            setCurLevel(data.level);
+            if (!levels.length && h.levels) setLevels(normaliseLevels(h.levels));
+          });
+          h.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_e, data) => {
+            if (dead) return;
+            setAudios(((data && data.audioTracks) || []).map((t, i) => ({ name: t.name || '', lang: t.lang || '', channels: t.attrs && t.attrs.CHANNELS, i })));
+            if (Number.isFinite(h.audioTrack)) setAudioId(h.audioTrack);
+          });
+          h.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_e, data) => { if (!dead && data && Number.isFinite(data.id)) setAudioId(data.id); });
+          h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_e, data) => {
+            if (dead) return;
+            setSubs(((data && data.subtitleTracks) || []).map((t, i) => ({ name: t.name || '', lang: t.lang || '', i })));
+          });
+          h.on(Hls.Events.SUBTITLE_TRACK_SWITCH, (_e, data) => { if (!dead && data && Number.isFinite(data.id)) setSubId(data.id); });
           h.on(Hls.Events.ERROR, (_event, data) => {
             if (dead || !data || !data.fatal) return;
-            // v29: the very first playlist could not be loaded directly (CORS / http / blocked host): go straight to the relay,
-            // no pointless retries of something the browser has already refused.
+            // The first playlist could not load directly (CORS / http / blocked): go straight to the relay.
             if (canRelay && /manifestLoadError|manifestLoadTimeOut|manifestParsingError/.test(String(data.details || ''))) { fail(); return; }
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR && netTries < 2) {
               netTries += 1;
@@ -549,13 +761,13 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     return () => {
       dead = true;
       clearTimeout(stall);
-      if (dash.current) { try { dash.current.reset(); dash.current.dispose(); } catch (_) { /* gone */ } dash.current = null; }
+      if (dash.current) { try { dash.current.reset(); } catch (_) { /* gone */ } dash.current = null; }
       v.onplaying = null; v.onerror = null; v.onwaiting = null; v.onstalled = null; v.oncanplay = null;
       try { v.pause(); } catch (_) { /* gone */ }
     };
-  }, [target, autoplay, retryKey, idx, playNow, advanceSource, sourceUrl, relayReady]);
+  }, [target, autoplay, retryKey, idx, playNow, advanceSource, sourceUrl, relayReady, applyQuality]);
 
-  // A persistent spinner must be checked repeatedly: the old one-shot timer never reached its later recovery steps.
+  // A persistent spinner must be checked repeatedly: recover, then relay, then give up.
   useEffect(() => {
     if (status !== 'playing' || !buffering || !target || target.kind === 'youtube' || ad) return undefined;
     const t = setInterval(() => {
@@ -571,6 +783,38 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     return () => clearInterval(t);
   }, [status, buffering, target, ad, idx, sourceUrl, say, advanceSource]);
   useEffect(() => { if (status === 'playing' && !buffering) stuckStep.current = 0; }, [status, buffering]);
+
+  // Every second: how far behind live are we, where is the seek bar, and (when asked) the stats.
+  useEffect(() => {
+    if (!target || target.kind === 'youtube') return undefined;
+    const t = setInterval(() => {
+      const v = video.current;
+      if (!v) return;
+      setIsPlaying(!v.paused && !v.ended);
+      setBar({ t: v.currentTime || 0, d: Number.isFinite(v.duration) ? v.duration : 0 });
+      const h = hls.current;
+      let late = h && Number.isFinite(h.latency) ? h.latency : null;
+      if (late == null && v.seekable && v.seekable.length) late = v.seekable.end(v.seekable.length - 1) - v.currentTime;
+      if (late != null && Number.isFinite(late)) setBehind(Math.max(0, late));
+      if (statsOn) {
+        let buffered = 0;
+        try { if (v.buffered && v.buffered.length) buffered = Math.max(0, v.buffered.end(v.buffered.length - 1) - v.currentTime); } catch (_) { /* ignore */ }
+        const q = typeof v.getVideoPlaybackQuality === 'function' ? v.getVideoPlaybackQuality() : null;
+        const lvl = (h && h.levels && h.levels[h.currentLevel]) || null;
+        setSnap({
+          res: v.videoWidth ? `${v.videoWidth}x${v.videoHeight} (${resLabel(v.videoHeight)})` : '-',
+          level: nowLevel ? nowLevel.label : (lvl ? `${resLabel(lvl.height)} · ${formatBitrate(lvl.bitrate)}` : '-'),
+          bw: h && h.bandwidthEstimate ? formatBitrate(h.bandwidthEstimate) : '',
+          buffer: buffered ? `${buffered.toFixed(0)}s` : '0s',
+          latency: late != null ? latencyLabel(late) : '-',
+          dropped: q ? `${q.droppedVideoFrames}/${q.totalVideoFrames}` : '-',
+          codec: lvl ? [lvl.videoCodec, lvl.audioCodec].filter(Boolean).join(' + ') : '',
+          audio: audios[audioId] ? audioLabel(audios[audioId], audioId) : 'Default',
+        });
+      }
+    }, 1000);
+    return () => clearInterval(t);
+  }, [target, statsOn, nowLevel, audios, audioId]);
 
   // A browser that blocked autoplay waits for one real interaction.
   useEffect(() => {
@@ -594,6 +838,17 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     return () => clearInterval(t);
   }, [status, autoSkip, ad, idx, chans, go]);
 
+  // The guide loads more tiles by itself as the visitor scrolls (the button below is the fallback).
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setShown((n) => n + PAGE_SIZE);
+    }, { rootMargin: '600px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [filtered.length, view]);
+
   useEffect(() => {
     const onKey = (e) => {
       const tag = (e.target && e.target.tagName) || '';
@@ -601,37 +856,61 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) { if (e.key === 'Escape') e.target.blur(); return; }
       if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setVol(volume + 0.1); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); setVol(volume - 0.1); }
       else if (e.key === '/') { e.preventDefault(); searchInput.current && searchInput.current.focus(); }
+      else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
       else {
         const k = String(e.key).toLowerCase();
         if (k === 'f') fullscreen();
         else if (k === 'r') random();
         else if (k === 'm') toggleMuted();
         else if (k === 'l') jumpToLive();
-        else if (k === '?') say('Keys: ← → channel, / search, M sound, L live, F full screen, R random');
+        else if (k === 'k') togglePlay();
+        else if (k === 'c') capture();
+        else if (k === 's') setSetOpen((o) => !o);
+        else if (k === '?') say('Keys: ← → channel, Space play, ↑ ↓ awaaz, / search, M mute, L live, C photo, S settings, F full screen');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [next, prev, fullscreen, random, toggleMuted, jumpToLive, say]);
+  }, [next, prev, fullscreen, random, toggleMuted, jumpToLive, togglePlay, capture, setVol, volume, say]);
 
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
+    if (uiTimer.current) clearTimeout(uiTimer.current);
     if (hls.current) { try { hls.current.destroy(); } catch (_) { /* gone */ } }
-    if (dash.current) { try { dash.current.reset(); dash.current.dispose(); } catch (_) { /* gone */ } dash.current = null; }
+    if (dash.current) { try { dash.current.reset(); } catch (_) { /* gone */ } dash.current = null; }
   }, []);
+
+  // Swipe left / right on the picture changes channel (phones).
+  const onTouchStart = (e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; poke(); };
+  const onTouchEnd = (e) => {
+    const s = touch.current; touch.current = null;
+    if (!s || !e.changedTouches[0]) return;
+    if (e.target && e.target.closest && e.target.closest('.mztv-bar, .mztv-set, .mztv-ad, .mztv-gate, .mztv-failed, button, input, select, a')) return;
+    const dx = e.changedTouches[0].clientX - s.x;
+    const dy = Math.abs(e.changedTouches[0].clientY - s.y);
+    if (Math.abs(dx) > 64 && dy < 60) { if (dx < 0) next(); else prev(); }
+  };
 
   if (!cur) return <div className="mztv-empty">Abhi koi active channel nahi hai.</div>;
 
   const isFav = favs.includes(cur.url);
-
   const visible = filtered.slice(0, shown);
+  const isVod = target && (target.kind === 'video' || target.kind === 'audio') && bar.d > 0;
   const chip = (name, label, count) => (
     <button key={name} type="button" onClick={() => { setGroup(name); setShown(PAGE_SIZE); }} aria-pressed={group === name} className={`mztv-chip ${group === name ? 'is-on' : ''}`}>
       {label || name}{count != null && <span>{count}</span>}
     </button>
   );
-  const ctl = 'mztv-control';
+  const ctl = 'mztv-ctl';
+  const menuRow = (key, label, on, onClick, hint) => (
+    <button key={key} type="button" className={`mztv-set-row ${on ? 'is-on' : ''}`} onClick={onClick} aria-pressed={on}>
+      <span className="mztv-set-label">{label}{hint ? <small>{hint}</small> : null}</span>
+      {on && <Check size={15} aria-hidden="true" />}
+    </button>
+  );
 
   return (
     <div className="mztv-shell" data-theme={theme}>
@@ -648,140 +927,319 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
         <div className="mztv-badges">
           {cfg?.demo && <span className="mztv-badge is-demo">DEMO</span>}
           {target?.relayed && <span className="mztv-badge">RELAY</span>}
-          {sources.length > 1 && <span className="mztv-badge">SOURCE {sourceIndex + 1}/{sources.length}</span>}
+          {nowLevel && <span className="mztv-badge is-q">{resLabel(nowLevel.height)}</span>}
           <span className={`mztv-badge is-status is-${status}`}><i aria-hidden="true" />{statusLabel}</span>
           <span className="mztv-badge is-quiet"><Activity size={12} aria-hidden="true" />{levelCount ? `${levelCount} LEVELS` : 'ADAPTIVE'}</span>
           <TvClock />
         </div>
       </header>
 
-      <div className="mztv-layout">
-        <section className="mztv-primary" aria-label="Live video player">
-          <div ref={frame} className="mztv-screen" style={{ aspectRatio: '16 / 9' }}>
-            {target?.kind === 'youtube' && (
-              <iframe key={youtubeSrc} src={youtubeSrc} title={cur.name} className="mztv-video" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
-            )}
-            {target && target.kind !== 'youtube' && (
-              <video ref={video} className="mztv-video" controls playsInline preload="metadata" poster={cur.logo || undefined} aria-label={`${cur.name} live stream`} />
-            )}
-            {!target && <div className="mztv-screen-message"><p>Is channel ka link theek nahi hai.</p><button type="button" onClick={next} className="mztv-inline-btn">Agla channel</button></div>}
-
-            {target && target.kind !== 'youtube' && status === 'loading' && !ad && (
-              <div className="mztv-loading" aria-live="polite">
-                <ChannelLogo channel={cur} large />
-                <LoaderCircle size={34} className="mztv-spin" aria-hidden="true" />
-                <p>Channel connect ho raha hai...</p>
-              </div>
-            )}
-            {target && target.kind !== 'youtube' && (status === 'ready' || status === 'blocked') && !ad && (
-              <div className="mztv-gate">
-                <button type="button" onClick={playNow} aria-label="Play channel"><Play size={34} fill="currentColor" /></button>
-                <p>Chalane ke liye play dabayein</p>
-              </div>
-            )}
-            {/* v33: a pulsing LIVE ribbon on the picture itself (real state only: quiet while loading or failed) */}
-            <LiveBadge
-              state={status === 'ready' ? 'live' : status === 'failed' ? 'warn' : 'soon'}
-              label={status === 'ready' ? 'LIVE' : status === 'failed' ? 'RETRY' : 'CONNECTING'}
-              className="mztv-live-tag"
+      <div className="mztv-stage">
+        <div
+          ref={frame}
+          className={`mztv-screen ${showUi ? 'is-ui' : 'is-quiet'}`}
+          style={{ aspectRatio: '16 / 9' }}
+          onMouseMove={poke}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          {target?.kind === 'youtube' && (
+            <iframe key={youtubeSrc} src={youtubeSrc} title={cur.name} className="mztv-video" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+          )}
+          {target && target.kind !== 'youtube' && (
+            <video
+              ref={video}
+              className="mztv-video"
+              playsInline
+              preload="auto"
+              poster={cur.logo ? logoSrc(cur.logo) : undefined}
+              aria-label={`${cur.name} live stream`}
+              onClick={togglePlay}
+              onDoubleClick={fullscreen}
+              onLoadedMetadata={readNativeTracks}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onVolumeChange={() => { const v = video.current; if (v) { setVolume(v.volume); setMuted(Boolean(adRef.current) ? mutedRef.current : v.muted); } }}
             />
-            {target && status === 'failed' && !ad && (
-              <div className="mztv-failed">
-                <p className="mztv-failed-title">Ye channel abhi nahi chal raha.</p>
-                <p>{skipIn > 0 ? `Agla channel ${skipIn} second mein khud lag jayega.` : 'Stream band ho sakti hai ya dusri website par chalne se mana kar rahi hai.'}</p>
-                <div className="mztv-failed-actions">
-                  <button type="button" onClick={retry} className="mztv-inline-btn is-solid"><RefreshCw size={15} /> Retry</button>
-                  <button type="button" onClick={next} className="mztv-inline-btn">Agla channel</button>
-                  <button type="button" onClick={random} className="mztv-inline-btn">Random</button>
-                </div>
+          )}
+          {!target && <div className="mztv-screen-message"><p>Is channel ka link theek nahi hai.</p><button type="button" onClick={next} className="mztv-inline-btn">Agla channel</button></div>}
+          {target?.kind === 'audio' && (
+            <div className="mztv-audio-art" aria-hidden="true">
+              <ChannelLogo channel={cur} large />
+              <b>{cur.name}</b>
+              <span className={`mztv-eq ${isPlaying ? 'is-on' : ''}`}><i /><i /><i /><i /><i /></span>
+              <small>Sirf awaaz (audio channel)</small>
+            </div>
+          )}
+
+          {target && target.kind !== 'youtube' && status === 'loading' && !ad && (
+            <div className="mztv-loading" aria-live="polite">
+              <ChannelLogo channel={cur} large />
+              <LoaderCircle size={34} className="mztv-spin" aria-hidden="true" />
+              <p>Channel connect ho raha hai...</p>
+            </div>
+          )}
+          {target && target.kind !== 'youtube' && (status === 'ready' || status === 'blocked') && !ad && (
+            <div className="mztv-gate">
+              <button type="button" onClick={playNow} aria-label="Play channel"><Play size={34} fill="currentColor" /></button>
+              <p>Chalane ke liye play dabayein</p>
+            </div>
+          )}
+          <LiveBadge
+            state={status === 'playing' && isPlaying ? 'live' : status === 'failed' ? 'warn' : status === 'playing' ? 'idle' : 'soon'}
+            label={status === 'playing' ? (isPlaying ? 'LIVE' : 'PAUSED') : status === 'failed' ? 'RETRY' : 'CONNECTING'}
+            className="mztv-live-tag"
+          />
+          {target && status === 'failed' && !ad && (
+            <div className="mztv-failed">
+              <p className="mztv-failed-title">Ye channel abhi nahi chal raha.</p>
+              <p>{skipIn > 0 ? `Agla channel ${skipIn} second mein khud lag jayega.` : 'Stream band ho sakti hai ya dusri website par chalne se mana kar rahi hai.'}</p>
+              <div className="mztv-failed-actions">
+                <button type="button" onClick={retry} className="mztv-inline-btn is-solid"><RefreshCw size={15} /> Retry</button>
+                <button type="button" onClick={next} className="mztv-inline-btn">Agla channel</button>
+                <button type="button" onClick={random} className="mztv-inline-btn">Random</button>
               </div>
-            )}
-            {status === 'playing' && buffering && !ad && <div className="mztv-buffer" role="status" aria-label="Buffering"><LoaderCircle size={20} className="mztv-spin" /></div>}
-            {status === 'playing' && target && target.kind !== 'youtube' && !ad && (
-              <button type="button" onClick={jumpToLive} className="mztv-live-edge"><Radio size={13} /> LIVE EDGE</button>
-            )}
-            {ad && (
-              <div className="mztv-ad" role="dialog" aria-label="Advertisement">
-                <span className="mztv-ad-time">AD · {Math.max(0, left)}s</span>
-                {canSkip && <button type="button" onClick={() => setAd(null)} className="mztv-ad-skip">Skip <X size={13} /></button>}
-                <div className="mztv-ad-body">
-                  {ad.image && <img src={ad.image} alt={ad.name} className="mztv-ad-image" />}
-                  <div className="mztv-ad-copy">
-                    <span>SPONSORED</span>
-                    <p>{ad.name}</p>
-                    <b>{pkr(ad.price)} {ad.comparePrice ? <s>{pkr(ad.comparePrice)}</s> : null}</b>
-                    <Link href={`/product/${ad.slug}`}>Abhi dekhein</Link>
-                  </div>
+            </div>
+          )}
+          {status === 'playing' && buffering && !ad && <div className="mztv-buffer" role="status" aria-label="Buffering"><LoaderCircle size={20} className="mztv-spin" /></div>}
+
+          {statsOn && snap && target && target.kind !== 'youtube' && (
+            <div className="mztv-stats" role="status" aria-label="Stream stats">
+              <b>Stream capture</b>
+              <span>Resolution <em>{snap.res}</em></span>
+              <span>Quality <em>{snap.level}</em></span>
+              {snap.bw && <span>Speed (andaza) <em>{snap.bw}</em></span>}
+              <span>Buffer <em>{snap.buffer} aage</em></span>
+              <span>Live se peeche <em>{snap.latency}</em></span>
+              <span>Dropped frames <em>{snap.dropped}</em></span>
+              {snap.codec && <span>Codec <em>{snap.codec}</em></span>}
+              <span>Awaaz <em>{snap.audio}</em></span>
+              <span>Rasta <em>{target.relayed ? 'Relay' : 'Direct'} · {target.kind.toUpperCase()}</em></span>
+            </div>
+          )}
+
+          {/* ------- custom control bar ------- */}
+          {target && target.kind !== 'youtube' && !ad && (
+            <div className="mztv-bar" aria-label="Player controls">
+              {isVod && (
+                <input
+                  type="range" className="mztv-seek" min={0} max={bar.d || 0} step={0.1} value={Math.min(bar.t, bar.d || 0)}
+                  aria-label="Seek"
+                  onChange={(e) => { const v = video.current; if (v) v.currentTime = Number(e.target.value); }}
+                />
+              )}
+              <div className="mztv-bar-row">
+                <button type="button" onClick={togglePlay} className={`${ctl} is-main`} aria-label={isPlaying ? 'Pause' : 'Play'}>
+                  {isPlaying ? <Pause size={21} fill="currentColor" /> : <Play size={21} fill="currentColor" />}
+                </button>
+                <button type="button" onClick={prev} className={ctl} aria-label="Previous channel"><ChevronLeft size={20} /></button>
+                <button type="button" onClick={next} className={ctl} aria-label="Next channel"><ChevronRight size={20} /></button>
+                <div className="mztv-vol">
+                  <button type="button" onClick={toggleMuted} className={ctl} aria-label={muted ? 'Unmute' : 'Mute'} aria-pressed={muted}>
+                    {muted || volume === 0 ? <VolumeX size={18} /> : volume < 0.5 ? <Volume1 size={18} /> : <Volume2 size={18} />}
+                  </button>
+                  <input type="range" className="mztv-vol-range" min={0} max={1} step={0.05} value={muted ? 0 : volume} aria-label="Volume" onChange={(e) => setVol(e.target.value)} />
                 </div>
-                <div className="mztv-ad-progress"><i style={{ width: `${Math.max(0, Math.min(100, (left / adSeconds) * 100))}%` }} /></div>
+                {!isVod && status === 'playing' && (
+                  <button type="button" onClick={jumpToLive} className={`mztv-live-edge ${behind <= 2.5 ? 'is-edge' : ''}`} aria-label="Jump to live">
+                    <Radio size={12} /> {latencyLabel(behind)}
+                  </button>
+                )}
+                <span className="mztv-bar-name"><b>{cur.name}</b><small>{cur.group || 'Live'}</small></span>
+                <span className="mztv-bar-gap" />
+                {nowLevel && <span className="mztv-bar-q">{nowLevel.label}</span>}
+                <button type="button" onClick={capture} className={`${ctl} is-opt`} aria-label="Capture photo of this picture"><Camera size={17} /></button>
+                <button type="button" onClick={() => { setSetOpen((o) => !o); poke(); }} className={`${ctl} ${setOpen ? 'is-on' : ''}`} aria-label="Settings (quality, audio, captions)" aria-expanded={setOpen}><Settings size={18} /></button>
+                <button type="button" onClick={pip} className={`${ctl} is-opt`} aria-label="Picture in picture"><PictureInPicture2 size={17} /></button>
+                <button type="button" onClick={fullscreen} className={ctl} aria-label={isFs ? 'Exit full screen' : 'Full screen'}>{isFs ? <X size={18} /> : <Expand size={18} />}</button>
               </div>
-            )}
-            {toast && <p className="mztv-toast" role="status">{toast}</p>}
-          </div>
+            </div>
+          )}
 
-          <div className="mztv-dock" aria-label="Player controls">
-            <button type="button" onClick={prev} className={`${ctl} is-primary`} aria-label="Previous channel"><ChevronLeft size={23} /></button>
-            <button type="button" onClick={next} className={`${ctl} is-primary`} aria-label="Next channel"><ChevronRight size={23} /></button>
-            <span className="mztv-dock-sep" aria-hidden="true" />
-            <button type="button" onClick={toggleMuted} className={ctl} aria-label={muted ? 'Unmute' : 'Mute'} aria-pressed={muted}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}</button>
-            <button type="button" onClick={() => toggleFav(cur.url)} className={`${ctl} ${isFav ? 'is-fav' : ''}`} aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'} aria-pressed={isFav}><Heart size={19} fill={isFav ? 'currentColor' : 'none'} /></button>
-            <button type="button" onClick={random} className={ctl} aria-label="Random channel"><Shuffle size={18} /></button>
-            <button type="button" onClick={share} className={ctl} aria-label="Share channel"><Share2 size={18} /></button>
-            {target && target.kind !== 'youtube' && <button type="button" onClick={pip} className={`${ctl} is-optional`} aria-label="Picture in picture"><PictureInPicture2 size={18} /></button>}
-            <button type="button" onClick={fullscreen} className={ctl} aria-label={isFs ? 'Exit full screen' : 'Full screen'}>{isFs ? <X size={19} /> : <Expand size={19} />}</button>
-          </div>
-
-          <div className="mztv-options">
-            <button type="button" onClick={toggleAutoSkip} className={`mztv-toggle ${autoSkip ? 'is-on' : ''}`} aria-pressed={autoSkip}><span aria-hidden="true" />Auto-skip dead channels</button>
-            {sources.length > 1 && <label className="mztv-quality"><span>Stream</span><select aria-label="Channel stream source" value={sourceIndex} onChange={(e) => chooseSource(Number(e.target.value))}>{sources.map((url, i) => <option key={url} value={i}>{i === 0 ? 'Primary' : `Backup ${i}`}</option>)}</select></label>}
-            <label className="mztv-quality"><span>Theme</span><select aria-label="Live TV theme" value={theme} onChange={(e) => { const v = tvTheme(e.target.value); setTheme(v); writePref('mz_tv_theme', v); }}>{TV_THEMES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>
-            {target && target.kind === 'dash' && dashLevels.length > 0 ? (
-              <label className="mztv-quality"><span>Video quality</span><select value={quality} onChange={(e) => { setQuality(e.target.value); setDashQuality(Number(e.target.value)); }} aria-label="Stream quality">{dashLevels.map((l, i) => { const h = l.height ? l.height + 'p' : 'Auto'; const b = Math.round(l.bitrate / 1000); return <option key={i} value={i}>{h + ' (' + b + ' kbps)'}</option>; })}</select></label>
-            ) : levelCount > 0 ? (
-              <label className="mztv-quality"><span>Quality</span><select value={quality} onChange={(e) => setQuality(e.target.value)} aria-label="Stream quality">{TV_QUALITY.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>
-            ) : <span className="mztv-adaptive"><Zap size={13} /> Adaptive playback</span>}
-            {target && target.kind === 'dash' && dashAudioLangs.length > 1 && (
-              <label className="mztv-quality"><span>Audio language</span><select value={audioTrack} onChange={(e) => selectAudioTrack(dashAudioLangs[Number(e.target.value)])} aria-label="Audio track">{dashAudioLangs.map((l, i) => <option key={l} value={i}>{l}</option>)}</select></label>
-            )}
-            <span className="mztv-keys">← → channel · / search · M sound · F full screen · R random · ? help</span>
-          </div>
-        </section>
-
-        <aside className="mztv-guide" aria-label="Channel guide">
-          <div className="mztv-guide-head">
-            <div><span>CHANNEL GUIDE</span><h2>{activeCount} live channels</h2></div>
-            <Tv size={21} aria-hidden="true" />
-          </div>
-          <div className="mztv-search">
-            <Search size={17} aria-hidden="true" />
-            <input ref={searchInput} value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE_SIZE); }} onKeyDown={(e) => { if (e.key === 'Enter' && filtered[0]) go(filtered[0].i); if (e.key === 'Escape') setQ(''); }} placeholder="Search channels, groups..." aria-label="Search channels" />
-            {q && <button type="button" onClick={() => { setQ(''); searchInput.current && searchInput.current.focus(); }} aria-label="Clear search"><X size={16} /></button>}
-          </div>
-          <div className="mztv-chips">
-            {chip('All', 'All', activeCount)}
-            {favCount > 0 && chip('Favourites', '♥ Favourites', favCount)}
-            {recentCount > 0 && chip('Recent', 'Recent', recentCount)}
-            {groups.map((g) => chip(g.name, null, g.count))}
-          </div>
-          <div className="mztv-list-wrap">
-            {visible.length ? (
-              <ul className="mztv-grid">
-                {visible.map((c) => (
-                  <li key={`${c.i}-${c.url}`} className="mztv-channel">
-                    <button type="button" onClick={() => go(c.i)} className={`mztv-channel-main ${c.i === idx ? 'is-active' : ''}`} aria-current={c.i === idx ? 'true' : undefined}>
-                      <span className="mztv-channel-no">{String(c.i + 1).padStart(2, '0')}</span>
-                      <ChannelLogo channel={c} />
-                      <span className="mztv-channel-copy"><b>{c.name}</b><small>{c.i === idx ? (buffering ? 'Buffering...' : 'Playing now') : (c.group || 'Live')}</small></span>
-                    </button>
-                    <button type="button" onClick={() => toggleFav(c.url)} className={`mztv-channel-fav ${favs.includes(c.url) ? 'is-on' : ''}`} aria-label={favs.includes(c.url) ? `Remove ${c.name} from favourites` : `Add ${c.name} to favourites`} aria-pressed={favs.includes(c.url)}><Heart size={14} fill={favs.includes(c.url) ? 'currentColor' : 'none'} /></button>
-                  </li>
+          {/* ------- settings: quality capture, audio tracks, captions ------- */}
+          {setOpen && target && target.kind !== 'youtube' && (
+            <div className="mztv-set" role="dialog" aria-label="Player settings">
+              <div className="mztv-set-head">
+                <b>Settings</b>
+                <button type="button" onClick={() => setSetOpen(false)} aria-label="Close settings"><X size={16} /></button>
+              </div>
+              <div className="mztv-set-tabs" role="tablist" aria-label="Setting kind">
+                {[['quality', 'Quality'], ['audio', 'Awaaz'], ['subs', 'Captions'], ['more', 'More']].map(([id, label]) => (
+                  <button key={id} type="button" role="tab" aria-selected={setTab === id} className={setTab === id ? 'is-on' : ''} onClick={() => setSetTab(id)}>{label}</button>
                 ))}
-              </ul>
-            ) : <p className="mztv-no-results">Koi channel nahi mila.{group !== 'All' ? ' Doosra group chunein.' : ''}</p>}
-            {filtered.length > shown && <button type="button" onClick={() => setShown((n) => n + PAGE_SIZE)} className="mztv-more">Aur channels ({filtered.length - shown})</button>}
+              </div>
+              <div className="mztv-set-body">
+                {setTab === 'quality' && (
+                  <>
+                    {TV_QUALITY.map(([v, label]) => menuRow(v, label, pinLevel == null && quality === v, () => pickMode(v),
+                      v === 'auto' ? 'Net ke mutabiq sab se tez' : v === 'save' ? 'Kam data' : v === 'high' ? 'Sab se saaf' : 'Darmiyaan'))}
+                    {menuLevels(levels).length > 0 && <p className="mztv-set-hint">Is channel ki asal resolutions:</p>}
+                    {menuLevels(levels).map((l) => menuRow(`lvl-${l.i}`, l.label, pinLevel === l.i, () => pickLevel(l.i), curLevel === l.i ? 'Ab chal rahi hai' : ''))}
+                    {!levels.length && <p className="mztv-set-hint">Is stream ki resolutions browser khud chunta hai (ek hi quality ya Safari).</p>}
+                  </>
+                )}
+                {setTab === 'audio' && (
+                  audios.length > 1
+                    ? audios.map((t, n) => menuRow(`a-${n}`, audioLabel(t, n), audioId === n, () => pickAudio(n)))
+                    : <p className="mztv-set-hint">Is channel mein ek hi awaaz hai. Jin streams mein zyada zubaanain hoti hain, un ki list yahan aati hai.</p>
+                )}
+                {setTab === 'subs' && (
+                  <>
+                    {menuRow('sub-off', 'Band (Off)', subId === -1, () => pickSub(-1))}
+                    {subs.map((t, n) => menuRow(`s-${n}`, subLabel(t, n), subId === n, () => pickSub(n)))}
+                    {!subs.length && <p className="mztv-set-hint">Is channel ke saath captions nahi bheje gaye.</p>}
+                  </>
+                )}
+                {setTab === 'more' && (
+                  <>
+                    <p className="mztv-set-hint">Raftaar (video streams ke liye):</p>
+                    <div className="mztv-set-speeds">
+                      {SPEEDS.map((s) => <button key={s} type="button" className={speed === s ? 'is-on' : ''} onClick={() => { setSpeed(s); say(`Raftaar ${s}x`); }}>{s}x</button>)}
+                    </div>
+                    {menuRow('stats', 'Stream stats dikhayein', statsOn, () => setStatsOn(!statsOn), 'Resolution, speed, buffer')}
+                    {menuRow('skip', 'Dead channel khud skip', autoSkip, toggleAutoSkip)}
+                    {menuRow('cap', 'Photo capture karein', false, capture, 'Is lamhe ki tasveer save')}
+                    {sources.length > 1 && (
+                      <>
+                        <p className="mztv-set-hint">Stream source:</p>
+                        {sources.map((url, i) => menuRow(`src-${i}`, i === 0 ? 'Primary' : `Backup ${i}`, sourceIndex === i, () => chooseSource(i)))}
+                      </>
+                    )}
+                    <label className="mztv-set-select">Theme
+                      <select aria-label="Live TV theme" value={theme} onChange={(e) => { const v = tvTheme(e.target.value); setTheme(v); writePref('mz_tv_theme', v); }}>
+                        {TV_THEMES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                      </select>
+                    </label>
+                    <p className="mztv-set-hint">Keys: ← → channel · Space play · M awaaz · L live · C photo · F full screen · R random</p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {ad && (
+            <div className="mztv-ad" role="dialog" aria-label="Advertisement">
+              <span className="mztv-ad-time">AD · {Math.max(0, left)}s</span>
+              {canSkip && <button type="button" onClick={() => setAd(null)} className="mztv-ad-skip">Skip <X size={13} /></button>}
+              <div className="mztv-ad-body">
+                {ad.image && <img src={ad.image} alt={ad.name} className="mztv-ad-image" />}
+                <div className="mztv-ad-copy">
+                  <span>SPONSORED</span>
+                  <p>{ad.name}</p>
+                  <b>{pkr(ad.price)} {ad.comparePrice ? <s>{pkr(ad.comparePrice)}</s> : null}</b>
+                  <Link href={`/product/${ad.slug}`}>Abhi dekhein</Link>
+                </div>
+              </div>
+              <div className="mztv-ad-progress"><i style={{ width: `${Math.max(0, Math.min(100, (left / adSeconds) * 100))}%` }} /></div>
+            </div>
+          )}
+          {toast && <p className="mztv-toast" role="status">{toast}</p>}
+        </div>
+
+        <div className="mztv-under">
+          <div className="mztv-under-info">
+            <ChannelLogo channel={cur} />
+            <span><b>{cur.name}</b><small>{cur.group || 'Live channel'} · CH {activeNo} / {activeCount}{sources.length > 1 ? ` · Source ${sourceIndex + 1}/${sources.length}` : ''}</small></span>
           </div>
-        </aside>
+          <div className="mztv-under-actions">
+            <button type="button" onClick={prev} className="mztv-pill-btn"><ChevronLeft size={16} /> Pichla</button>
+            <button type="button" onClick={next} className="mztv-pill-btn is-solid">Agla <ChevronRight size={16} /></button>
+            <button type="button" onClick={() => toggleFav(cur.url)} className={`mztv-pill-btn ${isFav ? 'is-fav' : ''}`} aria-pressed={isFav}><Heart size={15} fill={isFav ? 'currentColor' : 'none'} /> {isFav ? 'Pasandeeda' : 'Pasand karein'}</button>
+            <button type="button" onClick={random} className="mztv-pill-btn" aria-label="Random channel"><Shuffle size={15} /> Random</button>
+            <button type="button" onClick={share} className="mztv-pill-btn" aria-label="Share channel"><Share2 size={15} /> Share</button>
+            {target && target.kind !== 'youtube' && <button type="button" onClick={retry} className="mztv-pill-btn" aria-label="Reload channel"><RefreshCw size={15} /> Reload</button>}
+          </div>
+        </div>
       </div>
+
+      <section className="mztv-guide" aria-label="Channel guide">
+        <div className="mztv-guide-head">
+          <div><span>CHANNELS</span><h2>{activeCount} live channels</h2></div>
+          <div className="mztv-guide-tools">
+            <div className="mztv-search">
+              <Search size={16} aria-hidden="true" />
+              <input ref={searchInput} value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE_SIZE); }} onKeyDown={(e) => { if (e.key === 'Enter' && filtered[0]) go(filtered[0].i); if (e.key === 'Escape') setQ(''); }} placeholder="Channel search karein..." aria-label="Search channels" />
+              {q && <button type="button" onClick={() => { setQ(''); searchInput.current && searchInput.current.focus(); }} aria-label="Clear search"><X size={15} /></button>}
+            </div>
+            <label className="mztv-sort"><span className="mztv-sort-lab">Sort</span>
+              <select aria-label="Sort channels" value={sortMode} onChange={(e) => { setSortMode(e.target.value); setShown(PAGE_SIZE); }}>
+                <option value="default">Default</option>
+                <option value="az">Naam A-Z</option>
+                <option value="group">Group ke hisaab se</option>
+              </select>
+            </label>
+            <div className="mztv-view-toggle" role="group" aria-label="Guide view">
+              <button type="button" className={view === 'grid' ? 'is-on' : ''} onClick={() => setView('grid')} aria-label="Grid view" aria-pressed={view === 'grid'}><LayoutGrid size={16} /></button>
+              <button type="button" className={view === 'list' ? 'is-on' : ''} onClick={() => setView('list')} aria-label="List view" aria-pressed={view === 'list'}><List size={16} /></button>
+            </div>
+          </div>
+        </div>
+        <div className="mztv-chips">
+          {chip('All', 'All', activeCount)}
+          {favCount > 0 && chip('Favourites', '♥ Favourites', favCount)}
+          {recentCount > 0 && chip('Recent', 'Recent', recentCount)}
+          {groups.map((g) => chip(g.name, null, g.count))}
+        </div>
+
+        {visible.length ? (
+          view === 'grid' ? (
+            <ul className="mztv-tiles">
+              {visible.map((c) => {
+                const active = c.i === idx;
+                const fav = favs.includes(c.url);
+                return (
+                  <li key={`${c.i}-${c.url}`} className={`mztv-tile ${active ? 'is-active' : ''}`} style={{ '--h': channelHue(c.name) }}>
+                    <button
+                      type="button"
+                      onClick={() => go(c.i)}
+                      onMouseEnter={() => warmHost(c.url)}
+                      onTouchStart={() => warmHost(c.url)}
+                      className="mztv-tile-main"
+                      aria-current={active ? 'true' : undefined}
+                    >
+                      <span className="mztv-tile-top">
+                        <span className="mztv-tile-live"><i aria-hidden="true" />LIVE</span>
+                        <span className="mztv-tile-no">CH {c.i + 1}</span>
+                      </span>
+                      <ChannelLogo channel={c} tile />
+                      <span className="mztv-tile-play" aria-hidden="true">{active
+                        ? <span className={`mztv-eq ${isPlaying ? 'is-on' : ''}`}><i /><i /><i /><i /></span>
+                        : <Play size={17} fill="currentColor" />}</span>
+                      <span className="mztv-tile-copy">
+                        <b>{c.name}</b>
+                        <small>{active ? (buffering ? 'Buffering...' : isPlaying ? 'Ab chal raha hai' : 'Ruka hua') : (c.group || 'Live')}</small>
+                      </span>
+                    </button>
+                    <button type="button" onClick={() => toggleFav(c.url)} className={`mztv-tile-fav ${fav ? 'is-on' : ''}`} aria-label={fav ? `Remove ${c.name} from favourites` : `Add ${c.name} to favourites`} aria-pressed={fav}><Heart size={14} fill={fav ? 'currentColor' : 'none'} /></button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <ul className="mztv-rows">
+              {visible.map((c) => {
+                const active = c.i === idx;
+                const fav = favs.includes(c.url);
+                return (
+                  <li key={`${c.i}-${c.url}`} className={`mztv-row ${active ? 'is-active' : ''}`}>
+                    <button type="button" onClick={() => go(c.i)} onMouseEnter={() => warmHost(c.url)} className="mztv-row-main" aria-current={active ? 'true' : undefined}>
+                      <span className="mztv-row-no">{String(c.i + 1).padStart(2, '0')}</span>
+                      <ChannelLogo channel={c} />
+                      <span className="mztv-row-copy"><b>{c.name}</b><small>{active ? (buffering ? 'Buffering...' : 'Playing now') : (c.group || 'Live')}</small></span>
+                      <span className="mztv-row-live"><i aria-hidden="true" />LIVE</span>
+                    </button>
+                    <button type="button" onClick={() => toggleFav(c.url)} className={`mztv-row-fav ${fav ? 'is-on' : ''}`} aria-label={fav ? `Remove ${c.name} from favourites` : `Add ${c.name} to favourites`} aria-pressed={fav}><Heart size={14} fill={fav ? 'currentColor' : 'none'} /></button>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : <p className="mztv-no-results">Koi channel nahi mila.{group !== 'All' ? ' Doosra group chunein.' : ''}</p>}
+
+        <div ref={sentinel} aria-hidden="true" />
+        {filtered.length > shown && <button type="button" onClick={() => setShown((n) => n + PAGE_SIZE)} className="mztv-more">Aur channels ({filtered.length - shown})</button>}
+        <p className="mztv-guide-foot"><Zap size={12} aria-hidden="true" /> Channel par hath rakhein ya tap karein — connection pehle se garam ho jata hai, picture foran aati hai.</p>
+      </section>
       {cfg?.demo && <p className="mztv-demo-note">Demo mode: public test streams. Apne channels Admin &gt; Live TV mein add karein.</p>}
     </div>
   );

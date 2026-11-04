@@ -24,6 +24,10 @@ Apni internet ki raftar ke mutabiq video quality chunein:
 
 Ye feature un sab viewers ke liye hai jo Mizanora Live TV dekhte hain, chahe woh mobile par hon, laptop par hon ya smart TV par. Full screen, Picture-in-Picture aur channel share karne ke options bhi yahin maujood hain.
 
+## v49 update (November 2026)
+
+Naye player mein yehi control ab aur gehra ho gaya hai: generic "High/Balanced" ke saath ab har stream ki **asal resolutions unki bitrate ke saath** bhi chuni ja sakti hain, audio tracks **HLS aur DASH dono** tarah ke channels mein kaam karte hain, saath mein **captions, photo capture aur live stream stats** bhi aa gaye hain. Player ab poori hls.js build istemal karta hai taake stream ke andar wale (embedded) captions bhi chalen. Poori step-by-step rehnumai nayi guide [Video quality, audio track aur photo capture](/blog/live-tv-video-quality-audio-track-capture-guide) mein hai, aur poora update [Live TV v49 announcement](/blog/mizanora-live-tv-v49-naya-player-beautiful-grid) mein parhein.
+
 {{cta}}
 
 Dekhein: [Live TV](/live), [Shopping Blog](/blog).

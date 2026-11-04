@@ -21,11 +21,26 @@ const BROWSER_IMPORT_CAP = 20000;
 //        -> who the account is + how many channels and which groups are on it
 //   POST { action: 'import', server, username, password, what, categories, hls }
 //        -> the channels themselves. NOTHING is saved here: the admin reviews, then presses Save.
+//   POST { action: 'commit', ..., mode: 'merge' | 'replace' }
+//        -> the server pulls the panel, merges it with the shop's list and writes the shards
+//           itself. Only the counts come back (this is the way in for 10,000+ channels).
+//
+// v49 BUG FIX: 'commit' used to sit BELOW an unconditional `return` in the import branch, so
+// it could never run at all - "Straight into the shop" quietly behaved like a browser import
+// and looped back with "too big, press Straight into the shop". Each action now has its own
+// branch and returns from inside it; nothing is unreachable.
 //
 // The password is used for this one request and is never stored, never logged and never sent
 // back. The channel links the shop keeps do contain it, exactly like every IPTV app does -
 // that is how the Xtream protocol works, and it is why the panel is entered by the admin only.
 const json = (b, s = 200) => NextResponse.json(b, { status: s, headers: { 'Cache-Control': 'no-store' } });
+const importOpts = (b) => ({
+  what: ['live', 'vod', 'series'].includes(b.what) ? b.what : 'live',
+  // `categories` accepts group ids (the UI since v49) and, for older tabs, group names too -
+  // lib/xtreamServer resolves both against the panel's category table.
+  categories: Array.isArray(b.categories) ? b.categories.map(String).slice(0, XTREAM_LIMITS.categories) : [],
+  hls: b.hls !== false,
+});
 
 export async function POST(req) {
   const a = await verifyAdmin(req);
@@ -52,46 +67,17 @@ export async function POST(req) {
       });
     }
 
-    const r = await xtreamImport(b, {
-      what: ['live', 'vod', 'series'].includes(b.what) ? b.what : 'live',
-      categories: Array.isArray(b.categories) ? b.categories.map(String).slice(0, XTREAM_LIMITS.categories) : [],
-      hls: b.hls !== false,
-    });
-    if (!r.ok) return json({ ok: false, error: r.error, partial: r.partial, errors: r.errors }, 502);
-    if (r.channels.length > BROWSER_IMPORT_CAP) {
-      return json({
-        ok: false,
-        tooBig: true,
-        count: r.channels.length,
-        error: `${r.channels.length.toLocaleString('en-PK')} channels is too many to load into this page. Press "Import straight into the shop" instead: it writes them into the database here on the server and only tells you the counts.`,
-      }, 413);
-    }
-    return json({
-      ok: true,
-      creds: maskXtream(creds),
-      kind: r.kind,
-      channels: r.channels,
-      account: r.account,
-      count: r.channels.length,
-      fetched: r.fetched,
-      partial: r.partial,
-      errors: r.errors,
-    });
     // ---------------------------------------------------------------------
-    // v38: IMPORT STRAIGHT INTO THE SHOP.
+    // IMPORT STRAIGHT INTO THE SHOP.
     // A 100,000-channel panel is ~25 MB of JSON. Pushing that through the admin's browser
-    // would freeze the tab, so 'commit' does the whole job on the server: pull from the panel,
-    // merge with what the shop already has, write the shards, revalidate /live. Only the
-    // counts come back.
+    // would freeze the tab, so 'commit' does the whole job on the server: pull from the
+    // panel, merge with what the shop already has, write the shards, revalidate /live.
     // ---------------------------------------------------------------------
     if (action === 'commit') {
       const mode = b.mode === 'replace' ? 'replace' : 'merge';
-      const r = await xtreamImport(b, {
-        what: ['live', 'vod', 'series'].includes(b.what) ? b.what : 'live',
-        categories: Array.isArray(b.categories) ? b.categories.map(String).slice(0, XTREAM_LIMITS.categories) : [],
-        hls: b.hls !== false,
-      });
+      const r = await xtreamImport(b, importOpts(b));
       if (!r.ok) return json({ ok: false, error: r.error, partial: r.partial, errors: r.errors }, 502);
+      if (!r.channels.length) return json({ ok: false, error: 'That selection has no channels on the panel. Nothing was changed.' }, 422);
 
       const { config, channels: current, legacy } = await readTvAll(adminDb());
       if (!legacy && Number(config?.count) > current.length) {
@@ -122,7 +108,28 @@ export async function POST(req) {
       });
     }
 
-    return json({ ok: false, error: 'Unknown action' }, 400);
+    // Import into the browser editor (review first, then Save). Refused past the browser cap.
+    const r = await xtreamImport(b, importOpts(b));
+    if (!r.ok) return json({ ok: false, error: r.error, partial: r.partial, errors: r.errors }, 502);
+    if (r.channels.length > BROWSER_IMPORT_CAP) {
+      return json({
+        ok: false,
+        tooBig: true,
+        count: r.channels.length,
+        error: `${r.channels.length.toLocaleString('en-PK')} channels is too many to load into this page. Press "Straight into the shop" instead: it writes them into the database here on the server and only tells you the counts.`,
+      }, 413);
+    }
+    return json({
+      ok: true,
+      creds: maskXtream(creds),
+      kind: r.kind,
+      channels: r.channels,
+      account: r.account,
+      count: r.channels.length,
+      fetched: r.fetched,
+      partial: r.partial,
+      errors: r.errors,
+    });
   } catch (e) {
     // never echo the address+credentials back with an error
     console.error('xtream import failed:', e.message);
