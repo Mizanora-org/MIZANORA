@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ShieldCheck, Truck, Headphones, Banknote, Footprints, Shirt, Gem, Baby, Smartphone, Cpu, Home as HomeIcon, Sparkles, Dumbbell, HeartPulse, ShoppingBasket, Car, ArrowRight } from 'lucide-react';
@@ -30,6 +31,7 @@ import { DEPARTMENTS } from '@/lib/departments';
 import JsonLd from '@/components/JsonLd';
 import ForYouShelf from '@/components/ForYouShelf';
 import HomeHub from '@/components/HomeHub';
+import MoviesStrip from '@/components/MoviesStrip';
 import MarketFeed from '@/components/MarketFeed';
 import AdsInject from '@/components/AdsInject';
 import LiveStrip from '@/components/LiveStrip';
@@ -139,6 +141,7 @@ export default async function Home() {
       <ReorderBanner />
       <SignInStrip />
       <HomeHub tv={tv} />
+      <Suspense fallback={null}><MoviesStrip /></Suspense>
 
       <section className="mx-auto max-w-7xl px-3 pt-4 sm:px-4" aria-label="Why shop with us">
         <ul className="no-sb flex gap-2.5 overflow-x-auto lg:grid lg:grid-cols-4">

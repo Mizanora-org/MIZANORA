@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPost, getPosts, relatedPosts, CATEGORY_LABELS } from '@/lib/blog';
@@ -5,6 +6,9 @@ import { absUrl, SITE } from '@/lib/config';
 import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
+import AdsInject from '@/components/AdsInject';
+import ProductAds from '@/components/ProductAds';
+import MoviesStrip from '@/components/MoviesStrip';
 
 export const dynamicParams = false;
 export const generateStaticParams = () => getPosts().map((p) => ({ slug: p.slug }));
@@ -61,6 +65,7 @@ export default async function BlogPost({ params }) {
           </nav>
         )}
         <div dangerouslySetInnerHTML={{ __html: before }} />
+        <AdsInject slots={['auto']} />
         <Cta />
         {after && <div dangerouslySetInnerHTML={{ __html: after }} />}
         <h2>Keep reading</h2>
@@ -73,6 +78,17 @@ export default async function BlogPost({ params }) {
         ))}</div>
         <p className="mt-4 text-sm"><Link href={`/blog/category/${p.category}`} className="font-semibold text-gold underline underline-offset-4">Every {catLabel} guide →</Link></p>
       </article>
+      <Suspense fallback={null}>
+        <MoviesStrip
+          compact
+          count={6}
+          title="Trending Movies, Dramas & Official Trailers"
+          subtitle="Explore cast profiles, release dates and free legal classic films on Mizanora."
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ProductAds seed={`blog-${p.slug}`} title="Shop Featured Deals on Mizanora" note="Cash on Delivery across Pakistan" />
+      </Suspense>
       <JsonLd data={[ld, breadcrumbJsonLd([['/', 'Home'], ['/blog', 'Blog'], [`/blog/category/${p.category}`, catLabel], [`/blog/${p.slug}`, p.title]])]} />
     </>
   );

@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { BookOpen, ScrollText, Tv, Wrench, ArrowRight } from 'lucide-react';
+import { BookOpen, Clapperboard, ScrollText, Tv, Wrench, ArrowRight } from 'lucide-react';
 import Reveal from '@/components/Reveal';
 import { TOOLS } from '@/lib/tools';
 import { channelSlugs } from '@/lib/liveTv';
 import LiveBadge from '@/components/LiveBadge';
 
-// The home page "hub" (v25): four big doors (Quran, Hadith, Live TV, Tools), a strip of live channels and the most used tools.
+// The home page "hub" (v25/v50): five big doors (Quran, Hadith, Live TV, Movies & Series, Tools), a strip of live channels and the most used tools.
 // Everything is plain server markup: no extra JavaScript is sent to the visitor.
 const FEATURED = ['zakat-calculator', 'linux-commands-cheat-sheet', 'unit-converter', 'percentage-calculator', 'loan-emi-calculator', 'qibla-direction', 'json-formatter-validator', 'keyword-generator'];
 
@@ -17,12 +17,13 @@ export default function HomeHub({ tv }) {
     { href: '/quran', Icon: BookOpen, title: 'Quran', sub: 'Read, listen, Urdu translation', bg: 'from-[#0B6B45] to-[#06402a]' },
     { href: '/hadith', Icon: ScrollText, title: 'Hadith', sub: 'Bukhari, Muslim and 7 more books', bg: 'from-[#1E3A5F] to-[#0F2440]' },
     { href: '/live', Icon: Tv, title: 'Live TV', sub: chans.length ? `${chans.length} channels, switch with one tap` : 'Channels coming soon', bg: 'from-[#B91C1C] to-[#5f0f0f]' },
+    { href: '/movies', Icon: Clapperboard, title: 'Movies & Series', sub: 'Trailers, cast, calendar & legal films', bg: 'from-[#4C1D95] to-[#1E1B4B]' },
     { href: '/tools', Icon: Wrench, title: 'Free tools', sub: `${TOOLS.length} tools: zakat, linux, calculators`, bg: 'from-[#F29F05] to-[#B45309]' },
   ];
   return (
     <>
       <Reveal><section className="mx-auto max-w-7xl px-3 pt-6 sm:px-4" aria-label="Mizanora explore">
-        <ul className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
           {doors.map(({ href, Icon, title, sub, bg }) => (
             <li key={href}><Link href={href} className={`group relative block h-full overflow-hidden rounded-3xl bg-gradient-to-br ${bg} p-4 text-white shadow-lg transition hover:-translate-y-1 sm:p-5`}>
               <Icon size={64} className="absolute -bottom-3 -right-3 opacity-15 transition group-hover:scale-110" aria-hidden="true" />

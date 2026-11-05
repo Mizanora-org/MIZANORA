@@ -3,8 +3,9 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import RemoteImg from './RemoteImg';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Clock, CornerDownLeft, Search, Tag, X } from 'lucide-react';
+import { Clapperboard, Clock, CornerDownLeft, Search, Tag, X } from 'lucide-react';
 import { describeIntent, didYouMean, smartSearch } from '@/lib/search';
+import { STARTER_MOVIES, isValidImdbId, searchMovies } from '@/lib/movies';
 import { aiIntent } from '@/lib/aiSearch';
 import { getSearchIndex, peekSearchIndex } from '@/lib/searchIndex';
 import { formatPKR } from '@/lib/format';
@@ -87,6 +88,8 @@ export default function SearchBox({ id, className = '', categories = [] }) {
   const view = ai && ai.results.length ? ai : local;
   const hits = view.results;
   const chips = describeIntent(view.intent || {});
+  const movieHits = useMemo(() => (dq.trim().length >= 2 ? searchMovies(dq, STARTER_MOVIES, { limit: 3 }) : []), [dq]);
+  const imdbDirect = useMemo(() => (isValidImdbId(dq.trim()) ? dq.trim().toLowerCase() : ''), [dq]);
 
   // A category whose name matches the query: offered as its own row above the products.
   const catHit = useMemo(() => {
@@ -171,7 +174,7 @@ export default function SearchBox({ id, className = '', categories = [] }) {
                 <Link href="/products" onClick={() => setOpen(false)} className="rounded-full bg-gold px-3 py-1.5 text-sm font-semibold text-white">All products</Link>
               </div>
             </div>
-          ) : !list ? <p className="p-3 text-sm text-dim">Searching...</p> : hits.length === 0 ? (
+          ) : !list ? <p className="p-3 text-sm text-dim">Searching...</p> : hits.length === 0 && movieHits.length === 0 && !imdbDirect ? (
             <div className="p-3 text-sm text-dim">
               <p>No match for &quot;{q}&quot;.</p>
               {(() => { const m = list ? didYouMean(list, q) : ''; return m ? <p className="mt-1">Did you mean <button type="button" className="font-bold text-gold underline" onClick={() => setQ(m)}>{m}</button>?</p> : null; })()}
@@ -197,14 +200,34 @@ export default function SearchBox({ id, className = '', categories = [] }) {
                   )}
                 </li>
               ))}
+              {movieHits.map((m) => (
+                <li key={`mv-${m.slug}`} className="border-t border-line/60">
+                  <Link href={`/movies/${m.slug}`} onClick={() => { setOpen(false); remember(q); }} className="flex items-center gap-3 px-3 py-2 hover:bg-raised">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gold/10 text-gold"><Clapperboard size={16} /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{m.title} ({m.year})</span>
+                      <span className="text-xs text-faint">{m.region} · {m.type === 'series' ? 'Series' : 'Movie'}{m.imdbId ? ` · ${m.imdbId}` : ''}</span>
+                    </span>
+                    <span className="text-xs font-bold text-gold">{m.publicDomainStream ? 'Free Film' : 'Open'}</span>
+                  </Link>
+                </li>
+              ))}
+              {imdbDirect && movieHits.length === 0 && (
+                <li className="border-t border-line/60">
+                  <Link href={`/movies/${imdbDirect}`} onClick={() => { setOpen(false); remember(q); }} className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-bold text-gold hover:bg-raised">
+                    <span className="inline-flex items-center gap-2"><Clapperboard size={16} /> Open IMDb ID {imdbDirect} in Movies Hub</span>
+                    <span>&rarr;</span>
+                  </Link>
+                </li>
+              )}
               <li>
                 <button type="button" onClick={go} className="flex w-full items-center justify-between gap-2 border-t border-line px-3 py-2.5 text-left text-sm font-bold text-gold hover:bg-raised">
-                  <span>See all results for &quot;{q}&quot;</span>
+                  <span>See all product results for &quot;{q}&quot;</span>
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-faint"><CornerDownLeft size={13} /> Enter</span>
                 </button>
               </li>
               <li>
-                <Link href={`/search?q=${encodeURIComponent(q.trim())}`} onClick={() => { setOpen(false); remember(q); }} className="block border-t border-line px-3 py-2.5 text-sm font-bold text-saffron hover:bg-raised">Search everything: tools, Live TV, Quran, Hadith, blog &rarr;</Link>
+                <Link href={`/search?q=${encodeURIComponent(q.trim())}`} onClick={() => { setOpen(false); remember(q); }} className="block border-t border-line px-3 py-2.5 text-sm font-bold text-saffron hover:bg-raised">Search everything: movies, tools, Live TV, Quran, Hadith, blog &rarr;</Link>
               </li>
             </ul>
           )}
