@@ -28,6 +28,10 @@ ${cats.slice(0, 40).map((c) => `- [${c.name}](${absUrl(`/category/${c.slug}`)}):
 
 ## More
 - [Deals: every discounted product in one list](${absUrl('/deals')})
+- [Movies & Series Hub: official trailers, cast, IMDb lookup, 2026–2027 release calendar & free legal public-domain films](${absUrl('/movies')})
+- [Movies Release Calendar](${absUrl('/movies/calendar')})
+- [Actors & Cast Directory](${absUrl('/movies/actors')})
+- [Movies JSON API](${absUrl('/api/movies')})
 - [Quran: 114 surahs with Urdu translation and recitation](${absUrl('/quran')})
 - [Islamic reminders](${absUrl('/islamic')})
 - [Muaaz Iqbal, founder and developer of Mizanora (Kasur, Pakistan)](${absUrl('/muaaz-iqbal')})

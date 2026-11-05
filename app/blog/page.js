@@ -1,9 +1,12 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { getPosts, postCards, getBlogCategories, CATEGORY_LABELS } from '@/lib/blog';
 import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import BlogBrowser from '@/components/BlogBrowser';
+import AdsInject from '@/components/AdsInject';
+import ProductAds from '@/components/ProductAds';
 
 export const metadata = pageMeta({
   title: 'Shopping Blog: Online Shopping Guides and Tips for Pakistan',
@@ -57,9 +60,15 @@ export default function BlogIndex() {
           </div>
         </section>
 
+        <AdsInject slots={['auto']} />
+
         <h2 className="section-title mb-3">Every guide</h2>
         <BlogBrowser posts={cards} categories={cats} />
       </div>
+
+      <Suspense fallback={null}>
+        <ProductAds seed="blog-index" title="Shop Featured Products on Mizanora" note="Cash on Delivery across Pakistan" />
+      </Suspense>
 
       <JsonLd data={[
         breadcrumbJsonLd([['/', 'Home'], ['/blog', 'Blog']]),

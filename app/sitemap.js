@@ -1,11 +1,13 @@
 import { absUrl } from '@/lib/config';
 import { getCategories, getProducts } from '@/lib/products';
 import { allCards } from '@/lib/catalogQuery';
-import { getPosts } from '@/lib/blog';
+import { getBlogCategories, getPosts } from '@/lib/blog';
 import { SURAHS, slugOfSurah } from '@/lib/quran';
 import { TOOLS } from '@/lib/tools';
 import { getTvConfig } from '@/lib/liveTvServer';
 import { channelSlugs } from '@/lib/liveTv';
+import { getMoviesHub } from '@/lib/moviesServer';
+import { youtubeThumbUrl } from '@/lib/movies';
 import { getMuaazImages } from '@/lib/imagesServer';
 import { FOUNDER } from '@/lib/team';
 import { founderPhotoUrls } from '@/lib/founderPhotos';
@@ -30,6 +32,16 @@ export default async function sitemap() {
 // and the archived products already reserve room up to 49,000 - so TV takes 8,000, which is
 // enough for a serious line-up while leaving the total well inside the limit.
       tv = cfg.channels.map((c, i) => ({ c, s: sl[i] })).filter((x) => !x.c.off).slice(0, 8000); } } catch { /* no TV */ }
+  let movieList = [];
+  let actorList = [];
+  try {
+    const mHub = await getMoviesHub();
+    if (mHub && mHub.config && mHub.config.enabled) {
+      movieList = (mHub.movies || []).slice(0, 8000);
+      actorList = (mHub.actors || []).slice(0, 4000);
+    }
+  } catch { /* no movies */ }
+  const blogCats = getBlogCategories();
   const fixed = [
     ['/', 1.0, 'daily'], ['/products', 0.9, 'daily'], ['/how-to-order', 0.7, 'monthly'], ['/blog', 0.8, 'weekly'], ['/workers', 0.8, 'monthly'], ['/reels', 0.6, 'weekly'], ['/track', 0.4, 'monthly'],
     ['/about', 0.5, 'monthly'], ['/team', 0.7, 'weekly'], ['/contact', 0.5, 'monthly'], ['/faq', 0.6, 'monthly'], ['/connect', 0.4, 'monthly'],
@@ -37,6 +49,8 @@ export default async function sitemap() {
     ['/stats', 0.5, 'daily'],
     // v37: the news desk (world / science / technology dispatches) and its own RSS feed
     ['/news', 0.8, 'daily'],
+    // v50: legal Movies & Series discovery hub, release calendar, and actors directory
+    ['/movies', 0.9, 'daily'], ['/movies/calendar', 0.8, 'daily'], ['/movies/actors', 0.8, 'weekly'],
     ['/returns', 0.3, 'yearly'], ['/shipping', 0.5, 'monthly'], ['/size-guide', 0.5, 'monthly'], ['/islamic', 0.6, 'weekly'], ['/deals', 0.9, 'daily'], ['/quran', 0.7, 'monthly'], ['/hadith', 0.7, 'monthly'], ['/live', 0.7, 'daily'], ['/tools', 0.9, 'weekly'], ['/reviews', 0.7, 'daily'], ['/muaaz-iqbal', 0.8, 'monthly'], ['/winter', 0.7, 'weekly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'],
   ].map(([p, priority, changeFrequency]) => ({ url: absUrl(p), lastModified: now, changeFrequency, priority }));
   // v31: /muaaz-iqbal carries its images in the sitemap (Google Images / search)
@@ -47,10 +61,23 @@ export default async function sitemap() {
     ...fixedWithImgs,
     ...SURAHS.map((x) => ({ url: absUrl(`/quran/${slugOfSurah(x.n)}`), lastModified: now, changeFrequency: 'yearly', priority: 0.5 })),
     ...cats.map((c) => ({ url: absUrl(`/category/${c.slug}`), lastModified: now, changeFrequency: 'weekly', priority: 0.8 })),
+    ...blogCats.map((c) => ({ url: absUrl(`/blog/category/${c.slug}`), lastModified: now, changeFrequency: 'weekly', priority: 0.7 })),
     ...products.map((p) => ({ url: absUrl(`/product/${p.slug}`), lastModified: new Date(p.updatedAt || p.createdAt || now), changeFrequency: 'weekly', priority: 0.9, images: (p.images || []).slice(0, 3) })),
     // archived products (a sitemap file may hold 50,000 addresses in total)
-    ...archived.slice(0, Math.max(0, 40000 - products.length - cats.length - tv.length)).map((c) => ({ url: absUrl(`/product/${c.slug}`), lastModified: new Date(c.createdAt || now), changeFrequency: 'monthly', priority: 0.6 })),
+    ...archived.slice(0, Math.max(0, 38000 - products.length - cats.length - blogCats.length - tv.length - movieList.length - actorList.length)).map((c) => ({ url: absUrl(`/product/${c.slug}`), lastModified: new Date(c.createdAt || now), changeFrequency: 'monthly', priority: 0.6 })),
     ...TOOLS.map((t) => ({ url: absUrl(`/tools/${t.slug}`), lastModified: now, changeFrequency: 'monthly', priority: 0.8 })),
+    ...movieList.map((m) => {
+      const mImg = String(m.poster || youtubeThumbUrl(m.trailerYoutubeId) || '').trim();
+      const images = mImg ? [mImg.startsWith('http') ? mImg : absUrl(mImg)] : [];
+      return {
+        url: absUrl(`/movies/${m.slug}`),
+        lastModified: now,
+        changeFrequency: m.status === 'upcoming' ? 'daily' : 'weekly',
+        priority: m.status === 'upcoming' ? 0.8 : 0.7,
+        ...(images.length ? { images } : {}),
+      };
+    }),
+    ...actorList.map((a) => ({ url: absUrl(`/movies/actor/${a.slug}`), lastModified: now, changeFrequency: 'monthly', priority: 0.6 })),
     ...tv.map((x) => ({ url: absUrl(`/live/${x.s}`), lastModified: now, changeFrequency: 'weekly', priority: 0.5 })),
     // v31: blog posts advertise their image (front matter "image: https://...")
     // v36: a sitemap must hold ABSOLUTE image addresses. A guide may name a local picture

@@ -29,6 +29,7 @@ service cloud.firestore {
     // denied with no error at all - it would just look like "zero channels". Today only the
     // Admin SDK touches them (server-side, rules do not apply), but the rule makes it safe.
     match /siteMeta/{id}/channels/{part} { allow read: if true; allow write: if isAdmin(); }
+    match /siteMeta/{id}/parts/{part}    { allow read: if true; allow write: if isAdmin(); }
 
     // v29: SECRETS (YouTube stream key). Nobody can read or write these from a browser - only the server (Admin SDK) can.
     // siteMeta above is PUBLIC, so a stream key must never be stored there.

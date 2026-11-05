@@ -49,7 +49,7 @@ const nextConfig = {
       { source: '/service-worker.js', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
       { source: '/(.*)', headers: [
         { key: 'X-Content-Type-Options', value: 'nosniff' },
-        { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ...(process.env.ALLOW_PREVIEW_IFRAME === '1' ? [] : [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }]),
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         // microphone=(self): the shop's own pages may ask for the mic (voice assistant). Other websites embedded in the shop still cannot.
         { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
