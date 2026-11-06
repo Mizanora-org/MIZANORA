@@ -19,6 +19,8 @@ import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import MoviePosterCard from '@/components/MoviePosterCard';
 import MoviesBrowser from '@/components/MoviesBrowser';
+import ContinueWatching from '@/components/ContinueWatching';
+import MyListShelf from '@/components/MyListShelf';
 import { getMoviesHub } from '@/lib/moviesServer';
 import { getMovieServers } from '@/lib/movieServersServer';
 import { posterHue, searchMovies, titleInitials } from '@/lib/movies';
@@ -143,6 +145,10 @@ export default async function MoviesHubPage({ searchParams }) {
 
         <AdsInject slots={['auto']} />
       </section>
+
+      {/* v51: this browser's own "Continue watching" shelf (private, localStorage only) */}
+      {!initialQuery && <ContinueWatching className="pt-6" />}
+      {!initialQuery && <MyListShelf className="pt-6" />}
 
       {/* Shelf 0: Upcoming 2026–2027 Releases (Ane Wali) */}
       {upcomingTitles.length > 0 && !initialQuery && (

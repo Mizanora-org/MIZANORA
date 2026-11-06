@@ -75,6 +75,9 @@ export default function MovieServersAdmin({ onChanged }) {
   const [form, setForm] = useState(EMPTY);
   const [editing, setEditing] = useState('');
   const [previewId, setPreviewId] = useState('tt22084616');
+  const [bulkText, setBulkText] = useState('');
+  const [bulkRights, setBulkRights] = useState(false);
+  const [bulkErrors, setBulkErrors] = useState([]);
 
   const call = useCallback(async (payload) => {
     const t = await adminToken();
@@ -150,6 +153,44 @@ export default function MovieServersAdmin({ onChanged }) {
     if (applyResult(r)) {
       setForm(EMPTY);
       setEditing('');
+    }
+    setBusy('');
+  };
+
+  const runBulkAdd = async () => {
+    const rows = bulkText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, MAX_MOVIE_SERVERS)
+      .map((line) => {
+        const parts = line.split('|').map((x) => x.trim());
+        if (parts.length >= 2) return { name: parts[0].slice(0, 40), template: parts.slice(1).join('|').trim() };
+        return { name: '', template: line };
+      })
+      .filter((r) => r.template);
+    if (!rows.length) {
+      setErr('Har line par ek link likhein (ya "Naam | link").');
+      return;
+    }
+    if (!bulkRights) {
+      setErr('Bulk add se pehle rights confirmation tick karein.');
+      return;
+    }
+    setBusy('bulk');
+    setErr('');
+    setMsg('');
+    setBulkErrors([]);
+    const r = await call({ action: 'bulkAdd', servers: rows, rightsConfirmed: true });
+    if (r && r.ok) {
+      setCfg(r.cfg);
+      setBulkText('');
+      setBulkRights(false);
+      setBulkErrors(Array.isArray(r.errors) ? r.errors : []);
+      setMsg(r.message || `${r.added || rows.length} servers add ho gaye.`);
+      if (onChanged) onChanged();
+    } else {
+      setErr((r && r.error) || 'Bulk add fail ho gaya.');
     }
     setBusy('');
   };
@@ -417,6 +458,43 @@ export default function MovieServersAdmin({ onChanged }) {
         </button>
       </section>
 
+      {/* bulk paste */}
+      <details className="rounded-3xl border border-line bg-surface p-5">
+        <summary className="cursor-pointer font-display text-lg font-extrabold text-cream">
+          Bulk add — ek saath kai servers paste karein
+        </summary>
+        <p className="mt-2 text-xs text-dim">
+          Har line par ek link. Naam bhi dena ho to <code className="rounded bg-raised px-1 font-mono">Naam | link</code> likhein.
+          Khali naam ho to host ka naam khud aa jata hai. Duplicate links aur ghalat links skip ho jate hain.
+        </p>
+        <textarea
+          className="input mt-2 font-mono text-xs"
+          rows={5}
+          value={bulkText}
+          onChange={(e) => setBulkText(e.target.value)}
+          placeholder={'Mizanora CDN | https://my-cdn.com/play/{imdbid}\nBackup HLS | https://backup.example.com/{imdbid}/master.m3u8'}
+          spellCheck={false}
+        />
+        <label className="mt-2 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-[0.7rem] text-amber-900">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#0B6B45]" checked={bulkRights} onChange={(e) => setBulkRights(e.target.checked)} />
+          <span>Main tasdeeq karta/karti hoon ke in tamam servers se stream karne ka haq mere paas hai.</span>
+        </label>
+        <button
+          type="button"
+          onClick={runBulkAdd}
+          disabled={busy === 'bulk' || !bulkText.trim() || !bulkRights}
+          className="btn-gold mt-2 inline-flex items-center gap-1.5 text-sm disabled:opacity-60"
+        >
+          {busy === 'bulk' ? <Loader2 size={15} className="animate-spin" /> : <Layers size={15} />} Add all links
+        </button>
+        {bulkErrors.length > 0 && (
+          <ul className="mt-2 space-y-1 rounded-xl bg-rose-50 p-2.5 text-[0.68rem] text-rose-800">
+            {bulkErrors.slice(0, 6).map((e) => <li key={e}>• {e}</li>)}
+            {bulkErrors.length > 6 && <li>… {bulkErrors.length - 6} more</li>}
+          </ul>
+        )}
+      </details>
+
       {/* list */}
       <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -472,6 +550,19 @@ export default function MovieServersAdmin({ onChanged }) {
                   <div className="flex shrink-0 items-center gap-0.5">
                     <button type="button" aria-label="Move up" title="Move up" onClick={() => move(s, 'up')} disabled={idx === 0 || busy === `mv-${s.id}`} className="rounded p-1.5 text-dim hover:bg-raised hover:text-gold disabled:opacity-30"><ArrowUp size={14} /></button>
                     <button type="button" aria-label="Move down" title="Move down" onClick={() => move(s, 'down')} disabled={idx === cfg.servers.length - 1 || busy === `mv-${s.id}`} className="rounded p-1.5 text-dim hover:bg-raised hover:text-gold disabled:opacity-30"><ArrowDown size={14} /></button>
+                    <button
+                      type="button"
+                      aria-label="Test this server in a new tab"
+                      title="Open this server with the sample IMDb ID"
+                      onClick={() => {
+                        const imdb = /^tt\d{6,10}$/.test(previewId) ? previewId : 'tt22084616';
+                        const url = buildServerUrl(s.template, { imdbId: imdb, title: 'Test', year: 2024, type: s.scope === 'series' ? 'series' : 'movie', season: 1, episode: 1 });
+                        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                      }}
+                      className="rounded p-1.5 text-dim hover:bg-raised hover:text-gold"
+                    >
+                      <ExternalLink size={14} />
+                    </button>
                     <button type="button" aria-label="Duplicate" title="Duplicate" onClick={() => duplicate(s)} disabled={busy === `cp-${s.id}`} className="rounded p-1.5 text-dim hover:bg-raised hover:text-gold"><Copy size={14} /></button>
                     <button type="button" aria-label="Edit" title="Edit" onClick={() => startEdit(s)} className="rounded p-1.5 text-dim hover:bg-raised hover:text-gold"><Pencil size={14} /></button>
                     <button

@@ -23,6 +23,7 @@ import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import CinemaPlayer from '@/components/CinemaPlayer';
 import SafeImg from '@/components/SafeImg';
+import MovieListButton from '@/components/MovieListButton';
 import MoviePosterCard from '@/components/MoviePosterCard';
 import { getMovieCompanionProducts, resolveMovieOrSeries } from '@/lib/moviesServer';
 import { getMovieServers } from '@/lib/movieServersServer';
@@ -302,6 +303,7 @@ export default async function MovieDetailPage({ params }) {
                   <Play size={14} fill="currentColor" />
                   {playableCount > 0 ? `Watch Now (${playableCount} server${playableCount === 1 ? '' : 's'})` : 'Watch Trailer'}
                 </a>
+                <MovieListButton movie={movie} />
                 <Link
                   href="/movies/calendar"
                   className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/20 sm:text-sm"

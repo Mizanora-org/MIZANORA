@@ -76,6 +76,16 @@ chalta hai — kuch bhi kho nahi.
 
 ---
 
+## 3b. Continue Watching, auto server fallback aur bulk add
+
+| Feature | Tafseel |
+|---|---|
+| **Continue Watching** | Player har 4 second baad position save karta hai (`lib/movieProgress.js`, localStorage, device par). `/movies` par nayi shelf: poster, progress bar, “Resume 37%”, “Clear all”. Koi account ya server call nahi. |
+| **Auto server fallback** | Seedha (HLS/MP4) server mar jaye to player khud agla ON server try karta hai — har server sirf ek dafa, taake do kharab hosts ke darmiyan ping-pong na ho. Embed frames ke liye 12 second baad “Next server try karein” chip. |
+| **My List** | Movie page par “My List” button, `/movies` par saved-titles shelf (`lib/movieList.js`, max 60). Device par save — account ki zaroorat nahi. |
+| **Server test** | Admin list mein har server ke saath ↗ button — sample IMDb ID ke saath wohi URL naye tab mein khul jata hai, taake live check ho sake. |
+| **Bulk add** | Admin > Play Servers mein ek saath kai links paste karein — har line par ek link, ya `Naam | link`. Duplicate aur ghalat links skip ho kar report hote hain. |
+
 ## 4. Images — posters, cast aur actors
 
 - `cleanMovie()` ab cast ke saath **`photo`** rakhta hai (safe https only).
@@ -121,6 +131,7 @@ Naya `scripts/test-v51.mjs` (npm test chain mein):
 - `resolveMovieServers` scope / enabled / no-IMDb filtering + duplicate URL removal
 - `searchWorldCatalog`, `searchImdbSuggestions`, `lookupPersonImage` — **mocked fetch** se (koi network nahi)
 - `stubMovieFromImdbId` ka `noindex` placeholder
+- `lib/movieProgress.js`: clock labels, progress %, aur browser ke baghair safe behaviour
 - file wiring: routes, admin panel, player features, world search, legal pages, footer, sitemap, blogs, version
 
 `npm run check`, `npm test` aur `npm run build:offline` — teeno pass.

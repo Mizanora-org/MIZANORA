@@ -21,6 +21,8 @@ const ok = (msg) => { pass += 1; console.log(`ok    ${msg}`); };
 const SV = await imp('lib/movieServers.js');
 const M = await imp('lib/movies.js');
 const Auto = await imp('lib/moviesAutoFeed.js');
+const Prog = await imp('lib/movieProgress.js');
+const List = await imp('lib/movieList.js');
 
 // ---------------------------------------------------------------------------------------------
 // 1. Template validation
@@ -249,6 +251,28 @@ assert.equal(M.stubMovieFromImdbId('not-an-id'), null);
 ok('fallback: a valid tt id renders a placeholder page (noindex) instead of a 404');
 
 // ---------------------------------------------------------------------------------------------
+// 7b. Continue watching helpers (pure, safe without a browser)
+// ---------------------------------------------------------------------------------------------
+assert.equal(Prog.clockLabel(65), '1:05');
+assert.equal(Prog.clockLabel(3725), '1:02:05');
+assert.equal(Prog.clockLabel(-3), '0:00');
+assert.equal(Prog.progressPercent({ t: 30, d: 120 }), 25);
+assert.equal(Prog.progressPercent({ t: 0, d: 120 }), 0);
+assert.equal(Prog.progressPercent({ t: 5, d: 0 }), 0);
+assert.deepEqual(Prog.readRecent(), [], 'no window means an empty list, never a crash');
+assert.deepEqual(Prog.touchRecent({ id: 'tt1', title: 'x' }), [], 'touchRecent must be safe without a browser');
+ok('continue watching: clock labels, progress %, and browser-less safety verified');
+
+assert.deepEqual(List.readList(), [], 'an empty list without a browser, never a crash');
+assert.equal(List.inList('tt1234567'), false);
+assert.deepEqual(List.addToList({ id: 'tt1234567', title: 'Test Movie' }), []);
+assert.equal(List.toggleListItem({ id: 'tt1234567', title: 'Test Movie' }).added, true);
+assert.deepEqual(List.removeListItem('tt1234567'), []);
+assert.deepEqual(List.clearList(), []);
+assert.equal(List.MAX_LIST > 0, true);
+ok('my list: add / toggle / remove / clear are all browser-safe and pure');
+
+// ---------------------------------------------------------------------------------------------
 // 8. Files & wiring
 // ---------------------------------------------------------------------------------------------
 for (const f of [
@@ -266,7 +290,7 @@ for (const f of [
 }
 
 const adminRoute = read('app/api/admin/movie-servers/route.js');
-for (const action of ["'load'", "'add'", "'update'", "'delete'", "'toggle'", "'move'", "'duplicate'", 'verifyAdmin']) {
+for (const action of ["'load'", "'add'", "'update'", "'delete'", "'toggle'", "'move'", "'duplicate'", "'bulkAdd'", 'verifyAdmin']) {
   assert.ok(adminRoute.includes(action), `admin API must handle ${action}`);
 }
 assert.ok(adminRoute.includes('rightsConfirmed'), 'admin API asks the admin to confirm streaming rights');
@@ -281,6 +305,14 @@ const player = read('components/CinemaPlayer.js');
 for (const bit of ['AdRoll', 'Skip ad', 'resolveMovieServers', 'AUDIO_TRACKS_UPDATED', 'SUBTITLE_TRACKS_UPDATED', 'pictureInPicture', 'Resume from', 'hls.js', 'abrEwmaDefaultEstimate', 'requestFullscreen', 'toDataURL']) {
   assert.ok(player.includes(bit), `player missing ${bit}`);
 }
+for (const bit of ['patchRecentProgress', 'handleServerError', 'pickServer', 'next server']) {
+  assert.ok(player.toLowerCase().includes(bit.toLowerCase()), `player missing ${bit}`);
+}
+assert.ok(read('app/movies/page.js').includes('ContinueWatching'), 'the hub must show the continue-watching shelf');
+assert.ok(adminUI.includes('Bulk add') && adminUI.includes("action: 'bulkAdd'"), 'admin UI needs the bulk paste box');
+assert.ok(adminUI.includes('Test this server'), 'admin UI needs a test-in-new-tab button per server');
+assert.ok(read('app/movies/page.js').includes('MyListShelf'), 'the hub must show the My List shelf');
+assert.ok(read('app/movies/[slug]/page.js').includes('MovieListButton'), 'the movie page needs a save-to-list button');
 assert.ok(read('app/movies/[slug]/page.js').includes('servers={serverCfg.servers') && read('app/movies/[slug]/page.js').includes('getMovieServers'), 'detail page must pass the servers to the player');
 
 const browser = read('components/MoviesBrowser.js');

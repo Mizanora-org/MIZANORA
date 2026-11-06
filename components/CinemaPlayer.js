@@ -31,6 +31,7 @@ import {
 import { resolveMovieServers } from '@/lib/movieServers';
 import { cleanLegalStream, posterHue, titleInitials, youtubeEmbedUrl, youtubeThumbUrl } from '@/lib/movies';
 import { formatPKR } from '@/lib/format';
+import { movieEntry, patchRecentProgress, readRecent, touchRecent } from '@/lib/movieProgress';
 
 function fmtTime(sec) {
   const s = Math.max(0, Math.floor(Number(sec) || 0));
@@ -44,22 +45,6 @@ function fmtTime(sec) {
 const resLabel = (height) => (height >= 2160 ? '4K' : height >= 1440 ? '2K' : height >= 1080 ? '1080p' : height >= 720 ? '720p' : height >= 480 ? '480p' : height ? `${height}p` : 'Auto');
 
 const kindLabel = { hls: 'HLS', mp4: 'MP4', dash: 'DASH', embed: 'Embed' };
-
-function readStore(key) {
-  try {
-    const v = window.localStorage.getItem(key);
-    return v ? JSON.parse(v) : null;
-  } catch {
-    return null;
-  }
-}
-function writeStore(key, value) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* private mode */
-  }
-}
 
 export default function CinemaPlayer({ movie, companionProducts = [], servers = [], adConfig = null }) {
   const imdbId = movie && movie.imdbId ? String(movie.imdbId).toLowerCase() : '';
@@ -83,6 +68,8 @@ export default function CinemaPlayer({ movie, companionProducts = [], servers = 
   const [adLeft, setAdLeft] = useState(0);
   const [adIndex, setAdIndex] = useState(0);
   const [railMsg, setRailMsg] = useState('');
+  const [slowHint, setSlowHint] = useState(false);
+  const triedServers = useRef(new Set());
 
   const activeSeason = seasons[seasonIdx] || seasons[0] || null;
   const episodes = (activeSeason && Array.isArray(activeSeason.episodes)) ? activeSeason.episodes : [];
@@ -118,6 +105,8 @@ export default function CinemaPlayer({ movie, companionProducts = [], servers = 
   }, [servers, imdbId, movie, isSeries, activeSeason, episode, archiveStream]);
 
   const activeServer = resolved.find((s) => s.id === serverId) || resolved[0] || null;
+  const canSkip = adStage === 'countdown' && adSeconds - adLeft >= adSkipAfter;
+  const playing = tab === 'watch' && adStage === 'done' && Boolean(activeServer);
 
   // ---- ad timer ------------------------------------------------------------------------------
   useEffect(() => {
@@ -139,7 +128,26 @@ export default function CinemaPlayer({ movie, companionProducts = [], servers = 
     setAdStage('idle');
     setAdLeft(0);
     setRailMsg('');
+    setSlowHint(false);
+    triedServers.current = new Set();
   }, [movie && movie.slug]);
+
+  // Remember this title in "Continue watching" as soon as playback really starts.
+  const movieId = String((movie && (movie.imdbId || movie.slug)) || '').toLowerCase();
+  useEffect(() => {
+    if (!playing || !movie) return;
+    touchRecent({ ...movieEntry(movie), server: (activeServer && activeServer.name) || '' });
+  }, [playing, movieId, activeServer && activeServer.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // An embed frame cannot report its own errors, so after 12 s of nothing we offer the next server.
+  useEffect(() => {
+    if (!playing || !activeServer || activeServer.kind !== 'embed') {
+      setSlowHint(false);
+      return undefined;
+    }
+    const t = setTimeout(() => setSlowHint(true), 12000);
+    return () => clearTimeout(t);
+  }, [playing, activeServer && activeServer.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const adKey = `mz_movie_ad_${(movie && (movie.imdbId || movie.slug)) || 'x'}`;
   const startWatch = useCallback(
@@ -173,8 +181,30 @@ export default function CinemaPlayer({ movie, companionProducts = [], servers = 
     }
   }, [adKey]);
 
-  const canSkip = adStage === 'countdown' && adSeconds - adLeft >= adSkipAfter;
-  const playing = tab === 'watch' && adStage === 'done' && Boolean(activeServer);
+  // Switch servers by hand: forget the "already tried" set from the previous choice.
+  const pickServer = useCallback((id) => {
+    triedServers.current = new Set([id]);
+    setServerId(id);
+    setRailMsg('');
+    setSlowHint(false);
+    if (adStage !== 'done') startWatch(id);
+  }, [adStage, startWatch]);
+
+  // A direct stream that dies (DNS, 403, dead host) moves to the next server on its own - once per
+  // server, so two broken hosts cannot bounce the viewer back and forth.
+  const handleServerError = useCallback((reason) => {
+    const currentId = activeServer && activeServer.id;
+    const idx = resolved.findIndex((s) => s.id === currentId);
+    const next = resolved.slice(idx + 1).find((s) => s.id !== currentId && !triedServers.current.has(s.id));
+    if (next) {
+      triedServers.current.add(next.id);
+      setServerId(next.id);
+      setSlowHint(false);
+      setRailMsg(`“${(activeServer && activeServer.name) || 'Server'}” jawab nahi de raha — “${next.name}” par switch kar diya.`);
+    } else {
+      setRailMsg(reason || 'Yeh server jawab nahi de raha. Upar se doosra server chunein.');
+    }
+  }, [resolved, activeServer]);
 
   const hue = posterHue((movie && (movie.slug || movie.title)) || 'mizanora');
   const backdrop = (movie && (movie.backdrop || ytThumb || movie.poster)) || '';
@@ -242,7 +272,7 @@ export default function CinemaPlayer({ movie, companionProducts = [], servers = 
                   poster={backdrop}
                   title={`${movie.title}${isSeries && activeSeason ? ` · S${activeSeason.season}E${episode}` : ''}`}
                   movie={movie}
-                  onError={(m) => setRailMsg(m)}
+                  onError={handleServerError}
                   onNotice={(m) => setRailMsg(m)}
                 />
               )}
@@ -288,6 +318,19 @@ export default function CinemaPlayer({ movie, companionProducts = [], servers = 
                 />
               )}
 
+              {playing && slowHint && (
+                <div className="absolute bottom-3 right-3 z-20 max-w-[16rem] rounded-xl border border-white/20 bg-black/80 p-2.5 text-right backdrop-blur">
+                  <p className="text-[0.68rem] font-bold text-white/85">Kuch nazar nahi aa raha?</p>
+                  <button
+                    type="button"
+                    onClick={() => handleServerError('')}
+                    className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#F5B83D] px-2.5 py-1 text-[0.66rem] font-extrabold text-[#221600] hover:brightness-95"
+                  >
+                    <SkipForward size={11} /> Next server try karein
+                  </button>
+                </div>
+              )}
+
               {/* ---------- live quality / server chips ---------- */}
               {playing && (
                 <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-wrap items-center gap-1.5">
@@ -323,11 +366,7 @@ export default function CinemaPlayer({ movie, companionProducts = [], servers = 
                       <button
                         key={s.id}
                         type="button"
-                        onClick={() => {
-                          setServerId(s.id);
-                          setRailMsg('');
-                          if (adStage !== 'done') startWatch(s.id);
-                        }}
+                        onClick={() => pickServer(s.id)}
                         className={`shrink-0 rounded-xl border px-3 py-2 text-left text-xs font-bold transition ${
                           on
                             ? 'border-[#F5B83D] bg-[#F5B83D]/15 text-white shadow'
@@ -762,7 +801,7 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const hideTimer = useRef(null);
-  const progressKey = `mz_movie_pos_${(movie && (movie.imdbId || movie.slug)) || 'x'}`;
+  const movieId = String((movie && (movie.imdbId || movie.slug)) || '').toLowerCase();
 
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -812,8 +851,8 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
     const afterMeta = () => {
       setReady(true);
       setBuffering(false);
-      const pos = readStore(progressKey);
-      if (pos && Number(pos.t) > 45 && el.duration && pos.t < el.duration - 45) setResume(Number(pos.t));
+      const saved = readRecent().find((x) => x.id === movieId);
+      if (saved && Number(saved.t) > 45 && el.duration && saved.t < el.duration - 45) setResume(Number(saved.t));
     };
 
     if (server.kind === 'hls' && !el.canPlayType('application/vnd.apple.mpegurl')) {
@@ -909,7 +948,7 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
       killHls();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server.url, server.kind, progressKey]);
+  }, [server.url, server.kind, movieId]);
 
   // ---- html5 events --------------------------------------------------------------------
   useEffect(() => {
@@ -935,7 +974,7 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
 
     const tick = setInterval(() => {
       if (!el.duration || !el.currentTime) return;
-      writeStore(progressKey, { t: el.currentTime, d: el.duration, at: Date.now() });
+      patchRecentProgress(movieId, el.currentTime, el.duration);
       const h = hlsRef.current;
       if (h && h.bandwidthEstimate) setStats((s) => ({ ...s, kbps: Math.round(h.bandwidthEstimate / 1000) }));
       try {
@@ -957,7 +996,7 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
       el.removeEventListener('playing', onCanPlay);
       el.removeEventListener('canplay', onCanPlay);
     };
-  }, [progressKey]);
+  }, [movieId]);
 
   useEffect(() => {
     const onFs = () => setIsFs(Boolean(document.fullscreenElement));

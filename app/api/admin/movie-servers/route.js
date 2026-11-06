@@ -9,6 +9,7 @@ import {
   cleanMoviesServersConfig,
   cleanServer,
   describeServers,
+  sampleTemplateUrl,
   validateServerTemplate,
 } from '@/lib/movieServers';
 import { readMovieServers, saveMovieServers } from '@/lib/movieServersServer';
@@ -131,6 +132,68 @@ export async function POST(req) {
             : action === 'update'
               ? 'Server update ho gaya.'
               : `Save ho gaya — ${saved.cfg.servers.length} server(s).`,
+      });
+    }
+
+    // v51: paste a whole list at once - one link per line, optionally "Name | link".
+    if (action === 'bulkAdd') {
+      const rows = Array.isArray(body.servers) ? body.servers.slice(0, MAX_MOVIE_SERVERS) : [];
+      if (!rows.length) return json({ ok: false, error: 'Koi link nahi mila. Har line par ek link likhein.' }, 400);
+      if (body.rightsConfirmed !== true) {
+        return json({ ok: false, error: 'Bulk add se pehle rights confirmation tick karein.' }, 400);
+      }
+      const room = MAX_MOVIE_SERVERS - cfg.servers.length;
+      if (room <= 0) return json({ ok: false, error: `Maximum ${MAX_MOVIE_SERVERS} servers already reached.` }, 400);
+
+      const seen = new Set(cfg.servers.map((s) => String(s.template || '').trim().toLowerCase()));
+      const added = [];
+      const errors = [];
+      for (const row of rows.slice(0, room)) {
+        const template = String((row && (row.template || row.url)) || '').trim().slice(0, 400);
+        if (!template) continue;
+        const check = validateServerTemplate(template);
+        if (!check.ok) {
+          errors.push(`${template.slice(0, 50)} — ${check.error}`);
+          continue;
+        }
+        if (seen.has(template.toLowerCase())) {
+          errors.push(`${template.slice(0, 50)} — pehle se list mein hai.`);
+          continue;
+        }
+        let host = '';
+        try { host = new URL(sampleTemplateUrl(template)).hostname.replace(/^www\./i, ''); } catch { host = ''; }
+        const server = cleanServer(
+          {
+            name: String((row && row.name) || '').trim() || host || `Server ${cfg.servers.length + added.length + 1}`,
+            template,
+            kind: 'auto',
+            quality: (row && row.quality) || 'Auto',
+            scope: (row && row.scope) || 'all',
+            rightsConfirmed: true,
+          },
+          cfg.servers.length + added.length,
+        );
+        if (!server) {
+          errors.push(`${template.slice(0, 50)} — server validate nahi hua.`);
+          continue;
+        }
+        seen.add(template.toLowerCase());
+        added.push(server);
+      }
+
+      if (!added.length) {
+        return json({ ok: false, error: errors.length ? errors.slice(0, 4).join(' · ') : 'Koi valid link nahi mila.' }, 400);
+      }
+      const saved = await saveMovieServers({ ...cfg, servers: [...cfg.servers, ...added] });
+      if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
+      refresh();
+      return json({
+        ok: true,
+        cfg: saved.cfg,
+        added: added.length,
+        errors,
+        stats: describeServers(saved.cfg.servers),
+        message: `${added.length} server add ho gaye${errors.length ? `, ${errors.length} skip hue` : ''}.`,
       });
     }
 
