@@ -140,7 +140,8 @@ export default function MoviesBrowser({
   return (
     <section id="explore-movies" className="mx-auto max-w-7xl scroll-mt-20 px-3 pt-8 sm:px-4" aria-label="Browse movies and series">
       <div className="rounded-3xl border border-line bg-surface p-4 shadow-sm sm:p-5">
-        {/* Search + IMDb ID instant lookup */}
+        {/* Search + IMDb ID instant lookup — v56: sticky, so the bar stays reachable on a long grid */}
+        <div className="sticky top-16 z-20 -mx-2 mb-1 rounded-2xl bg-surface/95 px-2 py-2 backdrop-blur">
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <div className="relative flex-1">
             <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
@@ -189,6 +190,8 @@ export default function MoviesBrowser({
               <option value="az">Sort: Title A–Z</option>
             </select>
           </div>
+        </div>
+
         </div>
 
         {/* Quick search chips */}

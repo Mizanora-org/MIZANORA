@@ -133,14 +133,17 @@ ok('songs: singer slugs, artist pages, singers strip, browser fallback and sitem
 const guide = read('app/sitemaps/page.js');
 check(guide.length > 3000, '/sitemaps guide page exists');
 check(!guide.includes('[null,'), 'no null breadcrumb paths');
-for (const bit of ['/sitemap-index.xml', '/sitemap.xml', 'movies-0.xml', 'series-0.xml', 'actors.xml', 'live.xml', 'blog.xml', 'songs.xml', 'Search Console', 'MOVIES_SITEMAP_LIMIT']) {
+for (const bit of ['/sitemap-index.xml', '/sitemap.xml', 'actors.xml', 'live.xml', 'blog.xml', 'songs.xml', 'Search Console', 'MOVIES_SITEMAP_LIMIT']) {
   check(guide.includes(bit), `the sitemap guide must explain ${bit}`);
 }
+// v56 partitioned the catalogue by release year; either naming is fine as long as the guide is honest.
+check(guide.includes('titles-') || guide.includes('movies-0.xml'), 'the guide explains the catalogue files');
 const doc = read('SITEMAPS.md');
 check(doc.length > 3000, 'SITEMAPS.md must be a real guide');
-for (const bit of ['/sitemap-index.xml', 'movies-0.xml', 'series-0.xml', 'actors.xml', 'live.xml', 'blog.xml', 'songs.xml', 'Search Console', '500,000', '20,000', 'imdb:ids']) {
+for (const bit of ['/sitemap-index.xml', 'actors.xml', 'live.xml', 'blog.xml', 'songs.xml', 'Search Console', '500,000', '20,000', 'imdb:ids']) {
   check(doc.includes(bit), `SITEMAPS.md missing ${bit}`);
 }
+check(doc.includes('titles-') || doc.includes('movies-0.xml'), 'SITEMAPS.md explains the catalogue files');
 const indexRoute = read('app/sitemap-index.xml/route.js');
 check(indexRoute.includes('/sitemaps/songs.xml'), 'the index lists the songs sitemap');
 const chunkRoute = read('app/sitemaps/[file]/route.js');

@@ -11,10 +11,13 @@ kya hota hai, kitne URLs hote hain, aur Google Search Console mein kya submit ka
 
 | Sitemap file | Kya hai andar | Kitne URLs (default) | Priority | Change freq |
 | --- | --- | --- | --- | --- |
-| `/sitemap-index.xml` | **Sitemap index** — baqi sab files ki list | 8+ files | — | 6h cache |
+| `/sitemap-index.xml` | **Sitemap index** — baqi sab files ki list | 150+ files (v56) | — | 6h cache |
 | `/sitemap.xml` | Core pages: home, shop, categories, products, tools, Quran (114), Hadith, blog, Live TV, movies hub | ~500 – 40,000 | 1.0 – 0.5 | hourly |
-| `/sitemaps/movies-0.xml` … `movies-N.xml` | Har IMDb film, **naye saal pehle** | 20,000 per file | 0.7 | 6h |
-| `/sitemaps/series-0.xml` … `series-N.xml` | IMDb series / dramas | 20,000 per file | 0.7 | 6h |
+| `/sitemaps/titles-YYYY.xml` | **v56:** ek release saal ki saari movies + series (`titles-1999.xml`, `titles-2026.xml` …) | 0 – 45,000 per file | 0.7 – 0.8 | 6h |
+| `/sitemaps/actors-a.xml` … `actors-z.xml` | **v56:** actor profiles, shuru ke harf se | hub ke actors | 0.5 | 6h |
+| `/sitemaps/songs-a.xml` … `songs-z.xml` | **v56:** songs, harf se (sirf jab mirror jawab de) | songs | 0.5 | 6h |
+| `/sitemaps/quran.xml` | **v56:** 114 surahs | 114 | 0.5 | 6h |
+| _(`/sitemaps/movies-N.xml`, `series-N.xml`)_ | Purane chunk routes — **zinda hain** magar index mein list nahi (duplicate na ho) | 20,000 per file | 0.7 | 6h |
 | `/sitemaps/actors.xml` | Actor profiles (cast se bane hue) | hub ke actors (max 40,000) | 0.5 | 6h |
 | `/sitemaps/live.xml` | Live TV channels ke watch pages | enabled channels (max 40,000) | 0.5 | 6h |
 | `/sitemaps/blog.xml` | Blog guides + cover images | saare posts (max 40,000) | 0.6 | 6h |
@@ -78,16 +81,28 @@ script chalata hai aur badli hui file commit karta hai (manual: Actions → imdb
 
 ### Sitemap kitne files banayega?
 
-`ceil(movies / 20000)` + `ceil(series / 20000)` + 4 (actors, live, blog, songs) + `/sitemap.xml`.
+v56 se files ka hisaab **saal + harf** se banta hai, chunk se nahi:
 
-| Titles | Movie chunks | Series chunks | Total files in index |
-| --- | --- | --- | --- |
-| 20,000 | 1 | 1 | 7 |
-| 86,783 (current snapshot) | 5 | 1 | 11 |
-| 200,000 | 10 | 1 | 16 |
-| 500,000 | 25 | 1 | 31 |
+```
+/sitemap-index.xml = 1 (core)
+                   + (jitne saal data mein hain)      ≈ 98
+                   + (jitne actor letters bhare hain)  ≤ 26
+                   + (jitne song letters bhare hain)   ≤ 26
+                   + quran.xml + actors.xml + live.xml + blog.xml + songs.xml
+```
 
-(Agar series 100k+ ho jayein to series chunks bhi barh jaate hain.)
+| Data | Year files | Actor files | Song files | Total files |
+| --- | --- | --- | --- | --- |
+| 86,783 ids (current) | ~98 | ≤ 26 | 0–26 | **~150** |
+| 200,000 ids | ~100 | ≤ 26 | ≤ 26 | ~155 |
+| 500,000 ids | ~110 | ≤ 26 | ≤ 26 | ~165 |
+
+Har file 45,000 URLs se kam rehti hai (Google ki limit 50,000). Isi liye **100+ sitemaps** ka
+matlab yahan "bara number" nahi — chhote, dated, themed files jo crawl hoti hain.
+
+**Quality mode:** `SITEMAP_DATA_ONLY=1` set karne par index sirf un titles ko list karta hai jinka
+data repo mein commit hai (`npm run coverage` se numbers dekhein). Abhi: 17,157 bhare hue, 69,626
+live-IMDb par depend.
 
 ---
 

@@ -25,6 +25,7 @@ import CinemaPlayer from '@/components/CinemaPlayer';
 import SafeImg from '@/components/SafeImg';
 import MovieListButton from '@/components/MovieListButton';
 import MoviePosterCard from '@/components/MoviePosterCard';
+import TitleStubPanel from '@/components/TitleStubPanel';
 import { getMovieCompanionProducts, resolveMovieOrSeries } from '@/lib/moviesServer';
 import { getMovieServers } from '@/lib/movieServersServer';
 import { cinemetaCatalog } from '@/lib/cinemeta';
@@ -183,30 +184,7 @@ export default async function MovieDetailPage({ params }) {
         crumbs={[['/', 'Home'], ['/movies', 'Movies & Series'], [null, movie.title]]}
       />
 
-      {movie.stub && (
-        <section className="mx-auto max-w-7xl px-3 pt-3 sm:px-4">
-          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-sm text-amber-900">
-            <b className="block">Official tafseel abhi load nahi ho saki (IMDb {movie.imdbId}).</b>
-            <p className="mt-1">
-              Poster, cast aur story ke liye thori dair baad page refresh karein. Player neeche mojood hai —
-              play servers is IMDb ID se link khud bana lete hain.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <a href={`/movies/${movie.imdbId}`} className="rounded-full bg-amber-600 px-3 py-1 text-xs font-extrabold text-white hover:brightness-95">
-                Try again
-              </a>
-              <a
-                href={`https://www.imdb.com/title/${movie.imdbId}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full border border-amber-500 px-3 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100"
-              >
-                Open on IMDb
-              </a>
-            </div>
-          </div>
-        </section>
-      )}
+      {movie.stub && <TitleStubPanel movie={movie} />}
 
       {/* Rich Cinema Identity Header */}
       <section className="mx-auto max-w-7xl px-3 pt-4 sm:px-4">

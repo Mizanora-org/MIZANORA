@@ -47,7 +47,7 @@ export default async function BlogPost({ params }) {
     image: p.image ? (p.image.startsWith('http') ? p.image : absUrl(p.image)) : absUrl('/img/hero-banner.jpg'),
     mainEntityOfPage: absUrl(`/blog/${p.slug}`),
     articleSection: catLabel, ...(p.tagList && p.tagList.length ? { keywords: p.tagList.join(', ') } : {}),
-    author: { '@type': 'Person', name: p.author || 'Muaaz Iqbal', jobTitle: 'Founder & Developer', url: absUrl('/team'), worksFor: { '@type': 'Organization', name: SITE.name, url: absUrl('/') } },
+    author: { '@type': 'Person', name: p.author || 'Muaaz Iqbal', jobTitle: 'Founder & Developer', url: absUrl(`/blog/author/${String(p.author || 'Muaaz Iqbal').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`), worksFor: { '@type': 'Organization', name: SITE.name, url: absUrl('/') } },
     publisher: { '@type': 'Organization', name: SITE.name, logo: { '@type': 'ImageObject', url: absUrl('/icons/icon-512.png') } },
   };
   return (
@@ -57,7 +57,8 @@ export default async function BlogPost({ params }) {
         <p className="mb-4 text-sm text-faint">
           <Link href={`/blog/category/${p.category}`} className="mz-tag !no-underline">{catLabel}</Link>
         </p>
-        <p className="mb-6 text-sm text-faint">Published {p.date} · {p.mins} min read · By <b className="text-dim">{p.author || 'Muaaz Iqbal'}</b>, Founder &amp; Developer · <Link href="/team" className="font-semibold text-gold underline underline-offset-4">team page</Link></p>
+        <p className="mb-6 text-sm text-faint">Published {p.date} · {p.mins} min read · By{' '}
+        <Link href={`/blog/author/${String(p.author || 'Muaaz Iqbal').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`} className="font-semibold text-gold underline underline-offset-4">{p.author || 'Muaaz Iqbal'}</Link>, Founder &amp; Developer · <Link href="/team" className="font-semibold text-gold underline underline-offset-4">team page</Link></p>
         {p.heads.length > 2 && (
           <nav aria-label="In this guide" className="mb-8 rounded-2xl border border-line bg-surface p-4">
             <p className="mb-2 font-display text-xl font-semibold">In this guide</p>

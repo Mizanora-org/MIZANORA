@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import {
   Bot, Boxes, Clapperboard, Tv, Flame, MoonStar, Sparkles, Clock, ImageOff, Image, Images, LayoutDashboard, LogOut, Menu, Megaphone, Music4, Package, Plug, Power,
-  Radio, Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X, Server,
+  Radio, Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X, Server, Activity,
 } from 'lucide-react';
 import { authClient } from '@/lib/firebase-client';
 import { adminHit } from '@/lib/adminSearch';
@@ -20,6 +20,7 @@ export const ADMIN_MENU = [
     title: 'Overview',
     items: [
       { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: 'Visitors, sales, orders, funnel' },
+      { href: '/admin/traffic', label: 'Traffic & IP', icon: Activity, hint: 'Countries, cities, masked IPs, 100k/day goal', tag: 'NEW' },
       { href: '/admin/live-channel', label: 'Live Channel', icon: Radio, hint: 'Quran + Hadith live m3u8, ads, YouTube cast', tag: 'NEW' },
       { href: '/admin/studio', label: 'Studio', icon: Sparkles, hint: 'Animations and your own CSS/JS/HTML', tag: 'NEW' },
       { href: '/admin/tv', label: 'Live TV', icon: Tv, hint: 'M3U channels + product ads', tag: 'NEW' },

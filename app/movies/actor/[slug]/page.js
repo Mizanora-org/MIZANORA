@@ -9,6 +9,7 @@ import JsonLd from '@/components/JsonLd';
 import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import MoviePosterCard from '@/components/MoviePosterCard';
+import AvatarImg from '@/components/AvatarImg';
 import { resolveActorProfile } from '@/lib/moviesServer';
 import {
   actorFilmography,
@@ -103,26 +104,13 @@ export default async function ActorDetailPage({ params }) {
       <section className="mx-auto max-w-6xl px-3 pt-4 sm:px-4">
         <div className="rounded-3xl border border-line bg-surface p-5 shadow-md sm:p-7">
           <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-            {actor.photo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={actor.photo}
-                alt={actor.name}
-                loading="eager"
-                referrerPolicy="no-referrer"
-                className="h-28 w-28 shrink-0 rounded-full object-cover ring-4 ring-gold/20 sm:h-32 sm:w-32"
-              />
-            ) : (
-              <span
-                aria-hidden="true"
-                className="grid h-28 w-28 shrink-0 place-items-center rounded-full font-display text-3xl font-extrabold text-white shadow-lg sm:h-32 sm:w-32"
-                style={{
-                  background: `linear-gradient(145deg, hsl(${hue}, 58%, 32%), hsl(${(hue + 45) % 360}, 65%, 15%))`,
-                }}
-              >
-                {titleInitials(actor.name)}
-              </span>
-            )}
+            <AvatarImg
+              src={actor.photo}
+              name={actor.name}
+              hue={hue}
+              initials={titleInitials(actor.name)}
+              className="h-28 w-28 shrink-0 rounded-full object-cover shadow-lg ring-4 ring-gold/20 sm:h-32 sm:w-32"
+            />
 
             <div className="min-w-0 flex-1 text-center sm:text-left">
               <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">

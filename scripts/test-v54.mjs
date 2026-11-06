@@ -142,10 +142,13 @@ check([20000, 500000].includes(noDataset), 'without an env the limit follows the
 if (oldEnv !== undefined) process.env.MOVIES_SITEMAP_LIMIT = oldEnv;
 
 const indexRoute = read('app/sitemap-index.xml/route.js');
-for (const bit of ['sitemaps/movies-', 'sitemaps/series-', '/sitemaps/actors.xml', '/sitemaps/live.xml', '/sitemaps/blog.xml', '/sitemaps/songs.xml', '/sitemap.xml']) {
+// v56: the catalogue is now published one file per release year (titles-YYYY) instead of 20k-row
+// chunks, so accept either shape — what must stay true is that every family is listed.
+for (const bit of ['/sitemaps/actors.xml', '/sitemaps/live.xml', '/sitemaps/blog.xml', '/sitemaps/songs.xml', '/sitemap.xml']) {
   check(indexRoute.includes(bit), `sitemap index must list ${bit}`);
 }
-check(indexRoute.includes('chunkCount'), 'the index derives chunk count from the real pool size');
+check(indexRoute.includes('sitemaps/movies-') || indexRoute.includes('titles-'), 'the index lists the movie/series catalogue');
+check(indexRoute.includes('chunkCount') || indexRoute.includes('years'), 'the index derives its file list from the real pool');
 const chunkRoute = read('app/sitemaps/[file]/route.js');
 for (const bit of ['getSitemapIds', 'SITEMAP_CHUNK', 'getSongsForSitemap', 'getTvConfig', 'getMoviesHub', 'getPosts']) {
   check(chunkRoute.includes(bit), `the chunk route must use ${bit}`);

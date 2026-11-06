@@ -39,6 +39,7 @@ import { getAppMusic } from '@/lib/appMusicServer';
 import { getSiteStatus } from '@/lib/siteGate';
 import SiteGate from '@/components/SiteGate';
 import Tracker from '@/components/Tracker';
+import AnalyticsBeacon from '@/components/AnalyticsBeacon';
 import Maintenance from '@/components/Maintenance';
 import ClosedShop from '@/components/ClosedShop';
 import HideOnAdmin from '@/components/HideOnAdmin';
@@ -162,6 +163,7 @@ export default async function RootLayout({ children }) {
         </AuthProvider>
         </SiteGate>
         <Tracker off={down} />
+        <AnalyticsBeacon off={down} />
         <RefCapture />
         <WorkerPrices />
         <WishSync />

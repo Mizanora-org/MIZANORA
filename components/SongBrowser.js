@@ -21,6 +21,8 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
 
   const audio = useRef(null);
   const reqId = useRef(0);
+  // v56: the audio source chain — Mizanora route → upstream proxy → raw CDN link.
+  const chain = useRef({ song: null, list: [], i: 0 });
 
   const runSearch = useCallback(async (query) => {
     const text = String(query || '').trim();
@@ -81,18 +83,47 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
     return () => { alive = false; };
   }, [initialSongs.length, topics]);
 
+  const attach = useCallback((song) => {
+    const el = audio.current;
+    if (!el || !song) return;
+    const list = [song.playUrl, song.proxyUrl, song.stream].filter(Boolean);
+    chain.current = { song, list: [...new Set(list)], i: 0 };
+    if (!chain.current.list.length) {
+      setError('Is song ka audio link maujood nahi — doosra gaana chunein.');
+      return;
+    }
+    el.src = chain.current.list[0];
+    el.load();
+    el.play().catch(() => setPlaying(false));
+  }, []);
+
   const play = useCallback((song) => {
     const el = audio.current;
     if (!el || !song) return;
     if (current && current.id === song.id) {
-      if (el.paused) { el.play().catch(() => {}); } else { el.pause(); }
+      if (el.paused) { el.play().catch(() => { setError('Play nahi hua — dobara dabayein.'); }); } else { el.pause(); }
       return;
     }
+    setError('');
     setCurrent(song);
-    el.src = song.stream;
-    el.load();
-    el.play().catch(() => setPlaying(false));
-  }, [current]);
+    attach(song);
+  }, [current, attach]);
+
+  // If our route cannot resolve the song (mirror down), try the proxy, then the raw CDN link.
+  const onAudioError = useCallback(() => {
+    const el = audio.current;
+    const c = chain.current;
+    if (!el || !c.song) return;
+    if (c.i + 1 < c.list.length) {
+      c.i += 1;
+      el.src = c.list[c.i];
+      el.load();
+      el.play().catch(() => setPlaying(false));
+      return;
+    }
+    setPlaying(false);
+    setError('Ye song abhi play nahi ho raha — music mirror jawab nahi de raha. Retry karein ya YouTube par sunein.');
+  }, []);
 
   const step = useCallback((dir) => {
     if (!current || !items.length) return;
@@ -206,7 +237,7 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime || 0)}
         onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
         onEnded={() => step(1)}
-        onError={() => setError('Ye song abhi play nahi ho raha — doosra try karein.')}
+        onError={onAudioError}
       />
 
       {current && (
