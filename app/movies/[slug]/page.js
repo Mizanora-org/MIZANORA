@@ -27,6 +27,7 @@ import MovieListButton from '@/components/MovieListButton';
 import MoviePosterCard from '@/components/MoviePosterCard';
 import { getMovieCompanionProducts, resolveMovieOrSeries } from '@/lib/moviesServer';
 import { getMovieServers } from '@/lib/movieServersServer';
+import { cinemetaCatalog } from '@/lib/cinemeta';
 import {
   STARTER_MOVIES,
   posterHue,
@@ -92,7 +93,15 @@ export default async function MovieDetailPage({ params }) {
     getMovieServers(),
   ]);
   const playableCount = (serverCfg.servers || []).filter((s) => s.enabled !== false && (!s.scope || s.scope === 'all' || s.scope === movie.type)).length;
-  const similar = relatedMovies(movie, movies, 6);
+  let similar = relatedMovies(movie, movies, 6);
+  if (!similar.length && movie.genres && movie.genres.length) {
+    // v54: a title that came straight from IMDb has no neighbours in the shop's list yet, so the
+    // "Similar" rail is filled from the same IMDb genre instead of staying empty.
+    try {
+      const extra = await cinemetaCatalog({ type: movie.type, genre: movie.genres[0], timeout: 5000 });
+      similar = extra.filter((m) => m.imdbId !== movie.imdbId).slice(0, 6);
+    } catch { similar = []; }
+  }
   const hue = posterHue(movie.slug || movie.title);
   const thumb = movie.poster || youtubeThumbUrl(movie.trailerYoutubeId);
   const ytEmbed = youtubeEmbedUrl(movie.trailerYoutubeId);
@@ -374,6 +383,44 @@ export default async function MovieDetailPage({ params }) {
           </dl>
         </aside>
       </section>
+
+      {/* v54: Episodes & Seasons (Cinemeta sends the whole episode list) */}
+      {movie.type === 'series' && Array.isArray(movie.seasons) && movie.seasons.length > 0 && (
+        <section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="movie-episodes">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-wider text-gold">Episode Guide</p>
+              <h2 id="movie-episodes" className="section-title">Seasons &amp; Episodes</h2>
+            </div>
+            <span className="text-xs font-bold text-faint">
+              {movie.seasons.length} season{movie.seasons.length === 1 ? '' : 's'} ·{' '}
+              {movie.seasons.reduce((n, s) => n + (s.episodes ? s.episodes.length : 0), 0)} episodes
+            </span>
+          </div>
+          <div className="space-y-2">
+            {movie.seasons.map((s, i) => (
+              <details key={`s-${s.season}`} open={i === 0} className="overflow-hidden rounded-2xl border border-line bg-surface">
+                <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 font-display text-sm font-extrabold text-cream">
+                  <span>Season {s.season}</span>
+                  <span className="text-xs font-bold text-faint">{s.episodes ? s.episodes.length : 0} episodes</span>
+                </summary>
+                <ol className="divide-y divide-line border-t border-line">
+                  {(s.episodes || []).map((ep) => (
+                    <li key={`e-${s.season}-${ep.e}`} className="flex gap-3 px-4 py-2.5 text-sm">
+                      <span className="w-10 shrink-0 font-mono text-xs font-bold text-gold">E{ep.e}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-bold text-cream">{ep.title}</span>
+                        {ep.airDate && <span className="text-[0.7rem] font-semibold text-faint">{ep.airDate}</span>}
+                        {ep.summary && <span className="mt-0.5 block text-xs leading-5 text-dim">{ep.summary}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Cast & Actors Section */}
       {movie.cast && movie.cast.length > 0 && (

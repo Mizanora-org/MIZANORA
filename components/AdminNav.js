@@ -25,6 +25,7 @@ export const ADMIN_MENU = [
       { href: '/admin/tv', label: 'Live TV', icon: Tv, hint: 'M3U channels + product ads', tag: 'NEW' },
       { href: '/admin/movies', label: 'Movies & Series', icon: Clapperboard, hint: 'Trailers, cast, calendar & legal films', tag: 'NEW' },
       { href: '/admin/play-servers', label: 'Play Servers', icon: Server, hint: 'Movie sources: add, edit, delete, order', tag: 'NEW' },
+      { href: '/admin/songs', label: 'Songs', icon: Music4, hint: 'Music mirrors, live search, sitemap entry', tag: 'NEW' },
       { href: '/admin/quran', label: 'Quran session', icon: MoonStar, hint: 'Recitation + ayat at set times', tag: 'NEW' },
       { href: '/admin/deals', label: 'Deals page', icon: Flame, hint: 'One-link /deals settings', tag: 'NEW' },
       { href: '/admin/connections', label: 'Connections', icon: Plug, hint: 'Firestore, Realtime Database and GitHub test', tag: 'NEW' },
