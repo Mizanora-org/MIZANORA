@@ -9,6 +9,7 @@ import { getTvConfig } from '@/lib/liveTvServer';
 import { getPosts } from '@/lib/blog';
 import { getSongsForSitemap } from '@/lib/songsServer';
 import { coverage, coverageVerdict } from '@/lib/coverage';
+import { seedActorLetters, seedCastSize } from '@/lib/imdbSeed';
 
 // v55 — a human-readable map of every sitemap MIZANORA publishes.
 // Google needs the XML; shop owners, developers and "why is my page not indexed?" questions need
@@ -34,7 +35,7 @@ export default async function SitemapsGuidePage() {
   const movieChunks = chunkCount(movieCount);
   const seriesChunks = chunkCount(seriesCount);
   // v56 — the catalogue is now published one file per release year, plus A–Z actor/song files.
-  const years = [...new Set(ids.map((x) => Number(x.year)).filter((y) => y >= 1900 && y <= 2100))].sort((a, b) => a - b);
+  const years = [...new Set(ids.map((x) => Number(x.year)).filter((y) => y >= 1870 && y <= 2100))].sort((a, b) => a - b);
 
   const hub = await getMoviesHub().catch(() => ({ actors: [] }));
   const tv = await getTvConfig().catch(() => ({ channels: [] }));
@@ -42,9 +43,14 @@ export default async function SitemapsGuidePage() {
   const songData = await getSongsForSitemap().catch(() => ({ songs: [], artists: [] }));
   const songs = songData.songs || [];
   const artists = songData.artists || [];
-  const actorLetters = [...new Set((hub.actors || []).map((a) => String(a.slug || '').charAt(0)).filter((c) => /[a-z]/.test(c)))].sort();
+  // v59 — merge the hub's curated actors with the IMDb cast snapshot, exactly like the sitemap
+  // index does, so this page never under-reports the number of files Google will be given.
+  const actorSet = new Set((hub.actors || []).map((a) => String(a.slug || '').charAt(0)).filter((c) => /[a-z]/.test(c)));
+  try { for (const l of seedActorLetters(3)) actorSet.add(l); } catch { /* snapshot missing */ }
+  const actorLetters = [...actorSet].sort();
+  const hasUnknownYear = ids.some((x) => !(Number(x.year) >= 1870 && Number(x.year) <= 2100));
   const songLetters = [...new Set(songs.map((x) => String(x.slug || '').charAt(0)).filter((c) => /[a-z0-9]/.test(c)))].sort();
-  const fileCount = 1 + years.length + actorLetters.length + songLetters.length + 5;
+  const fileCount = 1 + years.length + (hasUnknownYear ? 1 : 0) + actorLetters.length + songLetters.length + 5;
   const cov = coverage();
   const verdict = coverageVerdict(cov);
 
@@ -74,11 +80,19 @@ export default async function SitemapsGuidePage() {
       note: 'v56: the catalogue is split one file per release year (titles-1999.xml, titles-2026.xml …). Small dated lists are crawled far more reliably than 20,000-row blocks. The old movies-N / series-N files still answer but are no longer listed, so no URL is submitted twice.',
       priority: '0.7 – 0.8',
     },
+    ...(hasUnknownYear ? [{
+      file: '/sitemaps/titles-unknown.xml',
+      title: 'Titles without a usable year',
+      icon: Film,
+      count: `${fmt(ids.filter((x) => !(Number(x.year) >= 1870 && Number(x.year) <= 2100)).length)} URLs · 1 file`,
+      note: 'v59: a handful of catalogue ids have no release year, so they can never belong to a titles-YEAR file. They used to fall out of the sitemap entirely; now they get their own file.',
+      priority: '0.7',
+    }] : []),
     {
       file: actorLetters.length ? `/sitemaps/actors-a.xml … actors-${actorLetters[actorLetters.length - 1]}.xml` : '/sitemaps/actors.xml',
       title: 'Actor profiles A–Z',
       icon: Users,
-      count: `${fmt((hub.actors || []).length)} URLs · ${actorLetters.length} files`,
+      count: `${fmt(seedCastSize(3))} cast + ${fmt((hub.actors || []).length)} curated · ${actorLetters.length} files`,
       note: 'Every actor page, one file per starting letter, so a crawl never depends on one huge list.',
       priority: '0.5',
     },
@@ -228,6 +242,7 @@ export default async function SitemapsGuidePage() {
         <article className="rounded-3xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="font-display text-lg font-extrabold text-cream">Zyada movies kaise add karein (500,000 tak)</h2>
           <ol className="mt-2 space-y-2 text-sm leading-6 text-dim">
+            <li><strong className="text-cream">Abhi:</strong> committed pool <b className="text-cream">{fmt(ids.length)}</b> titles (films + series) hai, aur sitemap un sab ko list karta hai.</li>
             <li><strong className="text-cream">1.</strong> <code className="rounded bg-raised px-1 font-mono">npm run imdb:ids</code> chalayein — IMDb ke dataset se latest 500,000 titles ki list ban jati hai.</li>
             <li><strong className="text-cream">2.</strong> <code className="rounded bg-raised px-1 font-mono">data/imdb-ids.txt</code> commit karein (weekly GitHub Action ye khud karta hai).</li>
             <li><strong className="text-cream">3.</strong> Deployment par <code className="rounded bg-raised px-1 font-mono">MOVIES_SITEMAP_LIMIT=500000</code> set karein.</li>

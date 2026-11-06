@@ -10,8 +10,11 @@ import ProductAds from '@/components/ProductAds';
 import MoviesCalendarClient from '@/components/MoviesCalendarClient';
 import { getMoviesHub } from '@/lib/moviesServer';
 import { seedNewest, seedUpcoming } from '@/lib/imdbSeed';
+import { enrichReleaseDates } from '@/lib/releaseDates';
 
 export const revalidate = 1800;
+// Cinemeta look-ups are budgeted (see enrichReleaseDates); 20s keeps a cold render inside the limit
+export const maxDuration = 20;
 
 export const metadata = {
   ...pageMeta({
@@ -40,7 +43,14 @@ export default async function MoviesCalendarPage() {
     seen.add(m.slug);
     return true;
   });
+
+  // v59 — the snapshot only knows the year, which is why everything sat under "date TBA". Ask
+  // Cinemeta for the exact day (same source the rest of the catalogue uses), a few at a time and
+  // with a time budget; anything it does not answer keeps its honest "date TBA" group.
+  await enrichReleaseDates(movies, { limit: 200, budgetMs: 8000, concurrency: 12 });
+
   const upcoming = movies.filter((m) => m.status === 'upcoming');
+  const dated = movies.filter((m) => /^\d{4}-\d{2}-\d{2}$/.test(m.releaseDate || '')).length;
 
   const itemListLd = {
     '@context': 'https://schema.org',
@@ -76,7 +86,8 @@ export default async function MoviesCalendarPage() {
       <section className="mx-auto max-w-6xl px-3 pt-4 sm:px-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-gradient-to-r from-[#0B6B45] to-[#13293d] p-4 text-white">
           <p className="text-sm font-semibold">
-            <b>{upcoming.length} upcoming releases</b>{upcoming.length === 0 ? ' — IMDb se naye releases ka intezar hai; neeche recent releases ka calendar mojood hai' : ' tracked'} — filter by region and type below.
+            <b>{upcoming.length} upcoming releases</b> · <b>{dated}</b> exact dates confirmed
+            {upcoming.length === 0 ? ' — Cinemeta se naye releases ka intezar hai; neeche recent releases ka calendar mojood hai' : ' tracked'} — filter by region and type below.
           </p>
           <div className="flex flex-wrap gap-3 text-xs font-extrabold">
             <Link href="/movies" className="inline-flex items-center gap-1 text-[#F5B83D] hover:underline">

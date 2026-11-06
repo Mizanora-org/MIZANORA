@@ -11,18 +11,25 @@ kya hota hai, kitne URLs hote hain, aur Google Search Console mein kya submit ka
 
 | Sitemap file | Kya hai andar | Kitne URLs (default) | Priority | Change freq |
 | --- | --- | --- | --- | --- |
-| `/sitemap-index.xml` | **Sitemap index** — baqi sab files ki list | 150+ files (v56) | — | 6h cache |
+| `/sitemap-index.xml` | **Sitemap index** — baqi sab files ki list | 151 files (v59, committed pool ke saath) | — | 6h cache |
 | `/sitemap.xml` | Core pages: home, shop, categories, products, tools, Quran (114), Hadith, blog, Live TV, movies hub | ~500 – 40,000 | 1.0 – 0.5 | hourly |
 | `/sitemaps/titles-YYYY.xml` | **v56:** ek release saal ki saari movies + series (`titles-1999.xml`, `titles-2026.xml` …) | 0 – 45,000 per file | 0.7 – 0.8 | 6h |
-| `/sitemaps/actors-a.xml` … `actors-z.xml` | **v56:** actor profiles, shuru ke harf se | hub ke actors | 0.5 | 6h |
+| `/sitemaps/titles-unknown.xml` | **v59:** woh ids jinka koi saal nahi (e.g. `tt8206668`) — pehle sitemap se bahar reh jate the | 2 (pool ke mutabiq) | 0.7 | 6h |
+| `/sitemaps/titles-1894.xml` | **v59:** 1900 se purane titles ka apna saal file (pehle silent drop ho jate the) | 1 | 0.7 | 6h |
+| `/sitemaps/actors-a.xml` … `actors-z.xml` | **v59:** har harf ke saare cast members (curated + IMDb snapshot, 3+ titles) | **10,394** log / 26 files (letter J = 1,181) | 0.5 | 6h |
 | `/sitemaps/songs-a.xml` … `songs-z.xml` | **v56:** songs, harf se (sirf jab mirror jawab de) | songs | 0.5 | 6h |
 | `/sitemaps/quran.xml` | **v56:** 114 surahs | 114 | 0.5 | 6h |
 | _(`/sitemaps/movies-N.xml`, `series-N.xml`)_ | Purane chunk routes — **zinda hain** magar index mein list nahi (duplicate na ho) | 20,000 per file | 0.7 | 6h |
-| `/sitemaps/actors.xml` | Actor profiles (cast se bane hue) | hub ke actors (max 40,000) | 0.5 | 6h |
+| `/sitemaps/actors.xml` | **v59:** poora actor directory (curated + snapshot) | **10,756** URLs | 0.5 | 6h |
 | `/sitemaps/live.xml` | Live TV channels ke watch pages | enabled channels (max 40,000) | 0.5 | 6h |
 | `/sitemaps/blog.xml` | Blog guides + cover images | saare posts (max 40,000) | 0.6 | 6h |
-| `/sitemaps/songs.xml` | **Songs + singers** (v55) | 500 songs + 12 singers tak | 0.5 – 0.6 | 6h |
+| `/sitemaps/songs.xml` | **Songs + singers** (v59: 23 queries, 6h memo) | **900 songs** + 4,000 tak singers | 0.5 – 0.6 | 6h |
 | `/api/feed/google` | Google Merchant product feed (XML, sitemap nahi) | products | — | 1h |
+
+**v59 ki haqeeqat:** committed `data/imdb-ids.txt` mein **86,783** ids hian (86,781 ke saath saal,
+2 baghair). `MOVIES_SITEMAP_LIMIT` 500,000 tak ja sakta hai, magar asli hadd wohi file hai — is liye
+koi page ya doc yeh nahi kehta ke 500k titles live hian. Files index mein 151 hain, aur woh har
+committed id ko cover karti hian (year-wise + `titles-unknown.xml`).
 
 **Chunk rule:** ek sitemap file mein Google ki legal limit 50,000 URLs hai. Mizanora 20,000 par
 rehta hai (`SITEMAP_CHUNK`), is liye 500,000 titles = **25 files** — har file comfortably valid.

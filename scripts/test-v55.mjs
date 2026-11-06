@@ -116,7 +116,10 @@ eq(Songs.artistNameFromSlug('atif-aslam'), 'Atif Aslam');
 eq(Songs.artistNameFromSlug('arijit-singh'), 'Arijit Singh');
 const songsServer = read('lib/songsServer.js');
 for (const bit of ['getArtistSongs', 'getTrendingArtists', 'artistSlug']) check(songsServer.includes(bit), `songsServer must expose ${bit}`);
-check(songsServer.includes('artists: artists.map'), 'the songs sitemap feed returns singers too');
+// v59: the feed now merges mirror results into a deduped artist map (artists: [...values]) and is
+// memoised, so assert the behaviour it must keep rather than one exact line of source.
+check(songsServer.includes('seenArtists') && /artists:\s*\[\.\.\.seenArtists/.test(songsServer), 'the songs sitemap feed returns singers too');
+check(songsServer.includes('sitemapCache'), 'the songs sitemap feed is memoised for the per-letter files');
 const artistPage = read('app/songs/artist/[slug]/page.js');
 check(artistPage.length > 2000, 'the singer page exists');
 for (const bit of ['MusicGroup', 'getArtistSongs', 'SongBrowser', 'clockTime']) check(artistPage.includes(bit), `singer page must include ${bit}`);
