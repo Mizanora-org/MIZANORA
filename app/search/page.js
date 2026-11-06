@@ -15,8 +15,8 @@ import { siteSearch } from '@/lib/siteSearch';
 // Search everything on Mizanora that is not a product: Movies & Series, Actors, tools, Live TV channels, Quran, Hadith, blog guides and pages.
 export const dynamic = 'force-dynamic';
 export const metadata = pageMeta({
-  title: 'Search Mizanora',
-  description: 'Search movies, series, IMDb IDs, actors, tools, Live TV channels, Quran, Hadith, guides and products on Mizanora.',
+  title: 'Search Mizanora - Movies, Series, Songs, Actors, Quran, Tools',
+  description: 'Search movies, series, IMDb IDs, actors, songs and singers, tools, Live TV channels, Quran, Hadith, guides and products on Mizanora.',
   path: '/search',
   noindex: true,
 });
@@ -56,10 +56,10 @@ export default async function SearchPage({ searchParams }) {
 
   return (
     <>
-      <PageHead title={q ? `Results for "${q}"` : 'Search Mizanora'} intro="Movies, series, actors, tools, Live TV channels, Quran, Hadith, guides and pages in one place." crumbs={[['/', 'Home'], [null, 'Search']]} />
+      <PageHead title={q ? `Results for "${q}"` : 'Search Mizanora'} intro="Movies, series, actors, songs, tools, Live TV channels, Quran, Hadith, guides and pages in one place." crumbs={[['/', 'Home'], [null, 'Search']]} />
       <section className="mx-auto max-w-4xl px-4 py-6">
         <form action="/search" method="get" className="flex gap-2" role="search">
-          <input name="q" defaultValue={q} className="input" placeholder="Search: Maula Jatt, tt1375666, Fawad Khan, zakat, geo news, surah yasin..." aria-label="Search" />
+          <input name="q" defaultValue={q} className="input" placeholder="Search: Maula Jatt, tt1375666, Kesariya, Atif Aslam, Fawad Khan, zakat..." aria-label="Search" />
           <button className="btn-gold" type="submit">Search</button>
         </form>
         {q && <p className="mt-3 text-sm"><Link className="font-bold text-gold underline" href={`/products?q=${encodeURIComponent(q)}`}>Search shop products for &quot;{q}&quot; &rarr;</Link></p>}

@@ -44,6 +44,14 @@ export async function GET(request, context) {
       changefreq: 'weekly',
       priority: '0.7',
     }));
+  } else if (name === 'titles-unknown') {
+    // v59 — a handful of ids in the pool have no year at all. Before this they silently fell out of
+    // every year file; now they are still crawlable.
+    const ids = await getSitemapIds().catch(() => []);
+    entries = ids
+      .filter((x) => !(Number(x.year) >= 1870 && Number(x.year) <= 2100))
+      .slice(0, 45000)
+      .map((x) => urlTag(`/movies/${x.id}`, { lastmod: today, changefreq: 'weekly', priority: '0.6' }));
   } else if (/^titles-\d{4}$/.test(name)) {
     // v56 — one file per release year. This is the canonical partition now: a sitemap chunk that
     // mixes 1930s films with 2026 series tells Google nothing, while `titles-2026.xml` is a clean,
@@ -57,15 +65,30 @@ export async function GET(request, context) {
       .map((x) => urlTag(`/movies/${x.id}`, { lastmod: today, changefreq: 'weekly', priority: year >= new Date().getFullYear() ? 0.8 : 0.7 }));
   } else if (/^actors-[a-z]$/.test(name)) {
     // A–Z actor files: small, obviously-themed lists are crawled far more reliably than one 40k file.
+    // v59 also lists the IMDb cast directory (10k+ people with 3+ titles), not just curated profiles.
     const letter = name.slice(7);
+    const seenActor = new Set();
+    const rows = [];
     try {
       const { getMoviesHub } = await import('@/lib/moviesServer');
       const hub = await getMoviesHub();
-      entries = (hub.actors || [])
-        .filter((a) => String(a.slug || '').startsWith(letter))
-        .slice(0, 40000)
-        .map((a) => urlTag(`/movies/actor/${a.slug}`, { lastmod: today, changefreq: 'monthly', priority: '0.5' }));
-    } catch { entries = []; }
+      for (const a of (hub.actors || [])) {
+        const slug = String(a.slug || '');
+        if (!slug.startsWith(letter) || seenActor.has(slug)) continue;
+        seenActor.add(slug);
+        rows.push(slug);
+      }
+    } catch { /* curated list unavailable */ }
+    try {
+      // v59 — the whole letter (up to ~1,200 people), not the first 200 rows.
+      const { seedActorSlugs } = await import('@/lib/imdbSeed');
+      for (const slug of seedActorSlugs({ letter, minTitles: 3, limit: 40000 })) {
+        if (seenActor.has(slug)) continue;
+        seenActor.add(slug);
+        rows.push(slug);
+      }
+    } catch { /* snapshot unavailable */ }
+    entries = rows.slice(0, 40000).map((slug) => urlTag(`/movies/actor/${slug}`, { lastmod: today, changefreq: 'monthly', priority: '0.5' }));
   } else if (/^songs-[a-z0-9]$/.test(name)) {
     const letter = name.slice(6);
     try {
@@ -80,11 +103,27 @@ export async function GET(request, context) {
   } else if (name === 'quran') {
     entries = SURAHS.map((x) => urlTag(`/quran/${slugOfSurah(x.n)}`, { lastmod: today, changefreq: 'yearly', priority: '0.5' }));
   } else if (name === 'actors') {
+    const seenActor = new Set();
+    const slugs = [];
     try {
       const { getMoviesHub } = await import('@/lib/moviesServer');
       const hub = await getMoviesHub();
-      entries = (hub.actors || []).slice(0, 40000).map((a) => urlTag(`/movies/actor/${a.slug}`, { lastmod: today, changefreq: 'monthly', priority: '0.5' }));
-    } catch { entries = []; }
+      for (const a of (hub.actors || [])) {
+        if (!a || !a.slug || seenActor.has(a.slug)) continue;
+        seenActor.add(a.slug);
+        slugs.push(a.slug);
+      }
+    } catch { /* ignore */ }
+    try {
+      // v59 — actors.xml is the full directory page: every snapshot cast member, not 200 of them.
+      const { seedActorSlugs } = await import('@/lib/imdbSeed');
+      for (const slug of seedActorSlugs({ minTitles: 3, limit: 40000 })) {
+        if (seenActor.has(slug)) continue;
+        seenActor.add(slug);
+        slugs.push(slug);
+      }
+    } catch { /* ignore */ }
+    entries = slugs.slice(0, 40000).map((slug) => urlTag(`/movies/actor/${slug}`, { lastmod: today, changefreq: 'monthly', priority: '0.5' }));
   } else if (name === 'live') {
     try {
       const { getTvConfig } = await import('@/lib/liveTvServer');

@@ -27,7 +27,8 @@ const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
 export async function GET() {
   const ids = await getSitemapIds().catch(() => []);
-  const years = [...new Set(ids.map((x) => Number(x.year)).filter((y) => y >= 1900 && y <= 2100))].sort((a, b) => a - b);
+  const years = [...new Set(ids.map((x) => Number(x.year)).filter((y) => y >= 1870 && y <= 2100))].sort((a, b) => a - b);
+  const hasUnknownYear = ids.some((x) => !(Number(x.year) >= 1870 && Number(x.year) <= 2100));
 
   // Which actor letters actually have people in them? Loading the hub is cached in memory, so this
   // is cheap — and it keeps the index free of empty files.
@@ -37,6 +38,10 @@ export async function GET() {
     const hub = await getMoviesHub();
     const set = new Set((hub.actors || []).map((a) => String(a.slug || '').charAt(0)).filter((c) => /[a-z]/.test(c)));
     actorLetters = LETTERS.filter((l) => set.has(l));
+    // v59: the IMDb cast directory has people in nearly every letter — merge its letters in.
+    const { seedActorLetters } = await import('@/lib/imdbSeed');
+    const set2 = new Set([...actorLetters, ...seedActorLetters(3)]);
+    actorLetters = LETTERS.filter((l) => set2.has(l));
   } catch { actorLetters = []; }
 
   // Songs depend on a third-party mirror; only advertise the files if the catalogue answered.
@@ -53,6 +58,7 @@ export async function GET() {
   const files = [
     '/sitemap.xml',
     ...years.map((y) => `/sitemaps/titles-${y}.xml`),
+    ...(hasUnknownYear ? ['/sitemaps/titles-unknown.xml'] : []),
     ...actorLetters.map((l) => `/sitemaps/actors-${l}.xml`),
     ...songLetters.map((l) => `/sitemaps/songs-${l}.xml`),
     '/sitemaps/quran.xml',
