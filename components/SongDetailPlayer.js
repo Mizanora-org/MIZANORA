@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { Music2, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
-import { clockTime } from '@/lib/songs';
+import { clockTime, songImageSrc } from '@/lib/songs';
 import { useMusic } from '@/components/MusicProvider';
 
 // Mizanora v57 — the song page player.
@@ -31,10 +31,10 @@ export default function SongDetailPlayer({ song, queue = [] }) {
     <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
       <div className="flex flex-col gap-5 p-5 sm:flex-row">
         <div className="mx-auto h-44 w-44 shrink-0 overflow-hidden rounded-2xl bg-raised shadow-lg sm:mx-0 sm:h-52 sm:w-52">
-          {shown && shown.image ? (
+          {shown && songImageSrc(shown) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={shown.image}
+              src={songImageSrc(shown)}
               alt={shown.title}
               referrerPolicy="no-referrer"
               className="h-full w-full object-cover"

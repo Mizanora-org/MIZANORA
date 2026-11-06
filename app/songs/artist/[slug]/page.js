@@ -5,7 +5,7 @@ import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { absUrl } from '@/lib/config';
 import JsonLd from '@/components/JsonLd';
 import SongBrowser from '@/components/SongBrowser';
-import { artistNameFromSlug, artistSlug, clockTime } from '@/lib/songs';
+import { artistNameFromSlug, artistSlug, cdnProxy, clockTime } from '@/lib/songs';
 import { getArtistSongs, getTrendingArtists } from '@/lib/songsServer';
 import { artistProfile } from '@/lib/artistProfiles';
 
@@ -85,7 +85,7 @@ export default async function ArtistPage({ params }) {
     );
   }
 
-  const cover = items[0].image || '';
+  const cover = cdnProxy(items[0].image) || '';
   const artists = items.flatMap((s) => s.artists || []);
   const featured = [...new Set(artists)].filter((a) => artistSlug(a) === slug || artistSlug(a).includes(slug)).slice(0, 3);
 
@@ -207,9 +207,9 @@ function ArtistStrip({ artists }) {
       {artists.map((a) => (
         <Link key={a.slug} href={`/songs/artist/${a.slug}`} className="w-24 shrink-0 text-center">
           <span className="mx-auto block h-20 w-20 overflow-hidden rounded-full border border-line bg-raised">
-            {a.image ? (
+            {cdnProxy(a.image) ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={a.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              <img src={cdnProxy(a.image)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
             ) : <span className="grid h-full w-full place-items-center text-gold"><Mic2 size={20} /></span>}
           </span>
           <span className="mt-1.5 block truncate text-[0.7rem] font-extrabold text-cream hover:text-gold">{a.name}</span>

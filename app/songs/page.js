@@ -6,7 +6,7 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import SongBrowser from '@/components/SongBrowser';
 import ResumeListening from '@/components/ResumeListening';
-import { SONG_QUERIES } from '@/lib/songs';
+import { SONG_QUERIES, cdnProxy } from '@/lib/songs';
 import { getTrendingArtists, getTrendingSongs } from '@/lib/songsServer';
 import { ARTIST_PROFILES } from '@/lib/artistProfiles';
 
@@ -91,9 +91,9 @@ export default async function SongsPage({ searchParams }) {
             {artists.map((a) => (
               <Link key={a.slug} href={`/songs/artist/${a.slug}`} className="w-24 shrink-0 text-center">
                 <span className="mx-auto block h-20 w-20 overflow-hidden rounded-full border border-line bg-raised">
-                  {a.image ? (
+                  {cdnProxy(a.image) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={a.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    <img src={cdnProxy(a.image)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   ) : <span className="grid h-full w-full place-items-center text-gold"><Music2 size={20} /></span>}
                 </span>
                 <span className="mt-1.5 block truncate text-[0.7rem] font-extrabold text-cream hover:text-gold">{a.name}</span>

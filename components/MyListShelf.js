@@ -42,9 +42,9 @@ export default function MyListShelf({ limit = 8, className = '' }) {
               className="block overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-gold hover:shadow-md"
             >
               <span className="relative block aspect-[2/3] w-full bg-raised">
-                {m.poster ? (
+                {m.posterSrc || m.poster ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.poster} alt={m.title} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  <img src={m.posterSrc || m.poster} alt={m.title} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                 ) : (
                   <span className="grid h-full w-full place-items-center bg-gradient-to-br from-[#0B6B45] to-[#13293d] font-display text-2xl font-extrabold text-white/80">
                     {String(m.title || 'MZ').slice(0, 2).toUpperCase()}

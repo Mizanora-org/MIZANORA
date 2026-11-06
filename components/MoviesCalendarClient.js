@@ -111,13 +111,30 @@ export default function MoviesCalendarClient({ movies = [], todayIso = '2026-11-
                       className="group flex gap-3.5 rounded-2xl border border-line bg-surface p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:border-gold hover:shadow-md"
                     >
                       <div
-                        className="flex h-24 w-16 shrink-0 flex-col items-center justify-center rounded-xl text-white shadow-inner sm:h-28 sm:w-20"
+                        className="relative flex h-24 w-16 shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl text-white shadow-inner sm:h-28 sm:w-20"
                         style={{
                           background: `linear-gradient(155deg, hsl(${hue}, 58%, 26%), hsl(${(hue + 45) % 360}, 65%, 12%))`,
                         }}
                       >
-                        <span className="font-display text-lg font-extrabold">{titleInitials(item.title)}</span>
-                        <span className="mt-1 rounded bg-black/40 px-1.5 py-0.5 text-[0.6rem] font-bold">
+                        <span className="absolute inset-0 grid place-items-center font-display text-base font-extrabold text-white/70">
+                          {titleInitials(item.title)}
+                        </span>
+                        {(item.posterSrc || item.poster) ? (
+                          // v58: the calendar now shows the real poster, served from our own domain;
+                          // the gradient stays underneath for titles IMDb has no art for.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.posterSrc || item.poster}
+                            alt={item.title}
+                            loading="lazy"
+                            decoding="async"
+                            referrerPolicy="no-referrer"
+                            className="absolute inset-0 h-full w-full object-cover"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : null}
+                        <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                        <span className="relative z-10 mt-auto mb-1 rounded bg-black/65 px-1.5 py-0.5 text-[0.6rem] font-bold">
                           {item.releaseDate.slice(5)}
                         </span>
                       </div>

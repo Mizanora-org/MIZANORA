@@ -6,7 +6,7 @@ import { absUrl } from '@/lib/config';
 import JsonLd from '@/components/JsonLd';
 import SongDetailPlayer from '@/components/SongDetailPlayer';
 import SongDirectLoader from '@/components/SongDirectLoader';
-import { songIdFromSlug, clockTime, artistSlug, SONG_QUERIES } from '@/lib/songs';
+import { songIdFromSlug, clockTime, artistSlug, cdnProxy, SONG_QUERIES } from '@/lib/songs';
 import { getSongById, searchSongs, getTrendingSongs } from '@/lib/songsServer';
 
 export const revalidate = 3600;
@@ -171,9 +171,9 @@ export default async function SongPage({ params }) {
             {queue.map((s) => (
               <li key={s.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-2.5 transition hover:border-gold">
                 <Link href={`/songs/${s.slug}`} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-raised">
-                  {s.image ? (
+                  {cdnProxy(s.image) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    <img src={cdnProxy(s.image)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   ) : <span className="grid h-full w-full place-items-center text-gold"><Disc3 size={18} /></span>}
                 </Link>
                 <div className="min-w-0 flex-1">
