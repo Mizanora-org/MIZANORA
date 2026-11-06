@@ -23,6 +23,7 @@ import ContinueWatching from '@/components/ContinueWatching';
 import MyListShelf from '@/components/MyListShelf';
 import { getMoviesHub } from '@/lib/moviesServer';
 import { getMovieServers } from '@/lib/movieServersServer';
+import { getWorldRows } from '@/lib/moviesWorld';
 import { posterHue, searchMovies, titleInitials } from '@/lib/movies';
 
 export const revalidate = 1800;
@@ -31,7 +32,7 @@ export const metadata = {
   ...pageMeta({
     title: 'Movies & Series Hub: Official Trailers, Pakistani Dramas, Cast, Calendar & Legal Classics',
     description:
-      'Explore Pakistani movies, Urdu dramas, Bollywood, Iranian, Bangladeshi, Afghan and international films & series on Mizanora. Watch official trailers, browse cast & actor profiles, check the 2026–2027 release calendar, and stream 100% legal public-domain classic movies.',
+      'Explore every movie and series on IMDb — Pakistani films, Urdu dramas, Bollywood, Iranian, Bangladeshi, Afghan and international titles. Real posters, ratings, cast and episode guides straight from IMDb, an IMDb-id lookup, the release calendar, and the Mizanora player.',
     path: '/movies',
   }),
   keywords: [
@@ -54,7 +55,13 @@ export default async function MoviesHubPage({ searchParams }) {
   const initialRegion = String(sp.region || 'all').slice(0, 40);
   const initialFormat = String(sp.format || 'all').slice(0, 20);
 
-  const [{ config, movies, actors }, serverCfg] = await Promise.all([getMoviesHub(), getMovieServers()]);
+  // v54: the IMDb world catalogue (Cinemeta, zero key) runs next to the shop's own hub, so this
+  // page shows thousands of real titles instead of only the hand-made list.
+  const [{ config, movies, actors }, serverCfg, worldRows] = await Promise.all([
+    getMoviesHub(),
+    getMovieServers(),
+    getWorldRows(12).catch(() => []),
+  ]);
   const playServers = (serverCfg.servers || []).filter((s) => s.enabled !== false);
   const upcomingTitles = searchMovies('', movies, { upcomingOnly: true, sort: 'upcoming', limit: 6 });
   const freeFilms = movies.filter((m) => Boolean(m.publicDomainStream));
@@ -83,7 +90,7 @@ export default async function MoviesHubPage({ searchParams }) {
 
       <PageHead
         title="Movies & Series Hub"
-        intro="Official trailers, full story & cast profiles, 2026–2027 release calendar, IMDb ID lookup, and 100% legal public-domain cinema."
+        intro="IMDb ki poori catalogue: real posters, ratings, cast, episode guides aur release calendar. Koi custom list nahi — har title IMDb se, har link stable."
         crumbs={[['/', 'Home'], [null, 'Movies & Series']]}
       />
 
@@ -150,6 +157,31 @@ export default async function MoviesHubPage({ searchParams }) {
       {!initialQuery && <ContinueWatching className="pt-6" />}
       {!initialQuery && <MyListShelf className="pt-6" />}
 
+      {/* v54: world catalogue rows straight from IMDb (Cinemeta) */}
+      {!initialQuery && worldRows.map((row) => (
+        <section key={row.key} id={row.key} className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby={`shelf-${row.key}`}>
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wider text-gold">
+                <Clapperboard size={12} /> World Catalogue · IMDb
+              </p>
+              <h2 id={`shelf-${row.key}`} className="section-title">{row.title}</h2>
+              <p className="text-sm text-dim">{row.blurb}</p>
+            </div>
+            <Link href="/movies/world" className="inline-flex items-center gap-1 text-xs font-extrabold text-gold hover:underline">
+              Browse all <ArrowRight size={13} />
+            </Link>
+          </div>
+          <div className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-3 sm:gap-3.5 sm:overflow-visible sm:px-0 lg:grid-cols-6">
+            {row.movies.map((m, i) => (
+              <div key={m.imdbId || m.slug} className="w-[42vw] max-w-[185px] shrink-0 snap-start sm:w-auto sm:max-w-none">
+                <MoviePosterCard movie={m} priority={i < 2} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
       {/* Shelf 0: Upcoming 2026–2027 Releases (Ane Wali) */}
       {upcomingTitles.length > 0 && !initialQuery && (
         <section id="upcoming-releases" className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="shelf-upcoming">
@@ -184,7 +216,7 @@ export default async function MoviesHubPage({ searchParams }) {
                 <Play size={12} fill="currentColor" /> Instant Legal Playback
               </p>
               <h2 id="shelf-free" className="section-title">Watch Full Classics Free (Public Domain &amp; Open Cinema)</h2>
-              <p className="text-sm text-dim">Verified public-domain and Creative Commons films streaming directly in Mizanora’s player.</p>
+              <p className="text-sm text-dim">Verified public-domain and Creative Commons films that stream directly in Mizanora’s player.</p>
             </div>
           </div>
           <div className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-3 sm:gap-3.5 sm:overflow-visible sm:px-0 lg:grid-cols-6">

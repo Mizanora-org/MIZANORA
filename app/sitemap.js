@@ -51,6 +51,8 @@ export default async function sitemap() {
     ['/news', 0.8, 'daily'],
     // v50: legal Movies & Series discovery hub, release calendar, and actors directory
     ['/movies', 0.9, 'daily'], ['/movies/calendar', 0.8, 'daily'], ['/movies/actors', 0.8, 'weekly'],
+    // v54: the IMDb catalogue browser and the Songs section
+    ['/movies/world', 0.8, 'daily'], ['/songs', 0.8, 'daily'],
     ['/returns', 0.3, 'yearly'], ['/shipping', 0.5, 'monthly'], ['/size-guide', 0.5, 'monthly'], ['/islamic', 0.6, 'weekly'], ['/deals', 0.9, 'daily'], ['/quran', 0.7, 'monthly'], ['/hadith', 0.7, 'monthly'], ['/live', 0.7, 'daily'], ['/tools', 0.9, 'weekly'], ['/reviews', 0.7, 'daily'], ['/muaaz-iqbal', 0.8, 'monthly'], ['/winter', 0.7, 'weekly'], ['/privacy-policy', 0.3, 'yearly'], ['/terms', 0.3, 'yearly'], ['/licence', 0.4, 'yearly'], ['/copyright', 0.3, 'yearly'],
   ].map(([p, priority, changeFrequency]) => ({ url: absUrl(p), lastModified: now, changeFrequency, priority }));
   // v31: /muaaz-iqbal carries its images in the sitemap (Google Images / search)

@@ -22,28 +22,45 @@ const Auto = await imp('lib/moviesAutoFeed.js');
 const S = await imp('lib/siteSearch.js');
 const B = await imp('lib/blog.js');
 
-// 1. Starter catalog, regional coverage & newest-to-oldest + upcoming ordering
-const { movies, actors, config } = M.mergeMoviesCatalog();
+// 1. v54: the hand-written "custom movie" catalogue is GONE - IMDb (Cinemeta) is the source.
+// This section keeps testing the merge/order/cast logic, but with a test fixture catalogue instead
+// of the 180 starter entries the shop used to ship.
+const bare = M.mergeMoviesCatalog();
+assert.equal(bare.config.enabled, true);
+assert.equal(bare.config.autoSync.enabled, true, 'autoSync is ON by default');
+assert.equal(bare.movies.length, 0, 'v54: no hand-written starter titles');
+assert.equal(bare.actors.length, 0, 'v54: no starter actors');
+
+const FIXTURES = [
+  { slug: 'inception-2010', imdbId: 'tt1375666', title: 'Inception', type: 'movie', year: 2010, releaseDate: '2010-07-16', status: 'released', region: 'International', country: 'United States', language: 'English', genres: ['Action', 'Sci-Fi'], rating: 8.8, runtime: 148, story: 'A thief who steals corporate secrets through dream-sharing.', cast: [{ name: 'Leonardo DiCaprio' }, { name: 'Elliot Page' }] },
+  { slug: 'the-legend-of-maula-jatt', imdbId: 'tt4139928', title: 'The Legend of Maula Jatt', type: 'movie', year: 2022, releaseDate: '2022-10-13', region: 'Pakistan', country: 'Pakistan', language: 'Punjabi', genres: ['Action'], rating: 8.1, cast: [{ name: 'Fawad Khan' }, { name: 'Hamza Ali Abbasi' }, { name: 'Mahira Khan' }, { name: 'Humaima Malick' }] },
+  { slug: 'parizaad', imdbId: 'tt15025842', title: 'Parizaad', type: 'series', year: 2021, releaseDate: '2021-07-20', region: 'Pakistan', country: 'Pakistan', language: 'Urdu', genres: ['Drama'], cast: [{ name: 'Ahmed Ali Akbar' }] },
+  { slug: 'lahore-skyline-2027', imdbId: 'tt9900112', title: 'Lahore Skyline', type: 'movie', year: 2027, releaseDate: '2027-02-12', status: 'upcoming', region: 'Pakistan', country: 'Pakistan', language: 'Urdu', genres: ['Drama'], cast: [{ name: 'Fawad Khan' }] },
+  { slug: 'tehran-midnight', imdbId: 'tt9900113', title: 'Tehran Midnight', type: 'movie', year: 2025, region: 'Iran & Afghanistan', country: 'Iran', language: 'Persian', genres: ['Drama'], cast: [{ name: 'Fawad Khan' }] },
+  { slug: 'dhaka-nights', imdbId: 'tt9900114', title: 'Dhaka Nights', type: 'movie', year: 2024, region: 'Bangladesh', country: 'Bangladesh', language: 'Bangla', genres: ['Drama'], cast: [{ name: 'Fawad Khan' }] },
+  { slug: 'istanbul-rain', imdbId: 'tt9900115', title: 'Istanbul Rain', type: 'movie', year: 2023, region: 'Turkey & Arabic', country: 'Turkey', language: 'Turkish', genres: ['Drama'], cast: [] },
+  { slug: 'dangal-2016', imdbId: 'tt5074352', title: 'Dangal', type: 'movie', year: 2016, region: 'India', country: 'India', language: 'Hindi', genres: ['Drama'], cast: [] },
+  { slug: 'a-trip-to-the-moon', imdbId: 'tt0000417', title: 'A Trip to the Moon', type: 'movie', year: 1902, region: 'International', country: 'France', language: 'Silent', genres: ['Sci-Fi'], publicDomainStream: { url: 'https://archive.org/download/trip-to-the-moon/moon.mp4', license: 'Public domain (Internet Archive)', licenseType: 'public-domain', sourceName: 'Internet Archive' } },
+  { slug: 'nosferatu-1922', imdbId: 'tt0013442', title: 'Nosferatu', type: 'movie', year: 1922, region: 'International', country: 'Germany', language: 'Silent', genres: ['Horror'], publicDomainStream: { url: 'https://archive.org/download/nosferatu/nosferatu.mp4', license: 'Public domain (Internet Archive)', licenseType: 'public-domain', sourceName: 'Internet Archive' } },
+];
+
+const { movies, actors, config } = M.mergeMoviesCatalog(M.MOVIES_DEFAULT, FIXTURES);
 assert.equal(config.enabled, true);
-assert.equal(config.autoSync.enabled, true, 'autoSync is ON by default');
-assert.ok(movies.length >= 65, `expected >= 65 starter titles, got ${movies.length}`);
+assert.ok(movies.length >= FIXTURES.length - 1, `fixture merge produced ${movies.length} titles`);
 assert.equal(new Set(movies.map((m) => m.slug)).size, movies.length, 'unique movie slugs');
-assert.ok(actors.length >= 35, `expected >= 35 starter+backfilled actors, got ${actors.length}`);
+assert.ok(actors.length >= 4, `cast backfill produced ${actors.length} actor profiles`);
 assert.equal(new Set(actors.map((a) => a.slug)).size, actors.length, 'unique actor slugs');
 
-// Verify newest-to-oldest ("nayi se porani + ane wali") default ordering
-assert.ok(movies[0].year >= 2027 && movies[movies.length - 1].year <= 1930, 'movies ordered from 2027 upcoming down to 1920s classics');
+// newest-first ordering (IMDb ids make the real catalogue sort the same way)
+assert.ok(movies[0].year >= 2027 && movies[movies.length - 1].year <= 1930, 'movies ordered newest → oldest');
 
 for (const region of ['Pakistan', 'India', 'Iran & Afghanistan', 'Bangladesh', 'Turkey & Arabic', 'International']) {
   assert.ok(movies.some((m) => m.region === region), `catalog covers region: ${region}`);
 }
-for (const country of ['Pakistan', 'India', 'Bangladesh', 'Iran', 'Iraq', 'Afghanistan']) {
-  assert.ok(movies.some((m) => m.country.includes(country)), `catalog covers target country: ${country}`);
-}
 assert.ok(movies.some((m) => m.type === 'movie') && movies.some((m) => m.type === 'series'), 'both movies and series exist');
-assert.ok(movies.filter((m) => m.status === 'upcoming').length >= 12, 'upcoming release calendar has >= 12 entries');
-assert.ok(movies.filter((m) => Boolean(m.publicDomainStream)).length >= 7, 'public-domain legal full films exist');
-ok(`catalog: ${movies.length} titles & ${actors.length} actors ordered 2027 Upcoming → Classics across PK, IN, BD, IR, IQ, AF & World`);
+assert.ok(movies.filter((m) => m.status === 'upcoming').length >= 1, 'an upcoming release exists');
+assert.ok(movies.filter((m) => Boolean(m.publicDomainStream)).length >= 2, 'public-domain legal full films survive validation');
+ok(`catalog: ${movies.length} fixture titles & ${actors.length} actors ordered newest → classics across PK, IN, BD, IR, TR & World`);
 
 // 2. Every cast member on every movie resolves to a valid actor profile (zero 404 cast links)
 for (const m of movies) {
@@ -100,9 +117,9 @@ assert.ok(M.searchMovies('', movies, { freeOnly: true }).every((m) => Boolean(m.
 assert.ok(M.searchMovies('', movies, { region: 'Pakistan' }).every((m) => m.region === 'Pakistan'));
 
 const fawad = M.findActor('fawad-khan', actors);
-assert.ok(fawad && M.actorFilmography(fawad, movies).length >= 4, 'Fawad Khan filmography populated');
+assert.ok(fawad && M.actorFilmography(fawad, movies).length >= 4, 'Fawad Khan filmography populated from cast backfill');
 const cal = M.buildReleaseCalendar(movies, { includeRecent: false, refDate: '2026-11-05' });
-assert.ok(cal.length >= 5 && cal.every((g) => g.items.length >= 1), 'release calendar groups upcoming titles by month');
+assert.ok(cal.length >= 1 && cal.every((g) => g.items.length >= 1), 'release calendar groups upcoming titles by month');
 assert.equal(M.daysUntilRelease('2026-11-27', '2026-11-05'), 22);
 ok('lookup, bulk IMDb extractor, filters, filmography & release calendar verified');
 
@@ -301,11 +318,11 @@ assert.equal((await Store.readMoviesSecrets(mockDb)).tmdbApiKey, 'secret_tmdb_12
 ok('sharded store: 420+ titles shard/read/shrink cleanly & TMDB secret stays isolated in adminSecrets');
 
 // 7. Site-wide search integration
-const sr1 = S.siteSearch('tt1375666', {});
+const sr1 = S.siteSearch('tt1375666', { movies, actors });
 assert.ok(sr1.movies.some((m) => m.slug === 'inception-2010'), 'siteSearch finds movie by IMDb ID');
-const sr2 = S.siteSearch('Parizaad', {});
+const sr2 = S.siteSearch('Parizaad', { movies, actors });
 assert.ok(sr2.movies.some((m) => m.slug === 'parizaad'), 'siteSearch finds Pakistani drama');
-const sr3 = S.siteSearch('Mahira Khan', {});
+const sr3 = S.siteSearch('Mahira Khan', { movies, actors });
 assert.ok(sr3.actors.some((a) => a.slug === 'mahira-khan'), 'siteSearch finds actor');
 ok('siteSearch: returns matching movies, dramas, IMDb IDs and actors');
 

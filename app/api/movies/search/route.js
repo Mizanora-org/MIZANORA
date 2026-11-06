@@ -3,6 +3,7 @@ import { denyIf } from '@/lib/siteGate';
 import { getEffectiveTmdbKey, getMoviesHub } from '@/lib/moviesServer';
 import { isValidImdbId, searchActors, searchMovies } from '@/lib/movies';
 import { searchWorldCatalog } from '@/lib/moviesAutoFeed';
+import { cinemetaSearch } from '@/lib/cinemeta';
 
 export const runtime = 'nodejs';
 export const revalidate = 300;
@@ -46,17 +47,23 @@ export async function GET(req) {
     /* the world catalogue below can still answer */
   }
 
-  let world = { items: [], sources: [] };
-  try {
-    const tmdbApiKey = await getEffectiveTmdbKey();
-    world = await searchWorldCatalog(q, { tmdbApiKey, limit: Math.max(12, limit), timeoutMs: 4500 });
-  } catch {
-    /* keep the local hits */
-  }
+  // v54: IMDb's own catalogue (Cinemeta) in parallel with the other world sources. Its posters
+  // and IDs are the official ones, so its hits go first after the shop's own library.
+  const [world, cine] = await Promise.all([
+    (async () => {
+      try {
+        const tmdbApiKey = await getEffectiveTmdbKey();
+        return await searchWorldCatalog(q, { tmdbApiKey, limit: Math.max(12, limit), timeoutMs: 4500 });
+      } catch {
+        return { items: [], sources: [] };
+      }
+    })(),
+    cinemetaSearch(q, { timeout: 4500 }).catch(() => []),
+  ]);
 
   const seen = new Set();
   const items = [];
-  for (const m of [...local, ...(world.items || [])]) {
+  for (const m of [...local, ...cine, ...(world.items || [])]) {
     if (!m) continue;
     const key = (m.imdbId || m.slug || '').toLowerCase();
     if (!key || seen.has(key)) continue;
@@ -93,7 +100,7 @@ export async function GET(req) {
         photo: a.photo || '',
         href: `/movies/actor/${a.slug}`,
       })),
-      sources: world.sources || [],
+      sources: [...(cine.length ? [{ source: 'IMDb catalogue', count: cine.length }] : []), ...(world.sources || [])],
     },
     { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=1800' } },
   );

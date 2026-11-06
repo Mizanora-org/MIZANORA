@@ -135,7 +135,7 @@ for (const sel of ['.mztv-bar-q.is-audio', '.mztv-bar-q.is-switch', '.mztv-faile
   assert.ok(css.includes(sel), `globals.css missing ${sel}`);
 }
 const pkg = JSON.parse(read('package.json'));
-assert.equal(pkg.version, '53.0.0');
+assert.ok(Number(String(pkg.version).split('.')[0]) >= 53, `version should be 53 or newer, got ${pkg.version}`);
 assert.ok(pkg.scripts.test.includes('test-v53.mjs'), 'v53 test is part of npm test');
 const doc = read('UPGRADE-v53.md').toLowerCase();
 for (const bit of ['track engine', 'audio', 'quality', 'engine ladder', 'verified']) {

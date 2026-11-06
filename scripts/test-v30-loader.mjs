@@ -27,5 +27,10 @@ const mocks = {
 export async function resolve(specifier, context, nextResolve) {
   if (Object.hasOwn(mocks, specifier)) return { url: `data:text/javascript,${encodeURIComponent(mocks[specifier])}`, shortCircuit: true };
   if (specifier.startsWith('@/')) return { url: pathToFileURL(path.join(root, `${specifier.slice(2)}.js`)).href, shortCircuit: true };
+  // v54: our lib is written for the Next bundler, which allows "./movies" without ".js".
+  // Node does not, so resolve those relative extensionless imports the same way the bundler does.
+  if ((specifier.startsWith('./') || specifier.startsWith('../')) && !/\.[cm]?js$/.test(specifier) && context.parentURL) {
+    return { url: new URL(`${specifier}.js`, context.parentURL).href, shortCircuit: true };
+  }
   return nextResolve(specifier, context);
 }
