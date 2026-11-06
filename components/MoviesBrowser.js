@@ -332,8 +332,8 @@ export default function MoviesBrowser({
                   className="group flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-[#F5B83D]/60 hover:bg-white/10"
                 >
                   <span className="relative h-16 w-11 shrink-0 overflow-hidden rounded-md bg-white/10">
-                    {m.poster ? (
-                      <SafeImg src={m.poster} alt={m.title} className="h-full w-full object-cover" />
+                    {m.posterSrc || m.poster ? (
+                      <SafeImg src={m.posterSrc || m.poster} alt={m.title} className="h-full w-full object-cover" />
                     ) : (
                       <span className="grid h-full w-full place-items-center text-[0.62rem] font-bold text-white/60">
                         {m.type === 'series' ? <Tv size={14} /> : <Film size={14} />}

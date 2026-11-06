@@ -46,9 +46,9 @@ export default function ContinueWatching({ limit = 8, className = '' }) {
             >
               <Link href={`/movies/${m.slug || m.id}#player`} prefetch={false} className="flex items-center gap-3 p-2.5">
                 <span className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-raised">
-                  {m.poster ? (
+                  {m.posterSrc || m.poster ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.poster} alt={m.title} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    <img src={m.posterSrc || m.poster} alt={m.title} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   ) : (
                     <span className="grid h-full w-full place-items-center font-display text-sm font-extrabold text-gold">
                       {String(m.title || 'MZ').slice(0, 2).toUpperCase()}

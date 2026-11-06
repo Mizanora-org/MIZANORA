@@ -34,7 +34,7 @@ export async function generateMetadata({ params }) {
       title: `${actor.name} — Biography, Movies, Dramas & Filmography`,
       description: `${actor.name} (${actor.role}, ${actor.country}) — biography, awards, known-for titles and complete movies & series filmography on Mizanora.`,
       path: `/movies/actor/${actor.slug}`,
-      ...(actor.photo ? { image: actor.photo } : {}),
+      image: absUrl(`/api/person/${encodeURIComponent(actor.name)}`),
     }),
     keywords: [
       actor.name,
@@ -105,7 +105,7 @@ export default async function ActorDetailPage({ params }) {
         <div className="rounded-3xl border border-line bg-surface p-5 shadow-md sm:p-7">
           <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
             <AvatarImg
-              src={actor.photo}
+              src={actor.photo || `/api/person/${encodeURIComponent(actor.name)}`}
               name={actor.name}
               hue={hue}
               initials={titleInitials(actor.name)}

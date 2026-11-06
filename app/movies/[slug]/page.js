@@ -25,6 +25,7 @@ import CinemaPlayer from '@/components/CinemaPlayer';
 import SafeImg from '@/components/SafeImg';
 import MovieListButton from '@/components/MovieListButton';
 import MoviePosterCard from '@/components/MoviePosterCard';
+import AvatarImg from '@/components/AvatarImg';
 import TitleStubPanel from '@/components/TitleStubPanel';
 import { getMovieCompanionProducts, resolveMovieOrSeries } from '@/lib/moviesServer';
 import { getMovieServers } from '@/lib/movieServersServer';
@@ -59,7 +60,8 @@ export async function generateMetadata({ params }) {
   }
   const label = movie.type === 'series' ? 'Series Guide, Cast & Trailer' : 'Official Trailer, Cast & Story';
   const desc = `${movie.title} (${movie.year}) — ${movie.tagline || movie.story.slice(0, 150)} Explore cast, director ${movie.director || ''}, IMDb ${movie.imdbId || ''}, and legal streaming options on Mizanora.`;
-  const img = movie.poster || movie.backdrop || youtubeThumbUrl(movie.trailerYoutubeId) || undefined;
+  const heroImg = movie.posterSrc || movie.poster || movie.backdrop || youtubeThumbUrl(movie.trailerYoutubeId);
+  const img = heroImg ? absUrl(heroImg) : undefined;
   return {
     ...pageMeta({
       title: `${movie.title} (${movie.year}) — ${label}`,
@@ -104,7 +106,7 @@ export default async function MovieDetailPage({ params }) {
     } catch { similar = []; }
   }
   const hue = posterHue(movie.slug || movie.title);
-  const thumb = movie.poster || youtubeThumbUrl(movie.trailerYoutubeId);
+  const thumb = movie.posterSrc || movie.poster || youtubeThumbUrl(movie.trailerYoutubeId);
   const ytEmbed = youtubeEmbedUrl(movie.trailerYoutubeId);
 
   const schemaType = movie.type === 'series' ? 'TVSeries' : 'Movie';
@@ -189,12 +191,23 @@ export default async function MovieDetailPage({ params }) {
       {/* Rich Cinema Identity Header */}
       <section className="mx-auto max-w-7xl px-3 pt-4 sm:px-4">
         <div
-          className="overflow-hidden rounded-3xl p-4 text-white shadow-xl sm:p-6"
+          className="relative overflow-hidden rounded-3xl p-4 text-white shadow-xl sm:p-6"
           style={{
             background: `linear-gradient(135deg, hsl(${hue}, 56%, 18%) 0%, #07281a 60%, #0c1724 100%)`,
           }}
         >
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          {/* v58: the wide backdrop sits behind the poster, like the reference site's title page.
+              Served from our own /api/poster route, so it loads even where metahub is blocked. */}
+          {movie.backdropSrc ? (
+            <SafeImg
+              src={movie.backdropSrc}
+              alt=""
+              loading="eager"
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-35"
+            />
+          ) : null}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-black/10" />
+          <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center">
             <div
               className="mx-auto flex h-48 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/20 shadow-lg sm:mx-0 sm:h-56 sm:w-40"
               style={{
@@ -432,19 +445,13 @@ export default async function MovieDetailPage({ params }) {
                         background: `linear-gradient(145deg, hsl(${cHue}, 58%, 32%), hsl(${(cHue + 40) % 360}, 65%, 16%))`,
                       }}
                     >
-                      {c.photo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={c.photo}
-                          alt={c.name}
-                          loading="lazy"
-                          decoding="async"
-                          referrerPolicy="no-referrer"
-                          className="absolute inset-0 h-full w-full object-cover"
-                        />
-                      ) : (
-                        titleInitials(c.name)
-                      )}
+                      <AvatarImg
+                        src={c.photo || `/api/person/${encodeURIComponent(c.name)}`}
+                        name={c.name}
+                        hue={cHue}
+                        initials={titleInitials(c.name)}
+                        className="absolute inset-0 h-full w-full object-cover text-white"
+                      />
                     </span>
                     <b className="mt-2 line-clamp-1 text-sm text-cream group-hover:text-gold">{c.name}</b>
                     {c.character && <span className="mt-0.5 line-clamp-1 text-xs text-dim">as {c.character}</span>}

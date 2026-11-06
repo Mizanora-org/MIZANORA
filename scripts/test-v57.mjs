@@ -48,7 +48,9 @@ check(nav.includes("href: '/products'") || nav.includes('href: "/products"'), 't
 for (const tab of ["'/movies'", "'/songs'", "'/quran'", "'/live'"]) check(nav.includes(tab), `the app bar has a ${tab} tab`);
 check(nav.includes('Music4'), 'there is a songs tab, not just a home tab');
 const header = read('components/Header.js');
-for (const bit of ['/movies/calendar', '/movies/actors', '/songs', '/live', '/quran']) check(header.includes(bit), `the desktop nav links ${bit}`);
+// v58: the media-first desktop strip was reverted at the owner's request — the original shop
+// categories are back, and movies/songs stay one tap away inside it.
+for (const bit of ['aria-label="Categories"', '/products', '/movies', '/songs', '/live', '/quran']) check(header.includes(bit), `the header keeps ${bit}`);
 check(header.includes('md:block') && nav.includes('md:hidden'), 'desktop and mobile have their own navigation');
 
 // The songs screens must not own an <audio> any more.

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2, Music2, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
 import { useMusic } from '@/components/MusicProvider';
+import { songImageSrc } from '@/lib/songs';
 
 // Mizanora v57 — the mini player that follows you across the site.
 //
@@ -38,9 +39,9 @@ export default function MiniPlayer() {
 
       <div className="flex items-center gap-2.5 px-2.5 py-2">
         <Link href={current.slug ? `/songs/${current.slug}` : '/songs'} className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-raised">
-          {current.image ? (
+          {songImageSrc(current) ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={current.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            <img src={songImageSrc(current)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
           ) : (
             <span className="grid h-full w-full place-items-center text-gold"><Music2 size={18} /></span>
           )}

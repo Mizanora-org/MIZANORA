@@ -168,7 +168,7 @@ export default async function ActorsDirectoryPage({ searchParams }) {
                     <div>
                       <div className="flex items-center gap-3.5">
                         <AvatarImg
-                          src={a.photo}
+                          src={a.photo || `/api/person/${encodeURIComponent(a.name)}`}
                           name={a.name}
                           hue={hue}
                           initials={titleInitials(a.name)}
@@ -252,7 +252,13 @@ export default async function ActorsDirectoryPage({ searchParams }) {
               {cast.rows.map((a) => (
                 <li key={a.slug}>
                   <Link href={`/movies/actor/${a.slug}`} prefetch={false} className="flex items-center gap-3 rounded-xl border border-line bg-raised/40 p-2.5 transition hover:border-gold">
-                    <AvatarImg src={null} name={a.name} hue={posterHue(a.slug)} initials={titleInitials(a.name)} className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                    <AvatarImg
+                      src={`/api/person/${encodeURIComponent(a.name)}`}
+                      name={a.name}
+                      hue={posterHue(a.slug)}
+                      initials={titleInitials(a.name)}
+                      className="h-11 w-11 shrink-0 rounded-full object-cover"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-extrabold text-cream">{a.name}</span>
                       <span className="block truncate text-[0.7rem] font-semibold text-faint">

@@ -7,7 +7,7 @@ export default function MoviePosterCard({ movie, priority = false }) {
   if (!movie) return null;
   const hue = posterHue(movie.slug || movie.title);
   const hue2 = (hue + 48) % 360;
-  const thumb = movie.poster || youtubeThumbUrl(movie.trailerYoutubeId);
+  const thumb = movie.posterSrc || movie.poster || youtubeThumbUrl(movie.trailerYoutubeId);
   const isFree = Boolean(movie.publicDomainStream);
   const isUpcoming = movie.status === 'upcoming';
 
@@ -23,26 +23,27 @@ export default function MoviePosterCard({ movie, priority = false }) {
           background: `linear-gradient(155deg, hsl(${hue}, 58%, 24%) 0%, hsl(${hue2}, 64%, 11%) 100%)`,
         }}
       >
+        {/* v58: the monogram layer sits UNDER the poster, so a title whose artwork is missing still
+            looks designed instead of leaving an empty gradient box. */}
+        <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center p-4 text-center text-white">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl border border-white/20 bg-white/10 font-display text-2xl font-extrabold tracking-wider backdrop-blur-sm">
+            {titleInitials(movie.title)}
+          </span>
+          {movie.originalTitle && (
+            <span className="mt-2.5 line-clamp-1 font-arabic text-base text-white/85">{movie.originalTitle}</span>
+          )}
+          <span className="mt-1 line-clamp-2 px-1 text-xs font-semibold text-white/75">{movie.director || movie.country}</span>
+        </div>
         {thumb ? (
           <SafeImg
             src={thumb}
             alt={movie.title}
             loading={priority ? 'eager' : 'lazy'}
-            className="h-full w-full object-cover opacity-90 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
+            className="relative h-full w-full object-cover transition duration-300 group-hover:scale-105"
           />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center p-4 text-center text-white">
-            <span className="grid h-16 w-16 place-items-center rounded-2xl border border-white/20 bg-white/10 font-display text-2xl font-extrabold tracking-wider backdrop-blur-sm">
-              {titleInitials(movie.title)}
-            </span>
-            {movie.originalTitle && (
-              <span className="mt-2.5 line-clamp-1 font-arabic text-base text-white/85">{movie.originalTitle}</span>
-            )}
-            <span className="mt-1 line-clamp-2 px-1 text-xs font-semibold text-white/75">{movie.director || movie.country}</span>
-          </div>
-        )}
+        ) : null}
 
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/30" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
 
         {/* Top badges */}
         <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-1.5">

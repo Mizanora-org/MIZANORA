@@ -94,26 +94,23 @@ export default function Header({ categories = [], music = null }) {
 
       <div className="px-3 pb-2.5 md:hidden">{searchForm('s-m')}</div>
 
-      {/* v57 — the desktop navigation is media-first, like the reference: movies, series, songs,
-          live TV and Quran come before the shop. On phones this strip is hidden and the app tab bar
-          at the bottom does the same job. Each media tab opens a small dropdown on hover/focus. */}
-      <nav aria-label="Sections" className="mz-topnav no-sb hidden bg-white text-cream shadow-sm md:block">
-        <ul className="mx-auto flex max-w-7xl items-center gap-0.5 px-4 text-sm">
-          <li><Link href="/movies" className={`block whitespace-nowrap px-3 py-2.5 font-extrabold transition hover:bg-raised hover:text-gold ${path.startsWith('/movies') ? 'bg-raised text-gold' : ''}`}>Movies</Link></li>
-          <li><Link href="/movies?format=series" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-dim transition hover:bg-raised hover:text-gold">Series</Link></li>
-          <li className="mz-navgroup relative">
-            <Link href="/movies/calendar" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-dim transition hover:bg-raised hover:text-gold">Calendar</Link>
-          </li>
-          <li><Link href="/movies/actors" className={`block whitespace-nowrap px-3 py-2.5 font-semibold transition hover:bg-raised hover:text-gold ${path.startsWith('/movies/actor') ? 'text-gold' : 'text-dim'}`}>Actors</Link></li>
-          <li><Link href="/songs" className={`block whitespace-nowrap px-3 py-2.5 font-semibold transition hover:bg-raised hover:text-gold ${path.startsWith('/songs') ? 'bg-raised text-gold' : 'text-dim'}`}>Songs</Link></li>
-          <li><Link href="/live" className={`block whitespace-nowrap px-3 py-2.5 font-semibold transition hover:bg-raised hover:text-gold ${path.startsWith('/live') ? 'bg-raised text-gold' : 'text-dim'}`}>Live TV</Link></li>
-          <li><Link href="/quran" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-dim transition hover:bg-raised hover:text-gold">Quran</Link></li>
-          <li><Link href="/reels" className="block whitespace-nowrap px-3 py-2.5 font-bold text-saffron transition hover:bg-raised hover:text-gold">Reels</Link></li>
-          <li><Link href="/blog" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-dim transition hover:bg-raised hover:text-gold">Blog</Link></li>
-          <li><Link href="/products" className={`block whitespace-nowrap px-3 py-2.5 font-semibold transition hover:bg-raised hover:text-gold ${path.startsWith('/products') || path.startsWith('/category') ? 'bg-raised text-gold' : 'text-dim'}`}>Shop</Link></li>
+      <nav aria-label="Categories" className="no-sb hidden bg-white text-cream shadow-sm md:block">
+        <ul className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 text-sm">
+          <li><Link href="/products" className={`block whitespace-nowrap px-3 py-2.5 font-bold text-gold hover:bg-raised ${path === '/products' ? 'bg-raised' : ''}`}>All products</Link></li>
+          {categories.slice(0, 12).map((c) => (
+            <li key={c.slug}><Link href={`/category/${c.slug}`} className={`block whitespace-nowrap px-3 py-2.5 transition hover:bg-raised hover:text-gold ${catOn(c.slug) ? 'bg-raised font-bold text-gold' : 'text-dim'}`}>{c.name}</Link></li>
+          ))}
           <li className="ml-auto"><Link href="/deals" className="block whitespace-nowrap px-3 py-2.5 font-extrabold text-red-600 hover:text-gold">Deals</Link></li>
-          <li><Link href="/tools" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-dim hover:text-gold">Tools</Link></li>
+          <li><Link href="/quran" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Quran</Link></li>
+          <li><Link href="/hadith" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Hadith</Link></li>
+          <li><Link href="/live" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Live TV</Link></li>
+          <li><Link href="/movies" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Movies</Link></li>
+          <li><Link href="/songs" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Songs</Link></li>
+          <li><Link href="/tools" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-gold hover:text-goldhi">Tools</Link></li>
+          <li><Link href="/reels" className="block whitespace-nowrap px-3 py-2.5 font-bold text-saffron hover:text-gold">Reels</Link></li>
+          <li><Link href="/blog" className="block whitespace-nowrap px-3 py-2.5 font-semibold text-dim hover:text-gold">Shopping blog</Link></li>
           <li><Link href="/track" className="block whitespace-nowrap px-3 py-2.5 text-dim hover:text-gold">Track order</Link></li>
+          <li><Link href="/how-to-order" className="block whitespace-nowrap px-3 py-2.5 text-dim hover:text-gold">How to order</Link></li>
           <li><Link href="/contact" className="block whitespace-nowrap px-3 py-2.5 text-dim hover:text-gold">Support</Link></li>
         </ul>
       </nav>

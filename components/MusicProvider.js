@@ -21,7 +21,15 @@ const MediaMeta = typeof window !== 'undefined' ? window.MediaMetadata : null;
 
 const sourcesFor = (song) => {
   if (!song) return [];
-  return [...new Set([song.playUrl, song.proxyUrl, song.stream].filter(Boolean))];
+  // v58 order: the CDN files we already know about, proxied through our own domain (instant, range
+  // requests work, no mirror round-trip) → our resolver (fresh token) → resolver proxy → raw link.
+  // The resolver stays in the chain because a queue restored from localStorage can hold expired URLs.
+  return [...new Set([
+    ...(Array.isArray(song.audioSources) ? song.audioSources : []),
+    song.playUrl,
+    song.proxyUrl,
+    song.stream,
+  ].filter(Boolean))];
 };
 
 export function MusicProvider({ children }) {
@@ -150,8 +158,9 @@ export function MusicProvider({ children }) {
   // Media Session: lock screen / notification controls + headset buttons.
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || !current) return;
-    const art = current.image
-      ? [{ src: current.image, sizes: '512x512', type: 'image/jpeg' }]
+    const rawArt = current.imageSrc || current.image || '';
+    const art = rawArt
+      ? [{ src: /^https?:/i.test(rawArt) ? rawArt : `${typeof location !== 'undefined' ? location.origin : ''}${rawArt}`, sizes: '512x512', type: 'image/jpeg' }]
       : [];
     try {
       if (MediaMeta) {
@@ -176,7 +185,8 @@ export function MusicProvider({ children }) {
     try {
       const slim = (s) => ({
         id: s.id, slug: s.slug, title: s.title, artists: s.artists, album: s.album,
-        image: s.image, duration: s.duration, playUrl: s.playUrl, proxyUrl: s.proxyUrl, stream: s.stream,
+        image: s.image, imageSrc: s.imageSrc, duration: s.duration,
+        playUrl: s.playUrl, proxyUrl: s.proxyUrl, stream: s.stream, audioSources: s.audioSources,
       });
       localStorage.setItem('mz_last_song', JSON.stringify(slim(current)));
       localStorage.setItem('mz_last_queue', JSON.stringify((queue.length ? queue : [current]).slice(0, 30).map(slim)));

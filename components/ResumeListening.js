@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { History, Play, X } from 'lucide-react';
 import { useMusic } from '@/components/MusicProvider';
+import { songImageSrc } from '@/lib/songs';
 
 // Mizanora v57 — "continue where you left off".
 // The player never autoplays on load (browsers block that, and it is rude), so instead we show the
@@ -34,9 +35,9 @@ export default function ResumeListening() {
     <section className="mx-auto max-w-7xl px-3 pt-4 sm:px-4" aria-label="Continue listening">
       <div className="flex items-center gap-3 rounded-2xl border border-gold/40 bg-gold/5 p-3">
         <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-raised text-gold">
-          {last.image ? (
+          {songImageSrc(last) ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={last.image} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            <img src={songImageSrc(last)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
           ) : <History size={20} />}
         </span>
         <div className="min-w-0 flex-1">

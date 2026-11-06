@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { LoaderCircle, Music2, Pause, Play, Search, X } from 'lucide-react';
-import { artistSlug, clockTime } from '@/lib/songs';
+import { artistSlug, clockTime, songImageSrc } from '@/lib/songs';
 import { searchSongsDirect } from '@/lib/songsClient';
 import { useMusic } from '@/components/MusicProvider';
 
@@ -119,6 +119,7 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((s) => {
           const active = music.current && music.current.id === s.id;
+          const thumb = songImageSrc(s);
           return (
             <li key={s.id} className={`group flex items-center gap-3 rounded-2xl border p-2.5 transition ${active ? 'border-gold bg-gold/5' : 'border-line bg-surface hover:border-gold'}`}>
               <button
@@ -127,9 +128,9 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
                 className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-raised"
                 aria-label={`Play ${s.title}`}
               >
-                {s.image ? (
+                {thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={s.image} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  <img src={thumb} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                 ) : (
                   <span className="grid h-full w-full place-items-center text-gold"><Music2 size={20} /></span>
                 )}
