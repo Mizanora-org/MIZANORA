@@ -2,14 +2,14 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Activity, Camera, Check, ChevronLeft, ChevronRight, Clock3, Expand, Heart, LayoutGrid, List,
-  LoaderCircle, Pause, PictureInPicture2, Play, Radio, RefreshCw, Search, Settings, Share2,
+  Activity, Camera, Cast, Check, ChevronLeft, ChevronRight, Clock3, Expand, Heart, Keyboard, LayoutGrid, List,
+  LoaderCircle, Moon, Pause, PictureInPicture2, Play, Radio, RefreshCw, Rewind, Search, Settings, Share2,
   Shuffle, Tv, Volume1, Volume2, VolumeX, X, Zap,
 } from 'lucide-react';
 import {
-  TV_QUALITY, audioLabel, channelHue, channelInitials, filterChannels, formatBitrate,
-  latencyLabel, menuLevels, normaliseLevels, qualityLevel, resLabel, sortChannels, streamOrigin,
-  subLabel, tvClock, tvStatusLabel,
+  SLEEP_PRESETS, TV_QUALITY, audioLabel, channelHue, channelInitials, filterChannels, formatBitrate,
+  latencyLabel, menuLevels, normaliseLevels, qualityLevel, resLabel, sleepClock, sortChannels, streamOrigin,
+  subLabel, tvClock, tvStatusLabel, typedChannel,
 } from '@/lib/liveTvUi';
 import { TV_THEMES, channelGroups, channelSlugs, channelSources, channelTarget, pickAd, relayHref, stepIndex, tvTheme } from '@/lib/liveTv';
 import LiveBadge from './LiveBadge';
@@ -87,6 +87,24 @@ const BUFFER_STUCK_MS = 12000; // playing, but frozen on the spinner this long -
 const MAX_AUTO_SKIPS = 6;
 const PAGE_SIZE = 48;
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const ZAP_MS = 2400; // channel-switch OSD stays this long
+const TYPE_MS = 1400; // how long the typed digits wait before the jump
+const SHORTCUTS = [
+  ['← / →', 'Pichla / agla channel'],
+  ['↑ / ↓', 'Awaaz barhayein / kam karein'],
+  ['0–9', 'Channel number likh kar jump'],
+  ['Space / K', 'Play / pause'],
+  ['M', 'Mute'],
+  ['L', 'Live edge par wapas'],
+  ['C', 'Photo capture'],
+  ['P', 'Picture in picture'],
+  ['F', 'Full screen'],
+  ['R', 'Random channel'],
+  ['S', 'Settings panel'],
+  ['T', 'Sleep timer (15 min)'],
+  ['/ or G', 'Channel search'],
+  ['?', 'Yeh shortcuts list'],
+];
 
 function TvClock() {
   const [time, setTime] = useState('');
@@ -166,6 +184,15 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const [view, setView] = useState('grid');
   const [sortMode, setSortMode] = useState('default');
   const [isFs, setIsFs] = useState(false);
+  // ---- v52: SIRAVEX-level extras -------------------------------------------------
+  const [zap, setZap] = useState(null); // channel-switch OSD { no, name, group, logo }
+  const [typing, setTyping] = useState(''); // digits typed for a direct channel jump
+  const [hud, setHud] = useState(null); // gesture HUD { kind, value }
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [sleepMins, setSleepMins] = useState(0); // 0 = off
+  const [sleepLeft, setSleepLeft] = useState(0); // seconds
+  const [dvr, setDvr] = useState(0); // seconds of timeshift available behind live
+  const [canCast, setCanCast] = useState(false);
 
   const frame = useRef(null);
   const video = useRef(null);
@@ -188,6 +215,9 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const stuckStep = useRef(0);
   const sentinel = useRef(null);
   const warmed = useRef(new Set());
+  const digits = useRef('');
+  const typeTimer = useRef(null);
+  const hudTimer = useRef(null);
 
   const cur = chans[idx] || null;
   const curSlug = slugs[idx] || '';
@@ -250,6 +280,8 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setSourceIndex(0);
     stuckStep.current = 0;
     clearTracks();
+    digits.current = '';
+    setTyping('');
     setIdx(to);
   }, [idx, chans, adsEnabled, adProducts, adSeconds, clearTracks]);
 
@@ -324,17 +356,21 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     qualityRef.current = mode;
     setPinLevel(null);
     pinRef.current = null;
+    const host = hostOf(sourceUrl);
+    if (host) writePref(`mz_tv_lvl_${host}`, 'auto'); // this host follows the network again
     applyQuality();
     say(mode === 'auto' ? 'Quality: Auto (sab se tez)' : `Quality: ${(TV_QUALITY.find(([v]) => v === mode) || [])[1] || mode}`);
-  }, [applyQuality, say]);
+  }, [applyQuality, say, sourceUrl]);
 
   const pickLevel = useCallback((n) => {
     setPinLevel(n);
     pinRef.current = n;
+    const host = hostOf(sourceUrl);
+    if (host) writePref(`mz_tv_lvl_${host}`, n); // next time this host opens at the same picture
     applyQuality();
     const l = levels[n];
     say(`Video quality: ${l ? l.label : resLabel(0)}`);
-  }, [applyQuality, levels, say]);
+  }, [applyQuality, levels, say, sourceUrl]);
 
   const pickAudio = useCallback((n) => {
     setAudioId(n);
@@ -430,6 +466,46 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       }, 'image/png');
     } catch (_) { say('Is channel ki picture capture allow nahi (protected stream)'); }
   }, [curSlug, say]);
+
+  // ---- v52 actions -----------------------------------------------------------------
+  // Timeshift: step back inside the DVR window a live stream publishes (no-op elsewhere).
+  const skipBack = useCallback((sec = 30) => {
+    const v = video.current;
+    if (!v) return;
+    let start = 0;
+    try { if (v.seekable && v.seekable.length) start = v.seekable.start(0); } catch (_) { /* not seekable */ }
+    const want = (Number(v.currentTime) || 0) - Math.abs(sec);
+    if (want <= start + 0.3) { say('Is channel par itna peechay jaane ka buffer nahi hai'); return; }
+    try { v.currentTime = want; say(`${Math.abs(sec)} second peechay`); } catch (_) { say('Timeshift is channel par available nahi'); }
+  }, [say]);
+
+  // Cast to a TV / Chromecast through the browser's Remote Playback API.
+  const castTo = useCallback(async () => {
+    const v = video.current;
+    try {
+      if (v && v.remote && typeof v.remote.prompt === 'function') {
+        await v.remote.prompt();
+        say('Cast device se connect ho rahe hain');
+        return;
+      }
+      say('Is browser mein cast support nahi — Chrome ya Edge try karein');
+    } catch (e) {
+      if (!e || e.name !== 'NotAllowedError') say('Cast nahi ho saka');
+    }
+  }, [say]);
+
+  const setSleep = useCallback((mins) => {
+    const m = Number(mins) || 0;
+    setSleepMins(m);
+    setSleepLeft(m * 60);
+    if (!m) say('Sleep timer band');
+    else say(`Sleep timer: ${m} minute baad playback band ho jayega`);
+  }, [say]);
+
+  const bumpSleep = useCallback(() => {
+    const next = sleepMins === 90 ? 0 : sleepMins === 0 ? 15 : sleepMins === 15 ? 30 : sleepMins === 30 ? 60 : 90;
+    setSleep(next);
+  }, [sleepMins, setSleep]);
 
   const setVol = useCallback((val) => {
     const v = video.current;
@@ -550,6 +626,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       writeList('mz_tv_recent', v);
       return v;
     });
+    writePref('mz_tv_last', cur.url); // next visit opens on this channel
     try {
       if (window.location.pathname !== `/live/${curSlug}`) window.history.replaceState(window.history.state, '', `/live/${curSlug}`);
     } catch (_) { /* history blocked */ }
@@ -796,6 +873,14 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       let late = h && Number.isFinite(h.latency) ? h.latency : null;
       if (late == null && v.seekable && v.seekable.length) late = v.seekable.end(v.seekable.length - 1) - v.currentTime;
       if (late != null && Number.isFinite(late)) setBehind(Math.max(0, late));
+      let room = 0;
+      try {
+        if (v.seekable && v.seekable.length) {
+          const start = v.seekable.start(0);
+          room = Math.max(0, (Number(v.currentTime) || 0) - start);
+        }
+      } catch (_) { /* not seekable */ }
+      setDvr(room);
       if (statsOn) {
         let buffered = 0;
         try { if (v.buffered && v.buffered.length) buffered = Math.max(0, v.buffered.end(v.buffered.length - 1) - v.currentTime); } catch (_) { /* ignore */ }
@@ -854,44 +939,152 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       const tag = (e.target && e.target.tagName) || '';
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) { if (e.key === 'Escape') e.target.blur(); return; }
+      if (e.key === 'Escape') {
+        setSetOpen(false); setHelpOpen(false);
+        digits.current = ''; setTyping('');
+        return;
+      }
+      // 0-9: type a channel number, the jump happens on its own after a short pause.
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        digits.current = `${digits.current}${e.key}`.slice(-3);
+        setTyping(digits.current);
+        if (typeTimer.current) clearTimeout(typeTimer.current);
+        typeTimer.current = setTimeout(() => {
+          const want = digits.current;
+          const at = typedChannel(want, chans.length);
+          digits.current = '';
+          setTyping('');
+          if (at >= 0) go(at);
+          else say(`Channel ${Number(want)} maujood nahi (1-${chans.length})`);
+        }, TYPE_MS);
+        return;
+      }
       if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); setVol(volume + 0.1); }
       else if (e.key === 'ArrowDown') { e.preventDefault(); setVol(volume - 0.1); }
       else if (e.key === '/') { e.preventDefault(); searchInput.current && searchInput.current.focus(); }
       else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+      else if (e.key === '?') { e.preventDefault(); setHelpOpen((o) => !o); }
       else {
         const k = String(e.key).toLowerCase();
         if (k === 'f') fullscreen();
         else if (k === 'r') random();
         else if (k === 'm') toggleMuted();
         else if (k === 'l') jumpToLive();
-        else if (k === 'k') togglePlay();
+        else if (k === 'k' || k === 'n') togglePlay();
         else if (k === 'c') capture();
-        else if (k === 's') setSetOpen((o) => !o);
-        else if (k === '?') say('Keys: ← → channel, Space play, ↑ ↓ awaaz, / search, M mute, L live, C photo, S settings, F full screen');
+        else if (k === 'p') pip();
+        else if (k === 't') bumpSleep();
+        else if (k === 'g') searchInput.current && searchInput.current.focus();
+        else if (k === 's') setSetOpen((to) => !to);
+        else if (k === 'b') prev();
+        else if (k === ']') next();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [next, prev, fullscreen, random, toggleMuted, jumpToLive, togglePlay, capture, setVol, volume, say]);
+  }, [next, prev, fullscreen, random, toggleMuted, jumpToLive, togglePlay, capture, setVol, volume, say, chans.length, go, pip, bumpSleep]);
 
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     if (uiTimer.current) clearTimeout(uiTimer.current);
+    if (typeTimer.current) clearTimeout(typeTimer.current);
+    if (hudTimer.current) clearTimeout(hudTimer.current);
     if (hls.current) { try { hls.current.destroy(); } catch (_) { /* gone */ } }
     if (dash.current) { try { dash.current.reset(); } catch (_) { /* gone */ } dash.current = null; }
   }, []);
 
-  // Swipe left / right on the picture changes channel (phones).
+  // ---- v52 effects: resume, zap OSD, sleep timer, cast, remembered picture -----------
+  // "Last channel" resume happens AFTER hydration (server and browser must render the same
+  // first channel, so the jump cannot live in useState).
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current) return;
+    resumed.current = true;
+    if (initialSlug || !chans.length) return;
+    const last = readPref('mz_tv_last', '');
+    if (!last) return;
+    const j = chans.findIndex((c) => c && c.url === last);
+    if (j < 0 || j === idx || chans[j].off) return;
+    setSourceIndex(0);
+    setRelayIndex(-1);
+    setStatus('loading');
+    clearTracks();
+    setIdx(j);
+    say(`Pichla channel khol rahe hain: ${chans[j].name}`);
+  }, [chans, initialSlug, idx, say, clearTracks]);
+
+  // A SIRAVEX-style banner every time the channel changes: big number, logo, name.
+  useEffect(() => {
+    if (!cur) return undefined;
+    setZap({ no: idx + 1, name: cur.name, group: cur.group || 'Live', logo: cur.logo || '', hue: channelHue(cur.name) });
+    const t = setTimeout(() => setZap(null), ZAP_MS);
+    return () => clearTimeout(t);
+  }, [idx, cur]);
+
+  // Sleep timer: one interval, a quiet warning at 60 s, then the picture stops.
+  useEffect(() => {
+    if (!sleepMins) return undefined;
+    const t = setInterval(() => setSleepLeft((v) => (v > 0 ? v - 1 : 0)), 1000);
+    return () => clearInterval(t);
+  }, [sleepMins]);
+  useEffect(() => {
+    if (!sleepMins) return;
+    if (sleepLeft === 60) say('Sleep timer: 1 minute baqi hai');
+    if (sleepLeft <= 0) {
+      setSleepMins(0);
+      const v = video.current;
+      try { if (v) v.pause(); } catch (_) { /* gone */ }
+      say('Sleep timer: playback band. Good night!');
+    }
+  }, [sleepLeft, sleepMins, say]);
+
+  // Does this browser expose Remote Playback (Chromecast / TV)?
+  useEffect(() => {
+    const v = video.current;
+    setCanCast(Boolean(v && v.remote && typeof v.remote.prompt === 'function'));
+  }, [target, status]);
+
+  // A stream host keeps the picture the visitor chose last time (1080p stays 1080p).
+  useEffect(() => {
+    if (!levels.length) return;
+    const host = hostOf(sourceUrl);
+    if (!host) return;
+    const saved = readPref(`mz_tv_lvl_${host}`, null);
+    if (Number.isInteger(saved) && levels[saved]) {
+      setPinLevel(saved);
+      pinRef.current = saved;
+      applyQuality();
+    }
+  }, [levels, sourceUrl, applyQuality]);
+
+  // Phones: swipe left/right = channel, swipe up/down = volume, with a big HUD.
+  const flashHud = useCallback((obj) => {
+    setHud(obj);
+    if (hudTimer.current) clearTimeout(hudTimer.current);
+    hudTimer.current = setTimeout(() => setHud(null), 1100);
+  }, []);
   const onTouchStart = (e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; poke(); };
   const onTouchEnd = (e) => {
     const s = touch.current; touch.current = null;
     if (!s || !e.changedTouches[0]) return;
-    if (e.target && e.target.closest && e.target.closest('.mztv-bar, .mztv-set, .mztv-ad, .mztv-gate, .mztv-failed, button, input, select, a')) return;
+    if (e.target && e.target.closest && e.target.closest('.mztv-bar, .mztv-set, .mztv-ad, .mztv-gate, .mztv-failed, .mztv-help, button, input, select, a')) return;
     const dx = e.changedTouches[0].clientX - s.x;
-    const dy = Math.abs(e.changedTouches[0].clientY - s.y);
-    if (Math.abs(dx) > 64 && dy < 60) { if (dx < 0) next(); else prev(); }
+    const dy = e.changedTouches[0].clientY - s.y;
+    if (Math.abs(dx) > 64 && Math.abs(dy) < 60) {
+      flashHud({ kind: 'ch', value: dx < 0 ? 1 : -1 });
+      if (dx < 0) next(); else prev();
+      return;
+    }
+    if (Math.abs(dy) > 56 && Math.abs(dx) < 60) {
+      const to = Math.min(1, Math.max(0, volume + (-dy / 240)));
+      setVol(to);
+      flashHud({ kind: 'vol', value: to });
+      return;
+    }
+    if (Math.abs(dx) < 12 && Math.abs(dy) < 12) poke(); // a plain tap just wakes the bar
   };
 
   if (!cur) return <div className="mztv-empty">Abhi koi active channel nahi hai.</div>;
@@ -930,6 +1123,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
           {nowLevel && <span className="mztv-badge is-q">{resLabel(nowLevel.height)}</span>}
           <span className={`mztv-badge is-status is-${status}`}><i aria-hidden="true" />{statusLabel}</span>
           <span className="mztv-badge is-quiet"><Activity size={12} aria-hidden="true" />{levelCount ? `${levelCount} LEVELS` : 'ADAPTIVE'}</span>
+          {sleepMins > 0 && <span className="mztv-badge is-sleep" title="Sleep timer"><Moon size={12} aria-hidden="true" />{sleepClock(sleepLeft)}</span>}
           <TvClock />
         </div>
       </header>
@@ -938,7 +1132,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
         <div
           ref={frame}
           className={`mztv-screen ${showUi ? 'is-ui' : 'is-quiet'}`}
-          style={{ aspectRatio: '16 / 9' }}
+          style={{ aspectRatio: '16 / 9', '--h': channelHue(cur.name) }}
           onMouseMove={poke}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
@@ -990,6 +1184,30 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
             label={status === 'playing' ? (isPlaying ? 'LIVE' : 'PAUSED') : status === 'failed' ? 'RETRY' : 'CONNECTING'}
             className="mztv-live-tag"
           />
+          {/* channel-switch OSD (SIRAVEX-style zap banner) */}
+          {zap && !ad && (
+            <div className="mztv-zap" style={{ '--h': zap.hue }} role="status" aria-live="polite">
+              <span className="mztv-zap-no">{String(zap.no).padStart(2, '0')}</span>
+              <span className="mztv-zap-copy">
+                <b>{zap.name}</b>
+                <small>{zap.group} · CH {zap.no}/{activeCount}</small>
+              </span>
+            </div>
+          )}
+          {typing && (
+            <div className="mztv-zap is-typing" role="status" aria-live="polite">
+              <span className="mztv-zap-no">{typing}</span>
+              <span className="mztv-zap-copy"><b>Channel {typing}</b><small>Enter ka intezar — ya thora rukein</small></span>
+            </div>
+          )}
+          {hud && (
+            <div className={`mztv-hud is-${hud.kind}`} role="status" aria-live="polite">
+              {hud.kind === 'vol' ? <Volume2 size={26} aria-hidden="true" /> : <Tv size={26} aria-hidden="true" />}
+              <b>{hud.kind === 'vol' ? `${Math.round(hud.value * 100)}%` : hud.value > 0 ? 'Agla channel' : 'Pichla channel'}</b>
+              {hud.kind === 'vol' && <span className="mztv-hud-bar"><i style={{ width: `${Math.round(hud.value * 100)}%` }} /></span>}
+            </div>
+          )}
+
           {target && status === 'failed' && !ad && (
             <div className="mztv-failed">
               <p className="mztv-failed-title">Ye channel abhi nahi chal raha.</p>
@@ -1040,6 +1258,11 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
                   </button>
                   <input type="range" className="mztv-vol-range" min={0} max={1} step={0.05} value={muted ? 0 : volume} aria-label="Volume" onChange={(e) => setVol(e.target.value)} />
                 </div>
+                {!isVod && status === 'playing' && dvr > 8 && (
+                  <button type="button" onClick={() => skipBack(30)} className={`${ctl} is-opt`} aria-label="30 second peechay" title="Timeshift: 30s peechay">
+                    <Rewind size={17} /><span className="mztv-ctl-lab">30s</span>
+                  </button>
+                )}
                 {!isVod && status === 'playing' && (
                   <button type="button" onClick={jumpToLive} className={`mztv-live-edge ${behind <= 2.5 ? 'is-edge' : ''}`} aria-label="Jump to live">
                     <Radio size={12} /> {latencyLabel(behind)}
@@ -1050,6 +1273,9 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
                 {nowLevel && <span className="mztv-bar-q">{nowLevel.label}</span>}
                 <button type="button" onClick={capture} className={`${ctl} is-opt`} aria-label="Capture photo of this picture"><Camera size={17} /></button>
                 <button type="button" onClick={() => { setSetOpen((o) => !o); poke(); }} className={`${ctl} ${setOpen ? 'is-on' : ''}`} aria-label="Settings (quality, audio, captions)" aria-expanded={setOpen}><Settings size={18} /></button>
+                {canCast && (
+                  <button type="button" onClick={castTo} className={`${ctl} is-opt`} aria-label="Cast to TV" title="Cast to TV / Chromecast"><Cast size={17} /></button>
+                )}
                 <button type="button" onClick={pip} className={`${ctl} is-opt`} aria-label="Picture in picture"><PictureInPicture2 size={17} /></button>
                 <button type="button" onClick={fullscreen} className={ctl} aria-label={isFs ? 'Exit full screen' : 'Full screen'}>{isFs ? <X size={18} /> : <Expand size={18} />}</button>
               </div>
@@ -1096,7 +1322,20 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
                     <div className="mztv-set-speeds">
                       {SPEEDS.map((s) => <button key={s} type="button" className={speed === s ? 'is-on' : ''} onClick={() => { setSpeed(s); say(`Raftaar ${s}x`); }}>{s}x</button>)}
                     </div>
+                    <p className="mztv-set-hint">Sleep timer (so jane ke liye):</p>
+                    <div className="mztv-set-speeds">
+                      {SLEEP_PRESETS.map((m) => (
+                        <button key={m} type="button" className={sleepMins === m ? 'is-on' : ''} onClick={() => setSleep(m)}>
+                          {m ? `${m}m` : 'Off'}
+                        </button>
+                      ))}
+                    </div>
+                    {sleepMins > 0 && <p className="mztv-set-hint">Baqi: {sleepClock(sleepLeft)} — playback khud band ho jayega.</p>}
                     {menuRow('stats', 'Stream stats dikhayein', statsOn, () => setStatsOn(!statsOn), 'Resolution, speed, buffer')}
+                    {menuRow('keys', 'Keyboard shortcuts', false, () => { setSetOpen(false); setHelpOpen(true); }, '? dabayein bhi')}
+                    {menuRow('sleep15', 'Sleep timer 15 minute', sleepMins === 15, () => setSleep(15), 'T dabayein')}
+                    {canCast && menuRow('cast', 'TV / Chromecast par bhejein', false, castTo, 'Browser ka cast')}
+                    {dvr > 8 && menuRow('back30', '30 second peechay', false, () => skipBack(30), `Timeshift: ${sleepClock(dvr)} available`)}
                     {menuRow('skip', 'Dead channel khud skip', autoSkip, toggleAutoSkip)}
                     {menuRow('cap', 'Photo capture karein', false, capture, 'Is lamhe ki tasveer save')}
                     {sources.length > 1 && (
@@ -1110,7 +1349,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
                         {TV_THEMES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
                       </select>
                     </label>
-                    <p className="mztv-set-hint">Keys: ← → channel · Space play · M awaaz · L live · C photo · F full screen · R random</p>
+                    <p className="mztv-set-hint">Keys: ← → channel · 0-9 channel number · Space play · M awaaz · L live · P PiP · T sleep · C photo · F full screen · ? saari keys</p>
                   </>
                 )}
               </div>
@@ -1151,6 +1390,23 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
           </div>
         </div>
       </div>
+
+      {helpOpen && (
+        <div className="mztv-help" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onClick={(e) => { if (e.target === e.currentTarget) setHelpOpen(false); }}>
+          <div className="mztv-help-card">
+            <div className="mztv-help-head">
+              <span><Keyboard size={18} aria-hidden="true" /><b>Keyboard shortcuts</b></span>
+              <button type="button" onClick={() => setHelpOpen(false)} aria-label="Close shortcuts"><X size={18} /></button>
+            </div>
+            <ul>
+              {SHORTCUTS.map(([k, label]) => (
+                <li key={k}><kbd>{k}</kbd><span>{label}</span></li>
+              ))}
+            </ul>
+            <p>Phone par: left/right swipe = channel, up/down swipe = awaaz, double-tap = full screen.</p>
+          </div>
+        </div>
+      )}
 
       <section className="mztv-guide" aria-label="Channel guide">
         <div className="mztv-guide-head">

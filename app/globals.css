@@ -809,6 +809,54 @@ html[data-fx~="smooth"] a, html[data-fx~="smooth"] button { touch-action: manipu
 .mztv-guide-foot { display: flex; align-items: center; justify-content: center; gap: 5px; margin: 10px 0 0; color: rgba(255,255,255,.4); font-size: .63rem; text-align: center; }
 .mztv-demo-note { margin: 0; padding: 0 16px 14px; color: rgba(255,255,255,.45); font-size: .68rem; text-align: center; }
 .mztv-empty { border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 24px; background: #071711; color: rgba(255,255,255,.7); text-align: center; }
+/* ---- v52: SIRAVEX-level extras (zap OSD, gesture HUD, sleep timer, shortcuts sheet) ---- */
+.mztv-badge.is-sleep { border-color: rgba(165,180,252,.42); background: rgba(79,70,229,.26); color: #e0e7ff; }
+.mztv-screen::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(130% 90% at 50% 0%, hsl(var(--h, 150) 70% 46% / .12), transparent 62%); }
+.mztv-zap { position: absolute; z-index: 24; top: 12px; right: 12px; display: flex; align-items: center; gap: 10px;
+  padding: 7px 14px 7px 7px; border-radius: 16px; border: 1px solid hsl(var(--h, 150) 62% 62% / .45);
+  background: linear-gradient(135deg, hsl(var(--h, 150) 55% 26% / .94), rgba(0,0,0,.86));
+  box-shadow: 0 18px 40px -20px #000; animation: mztv-zap-in .22s ease-out; }
+.mztv-zap-no { display: grid; place-items: center; min-width: 42px; height: 42px; padding: 0 7px; border-radius: 12px;
+  background: linear-gradient(135deg, #ffe19a, var(--mztv-gold)); color: #071711; font-size: 1.22rem; font-weight: 950;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.mztv-zap-copy { display: flex; flex-direction: column; min-width: 0; line-height: 1.16; }
+.mztv-zap-copy b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; color: #fff; font-size: .85rem; font-weight: 900; }
+.mztv-zap-copy small { color: rgba(255,255,255,.6); font-size: .62rem; font-weight: 700; }
+.mztv-zap.is-typing { border-color: var(--mztv-gold); background: rgba(0,0,0,.9); }
+.mztv-hud { position: absolute; z-index: 23; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column;
+  align-items: center; gap: 7px; min-width: 132px; padding: 14px 20px; border-radius: 18px; pointer-events: none;
+  background: rgba(0,0,0,.74); border: 1px solid rgba(255,255,255,.16); color: #fff; backdrop-filter: blur(6px); animation: mztv-zap-in .16s ease-out; }
+.mztv-hud b { font-size: .95rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.mztv-hud-bar { display: block; width: 100%; height: 6px; border-radius: 999px; background: rgba(255,255,255,.2); overflow: hidden; }
+.mztv-hud-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--mztv-gold), #fff2c9); transition: width .1s linear; }
+.mztv-ctl-lab { margin-left: 2px; font-size: .6rem; font-weight: 900; }
+.mztv-help { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px;
+  background: rgba(3,10,8,.72); backdrop-filter: blur(6px); }
+.mztv-help-card { width: min(480px, 100%); max-height: min(86vh, 640px); overflow: auto; border-radius: 20px; padding: 16px 18px;
+  background: #0b1512; border: 1px solid rgba(245,184,61,.35); box-shadow: 0 30px 80px -30px #000; color: #fff; }
+.mztv-help-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mztv-help-head span { display: flex; align-items: center; gap: 8px; color: var(--mztv-gold); }
+.mztv-help-head b { font-size: 1rem; font-weight: 900; }
+.mztv-help-head button { display: grid; place-items: center; border: 0; background: none; color: rgba(255,255,255,.72); cursor: pointer; }
+.mztv-help ul { display: grid; gap: 7px; margin: 12px 0; padding: 0; list-style: none; }
+.mztv-help li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(255,255,255,.08); font-size: .78rem; color: rgba(255,255,255,.82); }
+.mztv-help kbd { border: 1px solid rgba(255,255,255,.22); border-radius: 7px; padding: 3px 8px; background: rgba(255,255,255,.08);
+  color: #ffe6a8; font-family: ui-monospace, SFMono-Regular, monospace; font-size: .7rem; white-space: nowrap; }
+.mztv-help p { margin: 0; color: rgba(255,255,255,.55); font-size: .7rem; line-height: 1.5; }
+@keyframes mztv-zap-in { from { opacity: 0; transform: translateY(-7px) scale(.97); } to { opacity: 1; transform: none; } }
+@media (max-width: 700px) {
+  .mztv-zap { top: 8px; right: 8px; padding: 5px 10px 5px 5px; border-radius: 13px; }
+  .mztv-zap-no { min-width: 34px; height: 34px; font-size: 1rem; border-radius: 10px; }
+  .mztv-zap-copy b { max-width: 120px; font-size: .76rem; }
+  .mztv-zap-copy small { font-size: .56rem; }
+  .mztv-hud { min-width: 112px; padding: 11px 16px; }
+  .mztv-help-card { padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mztv-zap, .mztv-hud { animation: none !important; }
+}
 @keyframes mztv-spin { to { transform: rotate(360deg); } }
 @keyframes mztv-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(1.35); } }
 @media (max-width: 700px) {

@@ -360,8 +360,8 @@ assert.ok(read('UPGRADE-v51.md').includes('{imdbid}'), 'UPGRADE-v51 documents th
 assert.ok(read('UPGRADE-v51.md').includes('Play Servers'));
 
 const pkg = JSON.parse(read('package.json'));
-assert.equal(pkg.version, '51.0.0');
+assert.ok(Number(String(pkg.version).split('.')[0]) >= 51, `version should be 51 or newer, got ${pkg.version}`);
 assert.ok(pkg.scripts.test.includes('test-v51.mjs'), 'v51 test is part of npm test');
-ok('release: 4 guides, UPGRADE-v51.md, version 51.0.0 and the test chain verified');
+ok('release: 4 guides, UPGRADE-v51.md, version 51+ and the test chain verified');
 
 console.log(`\nAll ${pass} v51 checks passed.`);
