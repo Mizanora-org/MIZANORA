@@ -5,8 +5,10 @@ import { absUrl } from '@/lib/config';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import SongBrowser from '@/components/SongBrowser';
+import ResumeListening from '@/components/ResumeListening';
 import { SONG_QUERIES } from '@/lib/songs';
 import { getTrendingArtists, getTrendingSongs } from '@/lib/songsServer';
+import { ARTIST_PROFILES } from '@/lib/artistProfiles';
 
 export const revalidate = 1800;
 
@@ -75,6 +77,8 @@ export default async function SongsPage({ searchParams }) {
         </div>
       </section>
 
+      <ResumeListening />
+
       {artists.length > 0 && (
         <section className="mx-auto max-w-7xl px-3 pt-6 sm:px-4" aria-labelledby="singers">
           <div className="mb-2 flex items-end justify-between gap-3">
@@ -98,6 +102,34 @@ export default async function SongsPage({ searchParams }) {
           </div>
         </section>
       )}
+
+      {/* v57: a stable singers directory — real profiles, so this page has substance even when the
+          music mirror is down (search and the browser below still work either way). */}
+      <section className="mx-auto max-w-7xl px-3 pt-6 sm:px-4" aria-labelledby="singers-az">
+        <div className="mb-2 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-gold">Singers A–Z</p>
+            <h2 id="singers-az" className="section-title">Legendary voices</h2>
+          </div>
+          <Link href="/songs" className="text-xs font-extrabold text-gold hover:underline">All songs</Link>
+        </div>
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {ARTIST_PROFILES.map((a) => (
+            <li key={a.slug}>
+              <Link href={`/songs/artist/${a.slug}`} className="flex h-full items-center gap-3 rounded-2xl border border-line bg-surface p-3 transition hover:border-gold">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gold/10 text-sm font-extrabold text-gold">
+                  {a.name.split(' ').map((w) => w[0]).join('').slice(0, 2)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-extrabold text-cream">{a.name}</span>
+                  <span className="block truncate text-[0.68rem] font-semibold text-faint">{a.genres.join(' · ')}</span>
+                  <span className="block truncate text-[0.66rem] text-dim">{a.knownFor.slice(0, 2).join(', ')}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {trending.length === 0 && (
         <p className="mx-auto mt-4 max-w-7xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 sm:mx-3">

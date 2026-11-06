@@ -7,6 +7,7 @@ import JsonLd from '@/components/JsonLd';
 import SongBrowser from '@/components/SongBrowser';
 import { artistNameFromSlug, artistSlug, clockTime } from '@/lib/songs';
 import { getArtistSongs, getTrendingArtists } from '@/lib/songsServer';
+import { artistProfile } from '@/lib/artistProfiles';
 
 export const revalidate = 3600;
 
@@ -29,6 +30,7 @@ export default async function ArtistPage({ params }) {
   const { slug } = await params;
   if (!slug || slug.length > 80) notFound();
   const name = titleCase(slug);
+  const profile = artistProfile(slug);
 
   const [{ items }, trendingArtists] = await Promise.all([
     getArtistSongs(name, 30).catch(() => ({ items: [] })),
@@ -45,10 +47,33 @@ export default async function ArtistPage({ params }) {
             Music catalogue abhi jawab nahi de rahi, is liye {name} ke gaane load nahi ho sake. Thori dair baad page
             refresh karein — ya Mizanora songs search se seedha try karein.
           </p>
+          {profile && (
+            <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-line bg-surface p-5 text-left">
+              <p className="text-sm leading-7 text-cream">{profile.about}</p>
+              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                <dt className="font-extrabold text-gold">Origin</dt><dd className="text-dim">{profile.origin}</dd>
+                <dt className="font-extrabold text-gold">Born</dt><dd className="text-dim">{profile.born}{profile.died ? ` · died ${profile.died}` : ''}</dd>
+                <dt className="font-extrabold text-gold">Active</dt><dd className="text-dim">{profile.years}</dd>
+                <dt className="font-extrabold text-gold">Genres</dt><dd className="text-dim">{profile.genres.join(', ')}</dd>
+              </dl>
+            </div>
+          )}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <Link href="/songs" className="rounded-full bg-gold px-4 py-2 text-sm font-extrabold text-white">Songs search</Link>
             <Link href={`/songs?q=${encodeURIComponent(name)}`} className="rounded-full border border-line px-4 py-2 text-sm font-bold text-dim hover:border-gold hover:text-gold">Try “{name}”</Link>
           </div>
+          {profile && (
+            <div className="mx-auto mt-6 max-w-2xl">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-gold">Known for</p>
+              <div className="mt-2 flex flex-wrap justify-center gap-2">
+                {profile.knownFor.map((song) => (
+                  <Link key={song} href={`/songs?q=${encodeURIComponent(`${song} ${name}`)}`} className="rounded-full border border-line bg-raised px-3 py-1.5 text-xs font-bold text-cream hover:border-gold hover:text-gold">
+                    {song}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         {trendingArtists.length > 0 && (
           <section className="mx-auto max-w-7xl px-3 pb-16 sm:px-4">
@@ -122,6 +147,22 @@ export default async function ArtistPage({ params }) {
           </div>
         </div>
       </section>
+
+      {profile && (
+        <section className="mx-auto max-w-7xl px-3 pt-5 sm:px-4" aria-labelledby="artist-about">
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+            <h2 id="artist-about" className="text-xs font-extrabold uppercase tracking-wider text-gold">About {profile.name}</h2>
+            <p className="mt-2 text-sm leading-7 text-cream">{profile.about}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5 text-[0.68rem] font-bold">
+              <span className="rounded-full bg-raised px-2.5 py-1 text-dim">{profile.origin}</span>
+              <span className="rounded-full bg-raised px-2.5 py-1 text-dim">Born {profile.born}</span>
+              {profile.died && <span className="rounded-full bg-raised px-2.5 py-1 text-dim">Died {profile.died}</span>}
+              <span className="rounded-full bg-raised px-2.5 py-1 text-dim">Active {profile.years}</span>
+              {profile.genres.map((g) => <span key={g} className="rounded-full bg-gold/10 px-2.5 py-1 text-gold">{g}</span>)}
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="pt-6 pb-20">
         <SongBrowser initialSongs={items} topics={[name, 'Latest', 'Hits']} initialQuery="" />

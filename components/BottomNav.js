@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Clapperboard, Home, LayoutGrid, ShoppingBag, UserRound } from 'lucide-react';
+import { BookOpen, Clapperboard, Home, Music4, ShoppingBag, Tv } from 'lucide-react';
 import { useCart } from './CartProvider';
 
 // Phone-app style tab bar. Hidden on desktop and on /admin.
@@ -17,14 +17,17 @@ export default function BottomNav() {
   if (path.startsWith('/admin')) return null;
 
   // match: the extra paths that should also light the tab up.
+  // v57: this is the app's real navigation now — a media app's tabs, not a blog's.
+  // Home · Movies · Songs · Quran · Live TV · Shop (with the cart badge).
   const tabs = [
     { href: '/', label: 'Home', Icon: Home },
-    { href: '/products', label: 'Shop', Icon: LayoutGrid, match: ['/category/', '/product/'] },
-    { href: '/reels', label: 'Reels', Icon: Clapperboard },
-    { href: '/blog', label: 'Blog', Icon: BookOpen },
-    { href: '/cart', label: 'Cart', Icon: ShoppingBag },
-    { href: '/account', label: 'Account', Icon: UserRound, match: ['/wishlist', '/track'] },
+    { href: '/movies', label: 'Movies', Icon: Clapperboard, match: ['/movies/world', '/movies/calendar', '/movies/actors', '/movies/actor/'] },
+    { href: '/songs', label: 'Songs', Icon: Music4, match: ['/songs/artist/'] },
+    { href: '/quran', label: 'Quran', Icon: BookOpen, match: ['/hadith', '/islamic'] },
+    { href: '/live', label: 'Live', Icon: Tv, match: ['/live-channel'] },
+    { href: '/products', label: 'Shop', Icon: ShoppingBag, match: ['/category/', '/product/', '/cart', '/deals'] },
   ];
+
 
   const on = (t) => (t.href === '/' ? path === '/' : path.startsWith(t.href) || (t.match || []).some((m) => path.startsWith(m)));
   const again = (href) => {
@@ -44,7 +47,7 @@ export default function BottomNav() {
                 {/* the icon sits in its own box, so the cart number can sit on its corner */}
                 <span className={`relative grid place-items-center rounded-full px-2.5 py-0.5 transition ${active ? 'bg-gold/10' : href === '/reels' && !active ? 'bg-saffron/15' : ''}`}>
                   <Icon size={21} strokeWidth={active ? 2.5 : 2} />
-                  {href === '/cart' && count > 0 && (
+                  {href === '/products' && count > 0 && (
                     <span className="absolute -right-0.5 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-saffron px-1 text-[0.6rem] font-bold text-[#2B1B00] shadow-sm">{count}</span>
                   )}
                 </span>

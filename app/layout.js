@@ -18,6 +18,8 @@ import Footer from '@/components/Footer';
 import WhatsAppFab from '@/components/WhatsAppFab';
 import InstallBanner from '@/components/InstallBanner';
 import BottomNav from '@/components/BottomNav';
+import MusicProvider from '@/components/MusicProvider';
+import MiniPlayer from '@/components/MiniPlayer';
 import PwaRegister from '@/components/PwaRegister';
 import MetaPixel from '@/components/MetaPixel';
 import JsonLd from '@/components/JsonLd';
@@ -136,6 +138,7 @@ export default async function RootLayout({ children }) {
         <RouteProgress />
         <AppMusic music={music} />
         <AuthProvider>
+        <MusicProvider>
         <CartProvider>
           <InstallProvider>
             <AnnouncementBar mode={themeMode} />
@@ -152,6 +155,7 @@ export default async function RootLayout({ children }) {
             <SiteFx effects={inject.effects} />
             <QuranSession cfg={quran} />
             <AssistantFab cfg={assistant} />
+            <MiniPlayer />
             <BottomNav />
             <InstallBanner />
             <SeasonFX mode={themeMode} />
@@ -160,6 +164,7 @@ export default async function RootLayout({ children }) {
             <AppFeel />
           </InstallProvider>
         </CartProvider>
+        </MusicProvider>
         </AuthProvider>
         </SiteGate>
         <Tracker off={down} />

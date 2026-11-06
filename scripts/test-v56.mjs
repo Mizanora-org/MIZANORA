@@ -58,11 +58,13 @@ check(song.proxyUrl.includes('proxy=1'), 'every song object carries a proxy URL'
 check(song.hasStream === true, 'the raw CDN link is still kept as a fallback');
 
 const browser = read('components/SongBrowser.js');
-check(browser.includes('onAudioError'), 'the songs browser falls back when audio fails');
-check(browser.includes('chain.current.list'), 'the songs browser keeps a source chain');
+check(browser.includes('useMusic'), 'v57: the songs browser uses the one global player');
+const provider = read('components/MusicProvider.js');
+check(provider.includes('onError') && provider.includes('c.i + 1 < c.list.length') && provider.includes('proxyUrl'), 'the global player falls back through its source chain');
 const detail = read('components/SongDetailPlayer.js');
-check(detail.includes('onAudioError') && detail.includes('YouTube par sunein'), 'the song page offers retry + a YouTube link');
-check(detail.includes('proxyUrl'), 'the song page knows the proxy URL');
+check(detail.includes('YouTube par sunein'), 'the song page offers retry + a YouTube link');
+check(detail.includes('proxyUrl') || provider.includes('proxyUrl'), 'the player knows the proxy URL');
+check(detail.includes('useMusic'), 'v57: the song page drives the global player');
 
 // ------------------------------------------------------------------ 2. movie search on top
 const moviesPage = read('app/movies/page.js');
