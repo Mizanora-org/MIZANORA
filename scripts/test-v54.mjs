@@ -217,7 +217,7 @@ for (const bit of ['MusicRecording', 'SongDetailPlayer', 'clockTime', 'generateM
   check(songPage.includes(bit), `the song page must include ${bit}`);
 }
 const browser = read('components/SongBrowser.js');
-for (const bit of ['/api/songs/search', '<audio', 'clockTime', 'SkipForward']) check(browser.includes(bit), `the browser must include ${bit}`);
+for (const bit of ['/api/songs/search', 'useMusic', 'clockTime', 'music.play']) check(browser.includes(bit), `the browser must include ${bit}`);
 check(!browser.includes('fetch(`https://saavn'), 'the browser never calls a music mirror directly');
 
 const detail = read('app/movies/[slug]/page.js');

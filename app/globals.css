@@ -1315,3 +1315,10 @@ html[data-fx~="smooth"] a, html[data-fx~="smooth"] button { touch-action: manipu
   .mz-unlock-glow, .mz-unlock::after, .mz-lock-on, .mz-spark, .mz-marquee-track { animation: none !important; }
   .mz-marquee-track { transform: none; }
 }
+
+
+/* v57 — mini music player spacing. The tab bar is ~3.5rem; the player adds another ~3.7rem. */
+body.mz-has-player main { padding-bottom: calc(7.4rem + env(safe-area-inset-bottom)); }
+@media (min-width: 768px) {
+  body.mz-has-player main { padding-bottom: 1.5rem; }
+}

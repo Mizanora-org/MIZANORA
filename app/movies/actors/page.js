@@ -9,6 +9,7 @@ import JsonLd from '@/components/JsonLd';
 import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import { enrichActorsWithPhotos, getMoviesHub } from '@/lib/moviesServer';
+import { seedActorRows, seedCastSize } from '@/lib/imdbSeed';
 import {
   MOVIE_REGIONS,
   actorFilmography,
@@ -40,10 +41,27 @@ export default async function ActorsDirectoryPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const q = String(sp.q || '').slice(0, 80).trim();
   const region = String(sp.region || 'all').slice(0, 40);
+  const letter = String(sp.letter || '').trim().toUpperCase().slice(0, 1);
+  const page = Math.max(0, Math.min(400, Number(sp.page) || 0));
 
   const { actors, movies } = await getMoviesHub();
   // v51: fill missing portraits from the official IMDb suggestion endpoint (cached 12h).
   const filtered = await enrichActorsWithPhotos(searchActors(q, actors, { region, limit: 200 }), 12);
+  // v57 — the snapshot cast directory: 10,000+ real people with three or more titles, straight from
+  // IMDb's cast lists. The curated profiles above stay first; this is the deep directory below them.
+  const PER_PAGE = 60;
+  const cast = seedActorRows({ q, letter, offset: page * PER_PAGE, limit: PER_PAGE, minTitles: 3 });
+  const castTotal = seedCastSize(3);
+  const hrefFor = ({ page: n = 0, letter: l = letter, query = q } = {}) => {
+    const p = new URLSearchParams();
+    if (query) p.set('q', query);
+    if (region && region !== 'all') p.set('region', region);
+    if (l) p.set('letter', l);
+    if (n > 0) p.set('page', String(n));
+    const qs = p.toString();
+    return qs ? `/movies/actors?${qs}` : '/movies/actors';
+  };
+  const pageHref = (n) => hrefFor({ page: n });
 
   const itemListLd = {
     '@context': 'https://schema.org',
@@ -189,12 +207,75 @@ export default async function ActorsDirectoryPage({ searchParams }) {
           </ul>
         ) : (
           <div className="mt-5 rounded-2xl border border-line bg-surface p-6 text-center text-sm text-dim">
-            No actor profiles matched &quot;{q}&quot;.{' '}
+            No curated profile matched &quot;{q}&quot;. The IMDb cast directory below has {castTotal.toLocaleString('en-US')} people — try the search there, or{' '}
             <Link href="/movies/actors" className="font-bold text-gold underline">
-              View all actors
+              view all actors
             </Link>
+            .
           </div>
         )}
+
+        {/* v57 — IMDb cast directory (paginated). Real names, real title counts, no invented bios. */}
+        <div className="mt-8 rounded-3xl border border-line bg-surface p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-wider text-gold">IMDb cast directory</p>
+              <h2 className="section-title">Every actor &amp; actress in the catalogue</h2>
+              <p className="mt-1 text-xs font-semibold text-dim">
+                {castTotal.toLocaleString('en-US')} people with 3+ titles · showing {cast.total.toLocaleString('en-US')} match{cast.total === 1 ? '' : 'es'}
+                {q ? ` for “${q}”` : ''}{letter ? ` starting with ${letter}` : ''}
+              </p>
+            </div>
+            <form action="/movies/actors" method="get" className="flex items-center gap-2" role="search">
+              {region !== 'all' && <input type="hidden" name="region" value={region} />}
+              {letter && <input type="hidden" name="letter" value={letter} />}
+              <input name="q" defaultValue={q} placeholder="Cast name…" aria-label="Search cast directory" className="input !w-44 !py-2 text-sm" />
+              <button type="submit" className="btn-gold !px-3 !py-2 text-xs">Find</button>
+            </form>
+          </div>
+
+          <div className="no-sb mt-3 flex gap-1 overflow-x-auto pb-1">
+            <Link href={hrefFor({ letter: '' })} className={`shrink-0 rounded-full px-2.5 py-1 text-[0.7rem] font-extrabold ${letter ? 'bg-raised text-cream' : 'bg-gold text-white'}`}>All</Link>
+            {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c) => (
+              <Link
+                key={c}
+                href={hrefFor({ letter: c })}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[0.7rem] font-extrabold ${letter === c ? 'bg-gold text-white' : 'bg-raised text-cream hover:text-gold'}`}
+              >
+                {c}
+              </Link>
+            ))}
+          </div>
+
+          {cast.rows.length > 0 ? (
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {cast.rows.map((a) => (
+                <li key={a.slug}>
+                  <Link href={`/movies/actor/${a.slug}`} prefetch={false} className="flex items-center gap-3 rounded-xl border border-line bg-raised/40 p-2.5 transition hover:border-gold">
+                    <AvatarImg src={null} name={a.name} hue={posterHue(a.slug)} initials={titleInitials(a.name)} className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-extrabold text-cream">{a.name}</span>
+                      <span className="block truncate text-[0.7rem] font-semibold text-faint">
+                        {a.count} titles{a.from ? ` · ${a.from}${a.to && a.to !== a.from ? `–${a.to}` : ''}` : ''}
+                      </span>
+                      <span className="block truncate text-[0.68rem] text-dim">Known for: {a.knownFor.slice(0, 2).join(', ')}</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 rounded-xl bg-raised px-3 py-3 text-sm text-dim">Is naam se koi cast member nahi mila. Spelling check karein ya “All” dabayein.</p>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+            <span className="text-faint">Page {page + 1} of {Math.max(1, Math.ceil(cast.total / PER_PAGE))}</span>
+            <div className="flex gap-2">
+              {page > 0 && <Link href={pageHref(page - 1)} className="rounded-full border border-line px-3 py-1.5 text-cream hover:border-gold hover:text-gold">← Previous</Link>}
+              {page * PER_PAGE + PER_PAGE < cast.total && <Link href={pageHref(page + 1)} className="rounded-full bg-gold px-3 py-1.5 text-white">Next →</Link>}
+            </div>
+          </div>
+        </div>
       </section>
 
       <Suspense fallback={null}>
