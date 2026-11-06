@@ -87,7 +87,7 @@ ok('styles: zap banner, HUD, sleep badge and the shortcuts sheet are themed + re
 
 // ------------------------------------------------------------------ 4. release plumbing
 const pkg = JSON.parse(read('package.json'));
-assert.equal(pkg.version, '52.0.0');
+assert.ok(Number(String(pkg.version).split('.')[0]) >= 52, `version should be 52 or newer, got ${pkg.version}`);
 assert.ok(pkg.scripts.test.includes('test-v52.mjs'), 'v52 test is part of npm test');
 const doc = read('UPGRADE-v52.md');
 for (const bit of ['Zap', 'Sleep timer', 'Gesture', 'Shortcuts', 'Timeshift', 'Cast']) {

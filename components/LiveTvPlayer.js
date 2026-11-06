@@ -12,6 +12,10 @@ import {
   subLabel, tvClock, tvStatusLabel, typedChannel,
 } from '@/lib/liveTvUi';
 import { TV_THEMES, channelGroups, channelSlugs, channelSources, channelTarget, pickAd, relayHref, stepIndex, tvTheme } from '@/lib/liveTv';
+import {
+  AUTO_AUDIO_ORDER, ENGINE_LABEL, engineCanSwitch, engineChainLabel, engineLadder,
+  levelText, modeIndex, normLang, preferredAudioIndex, trackSignature,
+} from '@/lib/liveTvTracks';
 import LiveBadge from './LiveBadge';
 
 // v49 LIVE TV: the rebuilt player (Tamasha-style channel grid below a big custom screen).
@@ -193,6 +197,11 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const [sleepLeft, setSleepLeft] = useState(0); // seconds
   const [dvr, setDvr] = useState(0); // seconds of timeshift available behind live
   const [canCast, setCanCast] = useState(false);
+  // ---- v53: the track engine (quality / audio / captions on every playback engine) --------
+  const [engineStep, setEngineStep] = useState(0); // which engine of the ladder is running
+  const [engine, setEngine] = useState(''); // 'hls' | 'dash' | 'video' — the one that really played
+  const [switching, setSwitching] = useState(''); // 'video' | 'audio' | 'sub' while a switch is pending
+  const [audioLatched, setAudioLatched] = useState(false); // the visitor picked audio by hand
 
   const frame = useRef(null);
   const video = useRef(null);
@@ -218,6 +227,11 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const digits = useRef('');
   const typeTimer = useRef(null);
   const hudTimer = useRef(null);
+  const pending = useRef({ video: null, audio: null, sub: null });
+  const switchTimer = useRef(null);
+  const driftFix = useRef(0);
+  const audioManual = useRef(false);
+  const audiosRef = useRef([]);
 
   const cur = chans[idx] || null;
   const curSlug = slugs[idx] || '';
@@ -233,6 +247,10 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     if (base.kind !== 'youtube' && (base.proxy || viaRelay)) return { ...base, src: relayHref(sourceUrl), relayed: true };
     return base;
   }, [base, sourceUrl, viaRelay]);
+  const ladder = useMemo(() => engineLadder(target?.kind), [target]);
+  const activeEngine = ladder.length ? ladder[Math.min(engineStep, ladder.length - 1)] : '';
+  const canSwitchPicture = engineCanSwitch(activeEngine, levels.length);
+  const audioTrack = audios[audioId] || null;
   const youtubeSrc = target?.kind === 'youtube' ? `${target.src}&mute=1` : '';
   const statusLabel = tvStatusLabel(status, buffering, target?.kind);
   const filtered = useMemo(
@@ -263,6 +281,12 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setLevels([]); setCurLevel(-1); setPinLevel(null); pinRef.current = null;
     setAudios([]); setAudioId(0); setSubs([]); setSubId(-1); setSnap(null); setBehind(0);
     dashReps.current = []; dashAudios.current = [];
+    pending.current = { video: null, audio: null, sub: null };
+    audioManual.current = false;
+    setAudioLatched(false);
+    setSwitching('');
+    setEngine('');
+    if (switchTimer.current) clearTimeout(switchTimer.current);
   }, []);
 
   const go = useCallback((to, auto = false) => {
@@ -278,6 +302,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     setSkipIn(0);
     setRelayIndex(-1);
     setSourceIndex(0);
+    setEngineStep(0);
     stuckStep.current = 0;
     clearTracks();
     digits.current = '';
@@ -297,6 +322,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     stuckStep.current = 0;
     setRelayIndex(-1);
     setSourceIndex(0);
+    setEngineStep(0);
     setStatus('loading');
     setBuffering(false);
     setSkipIn(0);
@@ -311,6 +337,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     if (sourceIndex + 1 >= sources.length) return false;
     setRelayIndex(-1);
     setSourceIndex(sourceIndex + 1);
+    setEngineStep(0);
     setStatus('loading');
     setBuffering(false);
     clearTracks();
@@ -321,35 +348,107 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
 
   const chooseSource = useCallback((n) => {
     if (n < 0 || n >= sources.length || n === sourceIndex) return;
-    setRelayIndex(-1); setSourceIndex(n); setStatus('loading'); setBuffering(false);
+    setRelayIndex(-1); setSourceIndex(n); setEngineStep(0); setStatus('loading'); setBuffering(false);
     setSkipIn(0); fails.current = 0; stuckStep.current = 0;
     clearTracks();
   }, [sourceIndex, sources.length, clearTracks]);
 
-  // ---- exact quality / audio / captions, one face for every engine -------------------
-  const applyQuality = useCallback(() => {
+  // ---- v53 track engine: quality / audio / captions, verified on WHICHEVER engine runs ------
+  // A switch is only "done" when the engine confirms it. If it ignores us, we ask once more and
+  // then tell the truth instead of leaving a tick on a picture that never changed.
+  const armSwitch = useCallback((kind, label, retryFn) => {
+    setSwitching(kind);
+    pending.current[kind] = { at: Date.now(), label, retry: retryFn, tries: 0 };
+    if (switchTimer.current) clearTimeout(switchTimer.current);
+    switchTimer.current = setTimeout(() => {
+      const p = pending.current[kind];
+      if (!p) return;
+      if (p.tries >= 1) {
+        pending.current[kind] = null;
+        setSwitching('');
+        say(`${label}: is stream ka player is switch ko nahi kar pa raha`);
+        return;
+      }
+      p.tries += 1;
+      try { p.retry(); } catch (_) { /* engine gone */ }
+    }, 2500);
+  }, [say]);
+
+  const settleSwitch = useCallback((kind, message) => {
+    if (!pending.current[kind]) return;
+    pending.current[kind] = null;
+    if (switchTimer.current) clearTimeout(switchTimer.current);
+    setSwitching('');
+    if (message) say(message);
+  }, [say]);
+
+  // Put an exact level (or the current mode) on the engine that is alive right now.
+  const switchVideo = useCallback((n) => {
     const h = hls.current;
-    if (h && h.levels) {
-      // Pin (exact resolution or a fixed mode) must switch ABR off, or hls.js quietly
-      // wanders back to whatever it likes a few seconds later. Auto turns it on again.
-      const pinned = pinRef.current != null || qualityRef.current !== 'auto';
-      try { h.autoLevelEnabled = !pinned; } catch (_) { /* older shape */ }
-      h.currentLevel = pinRef.current != null ? pinRef.current : qualityLevel(h.levels, qualityRef.current);
-      return;
+    if (h && h.levels && h.levels.length) {
+      const pinned = n != null;
+      // capLevelToPlayerSize silently caps a pinned 1080p down to the player's size - that is the
+      // "quality does not track" bug. A manual pin always turns the cap off.
+      try { h.autoLevelEnabled = !pinned; } catch (_) { /* hls.js computes it from currentLevel */ }
+      try { h.capLevelToPlayerSize = !pinned; } catch (_) { /* older hls.js */ }
+      try { if (h.config) h.config.capLevelToPlayerSize = !pinned; } catch (_) { /* older hls.js */ }
+      try { h.autoLevelCapping = -1; } catch (_) { /* older hls.js */ }
+      try { h.currentLevel = pinned ? n : modeIndex(h.levels, qualityRef.current); } catch (_) { /* ignore */ }
+      if (pinned) {
+        try { h.nextLevel = n; } catch (_) { /* ignore */ }
+        try { h.loadLevel = n; } catch (_) { /* ignore */ }
+      }
+      return true;
     }
     const p = dash.current;
-    if (p && typeof p.updateSettings === 'function') {
-      const reps = dashReps.current;
-      if (pinRef.current != null && reps[pinRef.current]) {
-        try {
-          p.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: false } } } });
-          p.setRepresentationForTypeByIndex('video', reps[pinRef.current].index, true);
-        } catch (_) { /* older shape */ }
-      } else {
-        try { p.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: true } } } }); } catch (_) { /* ignore */ }
-      }
+    const reps = dashReps.current;
+    if (p && reps.length && typeof p.setRepresentationForTypeByIndex === 'function') {
+      // The mode is resolved from the engine's own representation list (not React state), so this
+      // callback stays stable and can be called from a stream effect without reloading the stream.
+      const heights = reps.map((r) => ({ height: r.height, bitrate: r.bandwidth }));
+      const idx = n != null ? n : modeIndex(heights, qualityRef.current);
+      try {
+        p.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: idx < 0 } }, buffer: { fastSwitchEnabled: true } } });
+        if (idx >= 0 && reps[idx]) p.setRepresentationForTypeByIndex('video', reps[idx].index, true);
+      } catch (_) { return false; }
+      return true;
     }
+    return false;
   }, []);
+
+  const applyQuality = useCallback(() => switchVideo(pinRef.current), [switchVideo]);
+
+  // Audio: hls.js tracks, dash.js tracks, or the browser's own audioTracks (Safari/Firefox).
+  const switchAudio = useCallback((n) => {
+    const h = hls.current;
+    if (h && h.audioTracks && h.audioTracks.length > 1) {
+      try { h.audioTrack = n; return 'hls'; } catch (_) { /* try next */ }
+    }
+    const p = dash.current;
+    if (p && dashAudios.current[n] && typeof p.setCurrentTrack === 'function') {
+      try { p.setCurrentTrack(dashAudios.current[n]); return 'dash'; } catch (_) { /* try next */ }
+    }
+    const v = video.current;
+    if (v && v.audioTracks && v.audioTracks.length > 1) {
+      try {
+        for (let i = 0; i < v.audioTracks.length; i++) v.audioTracks[i].enabled = i === n;
+        return 'video';
+      } catch (_) { /* not supported */ }
+    }
+    return '';
+  }, []);
+
+  // A new stream starts on the language this visitor used on this host (Urdu first, then English).
+  const autoPickAudio = useCallback((list) => {
+    if (audioManual.current || !Array.isArray(list) || list.length < 2) return;
+    const host = hostOf(sourceUrl);
+    const saved = host ? readPref(`mz_tv_aud_${host}`, '') : '';
+    const want = preferredAudioIndex(list, saved ? [saved, ...AUTO_AUDIO_ORDER] : AUTO_AUDIO_ORDER);
+    if (want > 0) {
+      setAudioId(want);
+      switchAudio(want);
+    }
+  }, [sourceUrl, switchAudio]);
 
   const pickMode = useCallback((mode) => {
     setQuality(mode);
@@ -358,39 +457,63 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     pinRef.current = null;
     const host = hostOf(sourceUrl);
     if (host) writePref(`mz_tv_lvl_${host}`, 'auto'); // this host follows the network again
-    applyQuality();
-    say(mode === 'auto' ? 'Quality: Auto (sab se tez)' : `Quality: ${(TV_QUALITY.find(([v]) => v === mode) || [])[1] || mode}`);
-  }, [applyQuality, say, sourceUrl]);
+    const applied = switchVideo(null);
+    const label = (TV_QUALITY.find(([v]) => v === mode) || [])[1] || mode;
+    // Auto modes are the engine's own job: no confirmation is armed, so no false warning either.
+    say(applied ? `Quality: ${label} — engine khud chun raha hai` : `Quality: ${label}`);
+  }, [say, sourceUrl, switchVideo]);
 
   const pickLevel = useCallback((n) => {
     setPinLevel(n);
     pinRef.current = n;
+    driftFix.current = 0;
+    if (curLevel === n) { setSwitching(''); say(`Picture: ${levels[n] ? levels[n].label : levelText(levels[n])} pehle se chalu hai ✓`); return; }
     const host = hostOf(sourceUrl);
     if (host) writePref(`mz_tv_lvl_${host}`, n); // next time this host opens at the same picture
-    applyQuality();
+    setSwitching('video');
+    armSwitch('video', 'Picture', () => switchVideo(n)); // armed first: an instant answer still counts
+    const applied = switchVideo(n);
     const l = levels[n];
-    say(`Video quality: ${l ? l.label : resLabel(0)}`);
-  }, [applyQuality, levels, say, sourceUrl]);
+    if (!applied) {
+      pending.current.video = null;
+      setSwitching('');
+      say('Is stream par picture switch nahi ho sakti — browser khud quality chun raha hai');
+      return;
+    }
+    say(`Picture: ${l ? l.label : levelText(l)} — switch ho rahi hai`);
+  }, [levels, curLevel, say, sourceUrl, switchVideo, armSwitch]);
 
   const pickAudio = useCallback((n) => {
     setAudioId(n);
-    const h = hls.current;
-    if (h) { try { h.audioTrack = n; } catch (_) { /* gone */ } }
-    const p = dash.current;
-    if (p && dashAudios.current[n] && typeof p.setCurrentTrack === 'function') {
-      try { p.setCurrentTrack(dashAudios.current[n]); } catch (_) { /* ignore */ }
+    audioManual.current = true;
+    setAudioLatched(true);
+    const t = audios[n] || {};
+    const host = hostOf(sourceUrl);
+    const lang = normLang(t.lang);
+    if (host && lang) writePref(`mz_tv_aud_${host}`, lang); // remembered per stream host
+    setSwitching('audio');
+    armSwitch('audio', 'Awaaz', () => switchAudio(n)); // armed first, so a fast engine is not missed
+    const how = switchAudio(n);
+    const label = audioLabel(t, n);
+    if (!how) {
+      pending.current.audio = null;
+      setSwitching('');
+      say('Is stream mein sirf ek awaaz hai');
+      return;
     }
-    const v = video.current;
-    if (v && v.audioTracks && v.audioTracks[n]) {
-      for (let i = 0; i < v.audioTracks.length; i++) v.audioTracks[i].enabled = i === n;
+    if (how === 'video') { // the browser confirms at once
+      pending.current.audio = null;
+      setSwitching('');
+      say(`Awaaz: ${label} ✓`);
+      return;
     }
-    say(`Awaaz: ${audioLabel(audios[n] || {}, n)}`);
-  }, [audios, say]);
+    say(`Awaaz badal rahe hain: ${label}`);
+  }, [audios, say, sourceUrl, switchAudio, armSwitch]);
 
   const pickSub = useCallback((n) => {
     setSubId(n);
     const h = hls.current;
-    if (h) { try { h.subtitleTrack = n; } catch (_) { /* gone */ } }
+    if (h) { try { h.subtitleDisplay = n >= 0; h.subtitleTrack = n; } catch (_) { /* gone */ } }
     const p = dash.current;
     if (p && typeof p.setTextTrack === 'function') { try { p.setTextTrack(n); } catch (_) { /* ignore */ } }
     const v = video.current;
@@ -581,6 +704,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   useEffect(() => { mutedRef.current = muted; }, [muted]);
   useEffect(() => { adRef.current = Boolean(ad); }, [ad]);
   useEffect(() => { statusRef.current = status; }, [status]);
+  useEffect(() => { audiosRef.current = audios; }, [audios]);
   useEffect(() => { qualityRef.current = quality; if (prefsLoaded.current) writePref('mz_tv_quality', quality); }, [quality]);
   useEffect(() => { if (prefsLoaded.current) writePref('mz_tv_stats', statsOn); }, [statsOn]);
   useEffect(() => { if (prefsLoaded.current) writePref('mz_tv_view', view); }, [view]);
@@ -675,10 +799,11 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     if (!v || hls.current || dash.current) return;
     try {
       if (v.audioTracks && v.audioTracks.length) {
-        const list = Array.from(v.audioTracks).map((t, i) => ({ name: t.label || '', lang: t.language || '', i }));
+        const list = Array.from(v.audioTracks).map((t, i) => ({ name: t.label || '', lang: t.language || '', default: Boolean(t.enabled), i }));
         setAudios(list);
         const on = list.findIndex((_, i) => v.audioTracks[i].enabled);
         if (on >= 0) setAudioId(on);
+        autoPickAudio(list); // the browser's own list (Safari / Firefox)
       }
     } catch (_) { /* not Safari */ }
     try {
@@ -686,7 +811,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
         setSubs(Array.from(v.textTracks).map((t, i) => ({ name: t.label || '', lang: t.language || '', i })));
       }
     } catch (_) { /* ignore */ }
-  }, []);
+  }, [autoPickAudio]);
 
   // Load one stream. A direct failure switches to the signed relay once; a relay failure shows retry.
   useEffect(() => {
@@ -694,6 +819,9 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     if (hls.current) { try { hls.current.destroy(); } catch (_) { /* gone */ } hls.current = null; }
     if (dash.current) { try { dash.current.reset(); } catch (_) { /* gone */ } dash.current = null; }
     if (!relayReady || !v || !target || target.kind === 'youtube') return undefined;
+    const engineNow = activeEngine; // hls | dash | video — this attempt only
+    let engineLabel = engineNow; // what actually ended up playing (Safari plays HLS natively)
+    if (!engineNow) { setStatus('failed'); return undefined; } // playlist / unsupported protocol
     let dead = false;
     let fallbackStarted = false;
     let failureHandled = false;
@@ -703,6 +831,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       if (fallbackStarted) return true; // another error arrived before React switched the target
       fallbackStarted = true;
       rememberRelay(sourceUrl);
+      setEngineStep(0); // the relay is a fresh start: try the whole ladder again
       setRelayIndex(idx);
       setStatus('loading');
       return true;
@@ -711,9 +840,23 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       if (dead || failureHandled) return;
       failureHandled = true;
       setBuffering(false);
+      // v53: before giving up on the link, try the next playback engine (HLS -> MP4, MP4 -> HLS,
+      // DASH -> HLS -> MP4). Many "dead" channels are only a wrong container guess.
+      const nextStep = engineStep + 1;
+      if (nextStep < ladder.length) {
+        setEngineStep(nextStep);
+        setStatus('loading');
+        return;
+      }
       if (!useRelay() && !advanceSource()) setStatus('failed');
     };
-    const ok = () => { if (!dead) { fails.current = 0; setBuffering(false); setStatus('playing'); } };
+    const ok = () => {
+      if (dead) return;
+      fails.current = 0;
+      setBuffering(false);
+      setStatus('playing');
+      setEngine(engineLabel);
+    };
     v.onplaying = ok;
     v.onerror = fail;
     v.onwaiting = () => { if (!dead) setBuffering(true); };
@@ -728,13 +871,14 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
     }, STALL_MS);
 
     (async () => {
-      if (target.kind === 'dash') {
+      if (engineNow === 'dash') {
         const Dash = await loadDash();
         if (dead) return;
         const player = Dash && createDash(Dash);
         if (player) {
           dash.current = player;
           const EV = dashEvents(Dash, player);
+          let audioSig = '';
           const readDash = () => {
             if (dead) return;
             try {
@@ -742,12 +886,32 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
               dashReps.current = reps.map((r, i) => ({ ...r, index: Number.isFinite(r.index) ? r.index : i }));
               setLevels(normaliseLevels(reps.map((r) => ({ height: r.height, width: r.width, bitrate: r.bandwidth || (r.bitrateInKbit || 0) * 1000, frameRate: r.frameRate }))));
               const curRep = player.getCurrentRepresentationForType ? player.getCurrentRepresentationForType('video') : null;
-              if (curRep) setCurLevel(reps.findIndex((r) => r.id === curRep.id));
+              if (curRep) {
+                const at = reps.findIndex((r) => r.id === curRep.id || r.index === curRep.index);
+                if (at >= 0) {
+                  setCurLevel(at);
+                  if (pending.current.video && (pinRef.current == null || pinRef.current === at)) {
+                    settleSwitch('video', `Picture: ${resLabel(curRep.height)} chalu hai ✓`);
+                  }
+                }
+              }
               const tracks = (player.getTracksFor ? player.getTracksFor('audio') : []) || [];
               dashAudios.current = tracks;
-              setAudios(tracks.map((t, i) => ({ name: (t.roles && t.roles[0] && (t.roles[0].value || '')) || '', lang: t.lang || t.language || '', i })));
+              const list = tracks.map((t, i) => ({ name: (t.roles && t.roles[0] && (t.roles[0].value || '')) || t.label || '', lang: t.lang || t.language || '', default: Boolean(t.isDefault), i }));
+              const sig = trackSignature(list);
+              if (sig !== audioSig) {
+                audioSig = sig;
+                setAudios(list);
+                autoPickAudio(list);
+              }
               const curAudio = player.getCurrentTrackFor ? player.getCurrentTrackFor('audio') : null;
-              if (curAudio) setAudioId(Math.max(0, tracks.indexOf(curAudio)));
+              if (curAudio) {
+                const at = tracks.findIndex((t) => t === curAudio || (t.id != null && t.id === curAudio.id));
+                if (at >= 0) {
+                  setAudioId(at);
+                  if (pending.current.audio) settleSwitch('audio', `Awaaz: ${audioLabel(list[at] || {}, at)} chalu hai ✓`);
+                }
+              }
               const texts = (player.getTracksFor ? player.getTracksFor('text') : []) || [];
               setSubs(texts.map((t, i) => ({ name: t.label || '', lang: t.lang || t.language || '', i })));
               applyQuality();
@@ -762,13 +926,14 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
           if (EV.BUFFER_EMPTY) player.on(EV.BUFFER_EMPTY, () => { if (!dead) setBuffering(true); });
           if (EV.BUFFER_LOADED) player.on(EV.BUFFER_LOADED, () => { if (!dead) setBuffering(false); });
           if (EV.PLAYBACK_PLAYING) player.on(EV.PLAYBACK_PLAYING, ok);
+          if (EV.TRACK_CHANGE) player.on(EV.TRACK_CHANGE, () => { if (!dead) readDash(); });
           player.initialize(v, target.src, autoplay);
           return;
         }
         fail(); return;
       }
 
-      if (target.kind === 'hls' && !v.canPlayType('application/vnd.apple.mpegurl')) {
+      if (engineNow === 'hls' && !v.canPlayType('application/vnd.apple.mpegurl')) {
         const Hls = await loadHls();
         if (dead) return;
         if (Hls && Hls.isSupported()) {
@@ -795,16 +960,33 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
             applyQuality();
           });
           h.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => {
-            if (dead || !data) return;
+            if (dead || !data || !Number.isFinite(data.level)) return;
             setCurLevel(data.level);
             if (!levels.length && h.levels) setLevels(normaliseLevels(h.levels));
+            const want = pinRef.current;
+            // A pinned picture that drifted (the cap re-applied or ABR won) is nudged back twice.
+            if (want != null && data.level !== want && driftFix.current < 2) {
+              driftFix.current += 1;
+              try { h.capLevelToPlayerSize = false; h.autoLevelCapping = -1; h.currentLevel = want; h.nextLevel = want; } catch (_) { /* gone */ }
+            }
+            // Confirm to the visitor only when the engine really landed on the asked level.
+            if (pending.current.video && (want == null || data.level === want)) {
+              const lvl = h.levels && h.levels[data.level];
+              settleSwitch('video', `Picture: ${lvl ? resLabel(lvl.height) : levelText(lvl)} chalu hai ✓`);
+            }
           });
           h.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_e, data) => {
             if (dead) return;
-            setAudios(((data && data.audioTracks) || []).map((t, i) => ({ name: t.name || '', lang: t.lang || '', channels: t.attrs && t.attrs.CHANNELS, i })));
-            if (Number.isFinite(h.audioTrack)) setAudioId(h.audioTrack);
+            const list = ((data && data.audioTracks) || []).map((t, i) => ({ name: t.name || '', lang: t.lang || '', channels: t.attrs && t.attrs.CHANNELS, default: t.default === true || (t.attrs && String(t.attrs.DEFAULT).toUpperCase() === 'YES'), i }));
+            setAudios(list);
+            if (Number.isFinite(h.audioTrack) && h.audioTrack >= 0) setAudioId(h.audioTrack);
+            autoPickAudio(list); // Urdu / remembered language first
           });
-          h.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_e, data) => { if (!dead && data && Number.isFinite(data.id)) setAudioId(data.id); });
+          h.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_e, data) => {
+            if (dead || !data || !Number.isFinite(data.id)) return;
+            setAudioId(data.id);
+            if (pending.current.audio) settleSwitch('audio', `Awaaz: ${audioLabel(audiosRef.current[data.id] || {}, data.id)} chalu hai ✓`);
+          });
           h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_e, data) => {
             if (dead) return;
             setSubs(((data && data.subtitleTracks) || []).map((t, i) => ({ name: t.name || '', lang: t.lang || '', i })));
@@ -831,6 +1013,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
         fail();
         return;
       }
+      engineLabel = 'video'; // the browser's own player
       v.src = target.src;
       if (autoplay) playNow(); else setStatus('ready');
     })();
@@ -842,7 +1025,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       v.onplaying = null; v.onerror = null; v.onwaiting = null; v.onstalled = null; v.oncanplay = null;
       try { v.pause(); } catch (_) { /* gone */ }
     };
-  }, [target, autoplay, retryKey, idx, playNow, advanceSource, sourceUrl, relayReady, applyQuality]);
+  }, [target, autoplay, retryKey, idx, playNow, advanceSource, sourceUrl, relayReady, applyQuality, activeEngine, engineStep, ladder.length, autoPickAudio, settleSwitch]);
 
   // A persistent spinner must be checked repeatedly: recover, then relay, then give up.
   useEffect(() => {
@@ -1121,6 +1304,8 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
           {cfg?.demo && <span className="mztv-badge is-demo">DEMO</span>}
           {target?.relayed && <span className="mztv-badge">RELAY</span>}
           {nowLevel && <span className="mztv-badge is-q">{resLabel(nowLevel.height)}</span>}
+          {engine && <span className="mztv-badge is-quiet">{ENGINE_LABEL[engine] || engine}</span>}
+          {audios.length > 1 && <span className="mztv-badge" title="Awaaz">{audioLabel(audioTrack || {}, audioId).toUpperCase()}</span>}
           <span className={`mztv-badge is-status is-${status}`}><i aria-hidden="true" />{statusLabel}</span>
           <span className="mztv-badge is-quiet"><Activity size={12} aria-hidden="true" />{levelCount ? `${levelCount} LEVELS` : 'ADAPTIVE'}</span>
           {sleepMins > 0 && <span className="mztv-badge is-sleep" title="Sleep timer"><Moon size={12} aria-hidden="true" />{sleepClock(sleepLeft)}</span>}
@@ -1157,6 +1342,17 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
             />
           )}
           {!target && <div className="mztv-screen-message"><p>Is channel ka link theek nahi hai.</p><button type="button" onClick={next} className="mztv-inline-btn">Agla channel</button></div>}
+          {target && !engineLadder(target.kind).length && (
+            <div className="mztv-screen-message">
+              <p>
+                {target.kind === 'playlist'
+                  ? 'Ye playlist (.m3u) ka link hai — player ko seedha stream ka link chahiye.'
+                  : `Is link ka protocol (${String(target.scheme || target.kind).toUpperCase()}) kisi browser mein nahi chalta.`}
+              </p>
+              <p className="mztv-hint">HLS (.m3u8), DASH (.mpd) ya MP4 (.mp4) link dein — player usay chala dega.</p>
+              <button type="button" onClick={next} className="mztv-inline-btn">Agla channel</button>
+            </div>
+          )}
           {target?.kind === 'audio' && (
             <div className="mztv-audio-art" aria-hidden="true">
               <ChannelLogo channel={cur} large />
@@ -1212,8 +1408,10 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
             <div className="mztv-failed">
               <p className="mztv-failed-title">Ye channel abhi nahi chal raha.</p>
               <p>{skipIn > 0 ? `Agla channel ${skipIn} second mein khud lag jayega.` : 'Stream band ho sakti hai ya dusri website par chalne se mana kar rahi hai.'}</p>
+              <p className="mztv-failed-engine">Engine: {engineChainLabel(target.kind, engineStep)}{target.relayed ? ' · RELAY' : ''}</p>
               <div className="mztv-failed-actions">
                 <button type="button" onClick={retry} className="mztv-inline-btn is-solid"><RefreshCw size={15} /> Retry</button>
+                <button type="button" onClick={() => { setEngineStep(0); retry(); }} className="mztv-inline-btn"><Activity size={15} /> Engine dobara</button>
                 <button type="button" onClick={next} className="mztv-inline-btn">Agla channel</button>
                 <button type="button" onClick={random} className="mztv-inline-btn">Random</button>
               </div>
@@ -1232,6 +1430,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
               <span>Dropped frames <em>{snap.dropped}</em></span>
               {snap.codec && <span>Codec <em>{snap.codec}</em></span>}
               <span>Awaaz <em>{snap.audio}</em></span>
+              <span>Engine <em>{ENGINE_LABEL[engine] || engine || ENGINE_LABEL[target.kind] || '-'}</em></span>
               <span>Rasta <em>{target.relayed ? 'Relay' : 'Direct'} · {target.kind.toUpperCase()}</em></span>
             </div>
           )}
@@ -1270,7 +1469,9 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
                 )}
                 <span className="mztv-bar-name"><b>{cur.name}</b><small>{cur.group || 'Live'}</small></span>
                 <span className="mztv-bar-gap" />
+                {switching && <span className="mztv-bar-q is-switch"><LoaderCircle size={11} className="mztv-spin" aria-hidden="true" /> Switch</span>}
                 {nowLevel && <span className="mztv-bar-q">{nowLevel.label}</span>}
+                {audios.length > 1 && <span className="mztv-bar-q is-audio" title="Awaaz">{audioLabel(audioTrack || {}, audioId)}</span>}
                 <button type="button" onClick={capture} className={`${ctl} is-opt`} aria-label="Capture photo of this picture"><Camera size={17} /></button>
                 <button type="button" onClick={() => { setSetOpen((o) => !o); poke(); }} className={`${ctl} ${setOpen ? 'is-on' : ''}`} aria-label="Settings (quality, audio, captions)" aria-expanded={setOpen}><Settings size={18} /></button>
                 {canCast && (
@@ -1299,15 +1500,23 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
                   <>
                     {TV_QUALITY.map(([v, label]) => menuRow(v, label, pinLevel == null && quality === v, () => pickMode(v),
                       v === 'auto' ? 'Net ke mutabiq sab se tez' : v === 'save' ? 'Kam data' : v === 'high' ? 'Sab se saaf' : 'Darmiyaan'))}
-                    {menuLevels(levels).length > 0 && <p className="mztv-set-hint">Is channel ki asal resolutions:</p>}
-                    {menuLevels(levels).map((l) => menuRow(`lvl-${l.i}`, l.label, pinLevel === l.i, () => pickLevel(l.i), curLevel === l.i ? 'Ab chal rahi hai' : ''))}
-                    {!levels.length && <p className="mztv-set-hint">Is stream ki resolutions browser khud chunta hai (ek hi quality ya Safari).</p>}
+                    {switching === 'video' && <p className="mztv-set-hint"><LoaderCircle size={11} className="mztv-spin" /> Switch ho rahi hai — engine ka intezar...</p>}
+                    {menuLevels(levels).length > 0 && <p className="mztv-set-hint">Is channel ki asal resolutions:{pinLevel != null ? ' (aap ka pin is host par yaad rahega)' : ''}</p>}
+                    {menuLevels(levels).map((l) => menuRow(`lvl-${l.i}`, l.label, pinLevel === l.i, () => pickLevel(l.i), curLevel === l.i ? `Ab chal rahi hai (${ENGINE_LABEL[engine] || engine})` : ''))}
+                    {!levels.length && <p className="mztv-set-hint">Is stream ki resolutions browser khud chunta hai (ek hi quality ya native HLS).</p>}
+                    {levels.length > 0 && !canSwitchPicture && <p className="mztv-set-hint">Ye stream browser ke apne player par hai — quality wahan se control hoti hai.</p>}
                   </>
                 )}
                 {setTab === 'audio' && (
                   audios.length > 1
-                    ? audios.map((t, n) => menuRow(`a-${n}`, audioLabel(t, n), audioId === n, () => pickAudio(n)))
-                    : <p className="mztv-set-hint">Is channel mein ek hi awaaz hai. Jin streams mein zyada zubaanain hoti hain, un ki list yahan aati hai.</p>
+                    ? (
+                      <>
+                        {switching === 'audio' && <p className="mztv-set-hint"><LoaderCircle size={11} className="mztv-spin" /> Awaaz switch ho rahi hai...</p>}
+                        {audios.map((t, n) => menuRow(`a-${n}`, audioLabel(t, n), audioId === n, () => pickAudio(n), audioTrack && normLang(audioTrack.lang) === normLang(t.lang) && audioId !== n ? 'Isi zubaan ka doosra track' : ''))}
+                        <p className="mztv-set-hint">Aap ki chuni hui zubaan is host par yaad rahegi{audioLatched ? ' (manual)' : ''}.</p>
+                      </>
+                    )
+                    : <p className="mztv-set-hint">Is channel mein ek hi awaaz hai. Jin streams mein zyada zubaanain hoti hain (Urdu/English/Arabic), un ki list yahan aati hai — player unhein hls.js, dash.js ya browser se switch karta hai.</p>
                 )}
                 {setTab === 'subs' && (
                   <>

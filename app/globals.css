@@ -809,6 +809,17 @@ html[data-fx~="smooth"] a, html[data-fx~="smooth"] button { touch-action: manipu
 .mztv-guide-foot { display: flex; align-items: center; justify-content: center; gap: 5px; margin: 10px 0 0; color: rgba(255,255,255,.4); font-size: .63rem; text-align: center; }
 .mztv-demo-note { margin: 0; padding: 0 16px 14px; color: rgba(255,255,255,.45); font-size: .68rem; text-align: center; }
 .mztv-empty { border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 24px; background: #071711; color: rgba(255,255,255,.7); text-align: center; }
+/* ---- v53: the track engine (switching chip, audio chip, engine line, protocol hint) ---- */
+.mztv-bar-q.is-audio { background: rgba(245,184,61,.18); color: #ffe2a4; }
+.mztv-bar-q.is-switch { display: inline-flex; align-items: center; gap: 4px; background: rgba(79,70,229,.3); color: #e0e7ff; }
+.mztv-failed-engine { margin-top: 6px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: .64rem; letter-spacing: .04em;
+  color: rgba(255,255,255,.55); }
+.mztv-hint { margin-top: 6px; max-width: 34rem; color: rgba(255,255,255,.62); font-size: .72rem; line-height: 1.5; }
+.mztv-set-hint .mztv-spin { vertical-align: -2px; }
+@media (max-width: 700px) {
+  .mztv-bar-q.is-audio { display: none; }
+}
+
 /* ---- v52: SIRAVEX-level extras (zap OSD, gesture HUD, sleep timer, shortcuts sheet) ---- */
 .mztv-badge.is-sleep { border-color: rgba(165,180,252,.42); background: rgba(79,70,229,.26); color: #e0e7ff; }
 .mztv-screen::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
