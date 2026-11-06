@@ -100,7 +100,8 @@ export default function MoviesBrowser({
     setWorld((w) => ({ ...w, loading: true, error: '' }));
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/movies/search?q=${encodeURIComponent(term)}&limit=18`, {
+        const typeParam = format === 'movie' || format === 'series' ? `&type=${format}` : '';
+        const res = await fetch(`/api/movies/search?q=${encodeURIComponent(term)}&limit=24${typeParam}`, {
           signal: ctrl ? ctrl.signal : undefined,
         });
         const json = await res.json().catch(() => ({}));

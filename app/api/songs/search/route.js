@@ -13,13 +13,14 @@ export async function GET(req) {
 
   if (!q) {
     const items = await getTrendingSongs(limit).catch(() => []);
-    return NextResponse.json({ ok: true, query: '', trending: true, items }, {
+    return NextResponse.json({ ok: true, query: '', trending: true, items, upstream: items.length ? 'ok' : 'down' }, {
       headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=3600' },
     });
   }
 
-  const { items } = await searchSongs(q, limit).catch(() => ({ items: [] }));
-  return NextResponse.json({ ok: true, query: q, items }, {
+  const result = await searchSongs(q, limit).catch(() => ({ items: [], upstream: 'down' }));
+  const items = result.items || [];
+  return NextResponse.json({ ok: true, query: q, items, upstream: result.upstream || (items.length ? 'ok' : 'down') }, {
     headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=1800' },
   });
 }

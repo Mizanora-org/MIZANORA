@@ -6,6 +6,7 @@ import ProductAds from '@/components/ProductAds';
 import { getPosts } from '@/lib/blog';
 import { getTvConfig } from '@/lib/liveTvServer';
 import { getMoviesHub } from '@/lib/moviesServer';
+import SearchSongsBlock from '@/components/SearchSongsBlock';
 import { SURAHS, slugOfSurah } from '@/lib/quran';
 import { BOOKS } from '@/lib/hadith';
 import { TOOLS } from '@/lib/tools';
@@ -78,6 +79,7 @@ export default async function SearchPage({ searchParams }) {
             <Item key={a.slug} href={`/movies/actor/${a.slug}`} title={a.name} sub={`${a.role} · ${a.country}`} />
           ))}
         </Group>
+        <SearchSongsBlock query={q} />
         <Group title="Tools" n={r.tools.length}>{r.tools.map((t) => <Item key={t.slug} href={`/tools/${t.slug}`} title={t.title} sub={t.short} />)}</Group>
         <Group title="Live TV channels" n={r.channels.length}>{r.channels.map((c) => <Item key={c.slug} href={`/live/${c.slug}`} title={c.name} sub={c.group || 'Live channel'} />)}</Group>
         <Group title="Quran" n={r.quran.length}>{r.quran.map((s) => <Item key={s.n} href={`/quran/${slugOfSurah(s.n)}`} title={`${s.n}. ${s.name}`} sub="Read and listen" />)}</Group>

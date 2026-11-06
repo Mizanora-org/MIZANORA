@@ -6,7 +6,7 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import SongBrowser from '@/components/SongBrowser';
 import { SONG_QUERIES } from '@/lib/songs';
-import { getTrendingSongs } from '@/lib/songsServer';
+import { getTrendingArtists, getTrendingSongs } from '@/lib/songsServer';
 
 export const revalidate = 1800;
 
@@ -23,7 +23,10 @@ export const metadata = {
 export default async function SongsPage({ searchParams }) {
   const sp = await searchParams;
   const initialQuery = String((sp && sp.q) || '').slice(0, 80).trim();
-  const trending = await getTrendingSongs(24).catch(() => []);
+  const [trending, artists] = await Promise.all([
+    getTrendingSongs(24).catch(() => []),
+    getTrendingArtists(10).catch(() => []),
+  ]);
 
   const ld = {
     '@context': 'https://schema.org',
@@ -71,6 +74,37 @@ export default async function SongsPage({ searchParams }) {
           </div>
         </div>
       </section>
+
+      {artists.length > 0 && (
+        <section className="mx-auto max-w-7xl px-3 pt-6 sm:px-4" aria-labelledby="singers">
+          <div className="mb-2 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-wider text-gold">Singers</p>
+              <h2 id="singers" className="section-title">Popular artists</h2>
+            </div>
+          </div>
+          <div className="no-sb flex gap-3 overflow-x-auto pb-2">
+            {artists.map((a) => (
+              <Link key={a.slug} href={`/songs/artist/${a.slug}`} className="w-24 shrink-0 text-center">
+                <span className="mx-auto block h-20 w-20 overflow-hidden rounded-full border border-line bg-raised">
+                  {a.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={a.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  ) : <span className="grid h-full w-full place-items-center text-gold"><Music2 size={20} /></span>}
+                </span>
+                <span className="mt-1.5 block truncate text-[0.7rem] font-extrabold text-cream hover:text-gold">{a.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {trending.length === 0 && (
+        <p className="mx-auto mt-4 max-w-7xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 sm:mx-3">
+          Music mirror se abhi jawab nahi aaya. Search abhi bhi kaam karega (browser khud mirror try karta hai), aur
+          aap <Link href="/admin/songs" className="font-extrabold underline">mirror status</Link> dekh sakte hain.
+        </p>
+      )}
 
       <div className="pt-6 pb-24">
         <SongBrowser initialSongs={trending} topics={SONG_QUERIES} initialQuery={initialQuery} />

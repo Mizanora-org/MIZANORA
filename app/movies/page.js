@@ -24,6 +24,7 @@ import MyListShelf from '@/components/MyListShelf';
 import { getMoviesHub } from '@/lib/moviesServer';
 import { getMovieServers } from '@/lib/movieServersServer';
 import { getWorldRows } from '@/lib/moviesWorld';
+import { seedRows, seedSize } from '@/lib/imdbSeed';
 import { posterHue, searchMovies, titleInitials } from '@/lib/movies';
 
 export const revalidate = 1800;
@@ -57,11 +58,16 @@ export default async function MoviesHubPage({ searchParams }) {
 
   // v54: the IMDb world catalogue (Cinemeta, zero key) runs next to the shop's own hub, so this
   // page shows thousands of real titles instead of only the hand-made list.
-  const [{ config, movies, actors }, serverCfg, worldRows] = await Promise.all([
+  const [{ config, movies, actors }, serverCfg, liveRows] = await Promise.all([
     getMoviesHub(),
     getMovieServers(),
     getWorldRows(12).catch(() => []),
   ]);
+  // v55: if Cinemeta cannot be reached (preview sandbox, build machine, upstream hiccup) the
+  // shelves come from the committed IMDb snapshot instead of disappearing.
+  const worldRows = liveRows.length ? liveRows : seedRows(12);
+  const snapshot = seedSize();
+  const catalogueCount = Math.max(snapshot.movies + snapshot.series, movies.length);
   const playServers = (serverCfg.servers || []).filter((s) => s.enabled !== false);
   const upcomingTitles = searchMovies('', movies, { upcomingOnly: true, sort: 'upcoming', limit: 6 });
   const freeFilms = movies.filter((m) => Boolean(m.publicDomainStream));
@@ -99,10 +105,10 @@ export default async function MoviesHubPage({ searchParams }) {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#052e1d] via-[#0B6B45] to-[#13293d] p-5 text-white shadow-2xl sm:p-7">
           <div className="flex flex-wrap items-center gap-2 text-xs font-extrabold uppercase tracking-wider">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-saffron px-3 py-1 text-[#2B1B00]">
-              <Clapperboard size={13} /> v51 Live World Search
+              <Clapperboard size={13} /> v55 IMDb catalogue
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1">
-              <Film size={12} /> {movies.length} Movies &amp; Series
+              <Film size={12} /> {catalogueCount.toLocaleString()} Movies &amp; Series
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1">
               <Users size={12} /> {actors.length} Stars &amp; Directors

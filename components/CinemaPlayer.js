@@ -274,6 +274,10 @@ export default function CinemaPlayer({ movie, companionProducts = [], servers = 
                   movie={movie}
                   onError={handleServerError}
                   onNotice={(m) => setRailMsg(m)}
+                  onNextEpisode={episodes.length ? () => setEpisode((e) => Math.min(episodes.length, e + 1)) : null}
+                  onPrevEpisode={episodes.length ? () => setEpisode((e) => Math.max(1, e - 1)) : null}
+                  hasNext={episodes.length > 0 && episode < episodes.length}
+                  hasPrev={episodes.length > 0 && episode > 1}
                 />
               )}
 
@@ -766,41 +770,102 @@ function AdRoll({ stage, left, seconds, skipAfter, canSkip, product, headline, n
 /* Server stage: direct HTML5/HLS/DASH player with quality, audio tracks, captions & shortcuts.  */
 /* Embed servers get a sandboxed iframe.                                                        */
 /* ============================================================================================ */
-function ServerStage({ server, poster, title, movie, onError, onNotice }) {
+function ServerStage({ server, poster, title, movie, onError, onNotice, onNextEpisode, onPrevEpisode, hasNext, hasPrev }) {
   if (server.kind === 'embed') {
-    return (
-      <div className="relative h-full w-full bg-black">
-        <iframe
-          src={server.url}
-          title={`${title} — ${server.name}`}
-          className="h-full w-full"
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          allowFullScreen
-          referrerPolicy="no-referrer"
-          loading="eager"
-        />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2 pt-6 text-[0.66rem] text-white/75">
-          <span>Stream: {server.name} · {server.kind.toUpperCase()}</span>
-          <a
-            href={server.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pointer-events-auto inline-flex items-center gap-1 font-bold text-[#F5B83D] hover:underline"
-          >
-            Open in new tab <ExternalLink size={11} />
-          </a>
-        </div>
-      </div>
-    );
+    return <EmbedStage server={server} title={title} />;
   }
-  return <DirectPlayer server={server} poster={poster} title={title} movie={movie} onError={onError} onNotice={onNotice} />;
+  return (
+    <DirectPlayer
+      server={server}
+      poster={poster}
+      title={title}
+      movie={movie}
+      onError={onError}
+      onNotice={onNotice}
+      onNextEpisode={onNextEpisode}
+      onPrevEpisode={onPrevEpisode}
+      hasNext={hasNext}
+      hasPrev={hasPrev}
+    />
+  );
 }
 
-function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
+/* ============================================================================================ */
+/* v55: embed stage — same fullscreen / theater / reload experience as the direct player.        */
+/* ============================================================================================ */
+function EmbedStage({ server, title }) {
+  const boxRef = useRef(null);
+  const [nonce, setNonce] = useState(0);
+  const [theater, setTheater] = useState(false);
+  const [isFs, setIsFs] = useState(false);
+
+  useEffect(() => {
+    const onFs = () => setIsFs(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
+    const evts = ['fullscreenchange', 'webkitfullscreenchange', 'MSFullscreenChange'];
+    evts.forEach((e) => document.addEventListener(e, onFs));
+    return () => evts.forEach((e) => document.removeEventListener(e, onFs));
+  }, []);
+
+  useEffect(() => {
+    if (!theater) return undefined;
+    const onEsc = (e) => { if (e.key === 'Escape') setTheater(false); };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [theater]);
+
+  const full = () => {
+    const box = boxRef.current;
+    if (!box) return;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
+  };
+
+  return (
+    <div ref={boxRef} className={`${theater ? 'fixed inset-0 z-[70]' : 'relative h-full w-full'} bg-black`}>
+      <iframe
+        key={nonce}
+        src={server.url}
+        title={`${title} — ${server.name}`}
+        className="h-full w-full"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+        allowFullScreen
+        referrerPolicy="no-referrer"
+        loading="eager"
+      />
+
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-2 bg-gradient-to-b from-black/80 to-transparent px-3 pb-6 pt-2 text-[0.66rem] text-white/80">
+        <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 font-bold">
+          <Server size={11} /> {server.name}
+        </span>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => setNonce((n) => n + 1)} aria-label="Reload stream" className="rounded-full bg-black/55 p-2 text-white hover:bg-black/80">
+            <RotateCcw size={14} />
+          </button>
+          <button type="button" onClick={() => setTheater((t) => !t)} aria-label={theater ? 'Exit theater mode' : 'Theater mode'} className={`rounded-full p-2 ${theater ? 'bg-[#F5B83D] text-[#221600]' : 'bg-black/55 text-white hover:bg-black/80'}`}>
+            <Minimize2 size={14} />
+          </button>
+          <button type="button" onClick={full} aria-label="Fullscreen" className="rounded-full bg-black/55 p-2 text-white hover:bg-black/80">
+            <Maximize2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2 pt-6 text-[0.66rem] text-white/75">
+        <span>{isFs ? 'Fullscreen' : `Stream: ${server.name}`} · Embed</span>
+        <a href={server.url} target="_blank" rel="noopener noreferrer" className="pointer-events-auto inline-flex items-center gap-1 font-bold text-[#F5B83D] hover:underline">
+          Open in new tab <ExternalLink size={11} />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function DirectPlayer({ server, poster, title, movie, onError, onNotice, onNextEpisode, onPrevEpisode, hasNext, hasPrev }) {
   const stageRef = useRef(null);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const hideTimer = useRef(null);
+  const touch = useRef({ x: 0, y: 0, t: 0, vol: 1 });
   const movieId = String((movie && (movie.imdbId || movie.slug)) || '').toLowerCase();
 
   const [ready, setReady] = useState(false);
@@ -825,6 +890,10 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
   const [stats, setStats] = useState({ res: '', kbps: 0, buffer: 0, dropped: 0, codec: '' });
   const [msg, setMsg] = useState('');
   const [shot, setShot] = useState('');
+  const [theater, setTheater] = useState(false);
+  const [help, setHelp] = useState(false);
+  const [nextIn, setNextIn] = useState(0);
+  const [tapHint, setTapHint] = useState('');
 
   const showMsg = useCallback((m) => { setMsg(m); setTimeout(() => setMsg(''), 3500); }, []);
 
@@ -999,9 +1068,10 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
   }, [movieId]);
 
   useEffect(() => {
-    const onFs = () => setIsFs(Boolean(document.fullscreenElement));
-    document.addEventListener('fullscreenchange', onFs);
-    return () => document.removeEventListener('fullscreenchange', onFs);
+    const onFs = () => setIsFs(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
+    const evts = ['fullscreenchange', 'webkitfullscreenchange'];
+    evts.forEach((e) => document.addEventListener(e, onFs));
+    return () => evts.forEach((e) => document.removeEventListener(e, onFs));
   }, []);
 
   // Autoplay once the ad is over (browsers may still want a tap - then the big play button stays).
@@ -1033,9 +1103,11 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
 
   const fullScreen = useCallback(() => {
     const box = stageRef.current;
-    if (!box) return;
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
+    const el = videoRef.current;
+    if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+    if (box && box.requestFullscreen) { box.requestFullscreen().catch(() => {}); return; }
+    // iPhone Safari exposes fullscreen only on the <video> element itself.
+    if (el && el.webkitEnterFullscreen) { try { el.webkitEnterFullscreen(); } catch { /* ignore */ } }
   }, []);
 
   const pip = useCallback(() => {
@@ -1106,19 +1178,71 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
     }
   };
 
-  const onKey = (e) => {
+  // v55 — the full shortcut set. It is registered on window, so a key press works the moment the
+  // player is on screen (before, shortcuts only worked after clicking the stage).
+  const onKey = useCallback((e) => {
     const tag = e.target && e.target.tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
     const k = String(e.key || '').toLowerCase();
+    const el = videoRef.current;
+    if (k === 'escape') { setHelp(false); setTheater(false); setMenu(''); return; }
+    if (k === '?' || k === 'h') { e.preventDefault(); setHelp((h) => !h); return; }
     if (k === ' ' || k === 'k') { e.preventDefault(); toggle(); }
-    else if (k === 'arrowleft' || k === 'j') { e.preventDefault(); jump(-10); }
-    else if (k === 'arrowright' || k === 'l') { e.preventDefault(); jump(10); }
-    else if (k === 'arrowup') { e.preventDefault(); const v = Math.min(1, volume + 0.1); setVolume(v); if (videoRef.current) videoRef.current.volume = v; }
-    else if (k === 'arrowdown') { e.preventDefault(); const v = Math.max(0, volume - 0.1); setVolume(v); if (videoRef.current) videoRef.current.volume = v; }
+    else if (k === 'arrowleft' || k === 'j') { e.preventDefault(); jump(-10); setTapHint('-10s'); setTimeout(() => setTapHint(''), 550); }
+    else if (k === 'arrowright' || k === 'l') { e.preventDefault(); jump(10); setTapHint('+10s'); setTimeout(() => setTapHint(''), 550); }
+    else if (k === 'arrowup') { e.preventDefault(); const v = Math.min(1, volume + 0.1); setVolume(v); if (el) el.volume = v; setTapHint(`Volume ${Math.round(v * 100)}%`); setTimeout(() => setTapHint(''), 550); }
+    else if (k === 'arrowdown') { e.preventDefault(); const v = Math.max(0, volume - 0.1); setVolume(v); if (el) el.volume = v; setTapHint(`Volume ${Math.round(v * 100)}%`); setTimeout(() => setTapHint(''), 550); }
     else if (k === 'f') { e.preventDefault(); fullScreen(); }
-    else if (k === 'm') { e.preventDefault(); const el = videoRef.current; if (el) { el.muted = !el.muted; setMuted(el.muted); } }
-    else if (k === 'c') { e.preventDefault(); snapshot(); }
+    else if (k === 't') { e.preventDefault(); setTheater((t) => !t); }
+    else if (k === 'm') { e.preventDefault(); if (el) { el.muted = !el.muted; setMuted(el.muted); } }
+    else if (k === 'c') { e.preventDefault(); if (subs.length) setSubtitle(subId >= 0 ? -1 : 0); else snapshot(); }
+    else if (k === 's') { e.preventDefault(); snapshot(); }
+    else if (k === 'n' && hasNext && onNextEpisode) { e.preventDefault(); onNextEpisode(); }
+    else if (k === 'p' && hasPrev && onPrevEpisode) { e.preventDefault(); onPrevEpisode(); }
+    else if (/^[0-9]$/.test(k) && el && el.duration) { e.preventDefault(); const to = (Number(k) / 10) * el.duration; seek(to); }
+  }, [volume, subs.length, subId, hasNext, hasPrev, onNextEpisode, onPrevEpisode, toggle, jump, fullScreen, setSubtitle, snapshot, seek]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onKey]);
+
+  // Touch gestures: horizontal = seek, vertical = volume, tap = play/pause.
+  const onTouchStart = (e) => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    touch.current = { x: t.clientX, y: t.clientY, t: Date.now(), vol: volume };
   };
+  const onTouchEnd = (e) => {
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    if (!t) return;
+    const dx = t.clientX - touch.current.x;
+    const dy = t.clientY - touch.current.y;
+    const dt = Date.now() - touch.current.t;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+      jump(dx > 0 ? 10 : -10);
+      setTapHint(dx > 0 ? '+10s' : '-10s');
+      setTimeout(() => setTapHint(''), 550);
+    } else if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx)) {
+      const v = Math.max(0, Math.min(1, touch.current.vol + (dy < 0 ? 0.1 : -0.1)));
+      setVolume(v);
+      if (videoRef.current) videoRef.current.volume = v;
+      setTapHint(`Volume ${Math.round(v * 100)}%`);
+      setTimeout(() => setTapHint(''), 550);
+    } else if (dt < 260 && Math.abs(dx) < 12 && Math.abs(dy) < 12) {
+      toggle();
+    }
+  };
+
+  // Autoplay the next episode after a short, cancellable countdown.
+  useEffect(() => {
+    if (!nextIn) return undefined;
+    const t = setTimeout(() => {
+      if (nextIn <= 1) { setNextIn(0); if (onNextEpisode) onNextEpisode(); }
+      else setNextIn((n) => n - 1);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [nextIn, onNextEpisode]);
 
   const armHide = () => {
     setShowUi(true);
@@ -1135,10 +1259,9 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
     <div
       ref={stageRef}
       tabIndex={-1}
-      onKeyDown={onKey}
       onMouseMove={armHide}
       onTouchStart={armHide}
-      className="group relative h-full w-full bg-black outline-none"
+      className={`group bg-black outline-none ${theater ? 'fixed inset-0 z-[70] h-screen w-screen' : 'relative h-full w-full'} ${!showUi && playing ? 'cursor-none' : ''}`}
       style={{ backgroundImage: poster ? `url(${poster})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}
     >
       <video
@@ -1147,9 +1270,30 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
         playsInline
         controls={false}
         poster={poster}
-        onClick={toggle}
+        onClick={() => {
+          // A tap already toggled playback in onTouchEnd — ignore the synthetic click that follows.
+          if (Date.now() - (touch.current.t || 0) < 600) return;
+          toggle();
+        }}
         onDoubleClick={fullScreen}
+        onEnded={() => {
+          if (hasNext && onNextEpisode) { setNextIn(8); return; }
+          setNextIn(0);
+          showMsg('Stream khatam. Doosra server ya episode chunein.');
+        }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
       />
+
+      {/* double-tap seek zones (mobile + desktop) */}
+      <div className="absolute inset-y-0 left-0 w-1/5 cursor-pointer" onClick={toggle} onDoubleClick={() => jump(-10)} aria-hidden="true" />
+      <div className="absolute inset-y-0 right-0 w-1/5 cursor-pointer" onClick={toggle} onDoubleClick={() => jump(10)} aria-hidden="true" />
+
+      {tapHint && (
+        <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
+          <span className="rounded-full bg-black/70 px-4 py-2 text-sm font-extrabold text-white">{tapHint}</span>
+        </span>
+      )}
 
       {buffering && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center bg-black/35">
@@ -1250,9 +1394,16 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
               ))}
             </MenuButton>
 
-            <Ctrl label="Screenshot" onClick={snapshot}><Camera size={15} /></Ctrl>
+            {hasNext && onNextEpisode && (
+              <Ctrl label="Next episode (N)" onClick={onNextEpisode}><SkipForward size={15} /></Ctrl>
+            )}
+            <Ctrl label={theater ? 'Exit theater (T)' : 'Theater mode (T)'} onClick={() => setTheater((t) => !t)}>
+              <span className={`text-[0.6rem] font-extrabold tracking-wide ${theater ? 'text-[#F5B83D]' : ''}`}>THEATER</span>
+            </Ctrl>
+            <Ctrl label="Keyboard shortcuts (H)" onClick={() => setHelp((h) => !h)}><span className="text-[0.72rem] font-extrabold">?</span></Ctrl>
+            <Ctrl label="Screenshot (S)" onClick={snapshot}><Camera size={15} /></Ctrl>
             <Ctrl label="Picture in picture" onClick={pip}><PictureInPicture2 size={15} /></Ctrl>
-            <Ctrl label="Full screen" onClick={fullScreen}>{isFs ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</Ctrl>
+            <Ctrl label="Full screen (F)" onClick={fullScreen}>{isFs ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</Ctrl>
           </div>
         </div>
       </div>
@@ -1260,6 +1411,60 @@ function DirectPlayer({ server, poster, title, movie, onError, onNotice }) {
       {(msg || shot) && (
         <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-black/80 px-3 py-1.5 text-[0.7rem] font-semibold text-white backdrop-blur">
           {msg || shot}
+        </div>
+      )}
+
+      {/* v55: next-episode countdown (series) */}
+      {nextIn > 0 && (
+        <div className="absolute inset-0 z-40 grid place-items-center bg-black/70 p-4 text-center">
+          <div className="max-w-sm rounded-2xl bg-[#06130d]/95 p-5 text-white shadow-2xl ring-1 ring-white/15">
+            <p className="text-[0.68rem] font-extrabold uppercase tracking-wider text-[#F5B83D]">Up next</p>
+            <p className="mt-1 font-display text-lg font-extrabold">Agla episode {nextIn} second mein</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button type="button" onClick={() => { setNextIn(0); if (onNextEpisode) onNextEpisode(); }} className="rounded-full bg-[#F5B83D] px-4 py-2 text-sm font-extrabold text-[#221600]">
+                Play now
+              </button>
+              <button type="button" onClick={() => setNextIn(0)} className="rounded-full border border-white/25 px-4 py-2 text-sm font-bold text-white/85">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* v55: keyboard help */}
+      {help && (
+        <div className="absolute inset-0 z-40 grid place-items-center bg-black/75 p-4">
+          <div className="max-h-full w-full max-w-md overflow-auto rounded-2xl bg-[#06130d]/95 p-5 text-white shadow-2xl ring-1 ring-white/15">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-display text-lg font-extrabold">Player shortcuts</p>
+              <button type="button" onClick={() => setHelp(false)} className="rounded-full bg-white/10 px-3 py-1 text-xs font-extrabold text-white/85">Close</button>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[0.72rem]">
+              {[
+                ['Space / K', 'Play · Pause'],
+                ['J / L  ←  →', '10s back / forward'],
+                ['↑ / ↓', 'Volume'],
+                ['M', 'Mute'],
+                ['F', 'Fullscreen'],
+                ['T', 'Theater mode'],
+                ['0 – 9', 'Jump to %'],
+                ['C', 'Captions'],
+                ['N / P', 'Next / prev episode'],
+                ['S', 'Screenshot'],
+                ['H / ?', 'This panel'],
+                ['Esc', 'Close panels'],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between gap-2 border-b border-white/10 pb-1">
+                  <dt className="font-mono font-bold text-[#F5B83D]">{k}</dt>
+                  <dd className="text-right text-white/75">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 text-[0.66rem] leading-5 text-white/55">
+              Mobile: double-tap left/right se seek, upar/neeche swipe se volume, single tap se pause.
+            </p>
+          </div>
         </div>
       )}
     </div>
