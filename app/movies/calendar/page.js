@@ -10,7 +10,7 @@ import ProductAds from '@/components/ProductAds';
 import MoviesCalendarClient from '@/components/MoviesCalendarClient';
 import { getMoviesHub } from '@/lib/moviesServer';
 import { seedNewest, seedUpcoming } from '@/lib/imdbSeed';
-import { enrichReleaseDates } from '@/lib/releaseDates';
+import { enrichReleaseDates, upcomingFromPool } from '@/lib/releaseDates';
 
 export const revalidate = 1800;
 // Cinemeta look-ups are budgeted (see enrichReleaseDates); 20s keeps a cold render inside the limit
@@ -37,8 +37,11 @@ export default async function MoviesCalendarPage() {
   const { movies: hubMovies } = await getMoviesHub();
   const todayIso = new Date().toISOString().slice(0, 10);
   // v55: the IMDb snapshot keeps this calendar populated even when Cinemeta cannot be reached.
+  // v59: next year's announcements live in the id pool without a title, so Cinemeta is asked for a
+  // handful of them. This is what keeps the calendar from opening on "0 upcoming releases".
+  const poolUpcoming = await upcomingFromPool({ limit: 40, budgetMs: 6000, concurrency: 10 }).catch(() => []);
   const seen = new Set();
-  const movies = [...hubMovies, ...seedUpcoming(60), ...seedNewest(400)].filter((m) => {
+  const movies = [...hubMovies, ...poolUpcoming, ...seedUpcoming(60), ...seedNewest(400)].filter((m) => {
     if (!m || !m.slug || seen.has(m.slug)) return false;
     seen.add(m.slug);
     return true;
@@ -86,8 +89,15 @@ export default async function MoviesCalendarPage() {
       <section className="mx-auto max-w-6xl px-3 pt-4 sm:px-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-gradient-to-r from-[#0B6B45] to-[#13293d] p-4 text-white">
           <p className="text-sm font-semibold">
-            <b>{upcoming.length} upcoming releases</b> · <b>{dated}</b> exact dates confirmed
-            {upcoming.length === 0 ? ' — Cinemeta se naye releases ka intezar hai; neeche recent releases ka calendar mojood hai' : ' tracked'} — filter by region and type below.
+            {upcoming.length > 0 ? (
+              <>
+                <b>{upcoming.length} upcoming releases</b> · <b>{dated}</b> exact dates confirmed — track them by region and type below.
+              </>
+            ) : (
+              <>
+                <b>{dated}</b> exact dates confirmed — agla release abhi announce nahi hua, neeche recent releases ka calendar mojood hai.
+              </>
+            )}
           </p>
           <div className="flex flex-wrap gap-3 text-xs font-extrabold">
             <Link href="/movies" className="inline-flex items-center gap-1 text-[#F5B83D] hover:underline">
