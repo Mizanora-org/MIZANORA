@@ -9,6 +9,7 @@ import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import MoviesCalendarClient from '@/components/MoviesCalendarClient';
 import { getMoviesHub } from '@/lib/moviesServer';
+import { seedNewest, seedUpcoming } from '@/lib/imdbSeed';
 
 export const revalidate = 1800;
 
@@ -30,8 +31,15 @@ export const metadata = {
 };
 
 export default async function MoviesCalendarPage() {
-  const { movies } = await getMoviesHub();
+  const { movies: hubMovies } = await getMoviesHub();
   const todayIso = new Date().toISOString().slice(0, 10);
+  // v55: the IMDb snapshot keeps this calendar populated even when Cinemeta cannot be reached.
+  const seen = new Set();
+  const movies = [...hubMovies, ...seedUpcoming(60), ...seedNewest(400)].filter((m) => {
+    if (!m || !m.slug || seen.has(m.slug)) return false;
+    seen.add(m.slug);
+    return true;
+  });
   const upcoming = movies.filter((m) => m.status === 'upcoming');
 
   const itemListLd = {
@@ -68,7 +76,7 @@ export default async function MoviesCalendarPage() {
       <section className="mx-auto max-w-6xl px-3 pt-4 sm:px-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-gradient-to-r from-[#0B6B45] to-[#13293d] p-4 text-white">
           <p className="text-sm font-semibold">
-            <b>{upcoming.length} upcoming releases</b> tracked — filter by Pakistan, India, Iran, Bangladesh or Hollywood below.
+            <b>{upcoming.length} upcoming releases</b>{upcoming.length === 0 ? ' — IMDb se naye releases ka intezar hai; neeche recent releases ka calendar mojood hai' : ' tracked'} — filter by region and type below.
           </p>
           <div className="flex flex-wrap gap-3 text-xs font-extrabold">
             <Link href="/movies" className="inline-flex items-center gap-1 text-[#F5B83D] hover:underline">

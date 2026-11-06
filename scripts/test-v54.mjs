@@ -254,7 +254,7 @@ ok('custom movies: starter list emptied, hub rebuilt from Cinemeta, admin CRUD r
 
 // ---------------------------------------------------------------- 5. release hygiene
 const pkg = JSON.parse(read('package.json'));
-eq(pkg.version, '54.0.0');
+check(Number(String(pkg.version).split('.')[0]) >= 54, `version should be 54 or newer, got ${pkg.version}`);
 check(pkg.scripts['imdb:ids'] === 'node scripts/build-imdb-ids.mjs', 'npm run imdb:ids exists');
 check(pkg.scripts.test.includes('test-v54.mjs'), 'v54 test is part of npm test');
 const doc = read('UPGRADE-v54.md');

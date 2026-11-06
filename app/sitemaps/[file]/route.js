@@ -72,8 +72,13 @@ export async function GET(request, context) {
   } else if (name === 'songs') {
     try {
       const mod = await import('@/lib/songsServer');
-      const songs = await mod.getSongsForSitemap();
-      entries = (songs || []).slice(0, 40000).map((s) => urlTag(`/songs/${s.slug}`, { lastmod: today, changefreq: 'monthly', priority: '0.5' }));
+      const data = await mod.getSongsForSitemap();
+      const songs = Array.isArray(data) ? data : (data && data.songs) || [];
+      const artists = Array.isArray(data && data.artists) ? data.artists : [];
+      entries = [
+        ...artists.slice(0, 2000).map((a) => urlTag(`/songs/artist/${a.slug}`, { lastmod: today, changefreq: 'weekly', priority: '0.6' })),
+        ...songs.slice(0, 38000).map((s) => urlTag(`/songs/${s.slug}`, { lastmod: today, changefreq: 'monthly', priority: '0.5' })),
+      ];
     } catch { entries = []; }
   } else {
     return new Response('Not found', { status: 404 });

@@ -5,7 +5,8 @@ import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { absUrl } from '@/lib/config';
 import JsonLd from '@/components/JsonLd';
 import SongDetailPlayer from '@/components/SongDetailPlayer';
-import { songIdFromSlug, clockTime, SONG_QUERIES } from '@/lib/songs';
+import SongDirectLoader from '@/components/SongDirectLoader';
+import { songIdFromSlug, clockTime, artistSlug, SONG_QUERIES } from '@/lib/songs';
 import { getSongById, searchSongs, getTrendingSongs } from '@/lib/songsServer';
 
 export const revalidate = 3600;
@@ -38,7 +39,12 @@ export async function generateMetadata({ params }) {
 export default async function SongPage({ params }) {
   const { slug } = await params;
   const song = await load(slug);
-  if (!song) notFound();
+  if (!song) {
+    const rawId = songIdFromSlug(slug);
+    if (!rawId) notFound();
+    // The catalogue did not answer (mirror down / offline preview). The browser gets one more try.
+    return <SongDirectLoader id={rawId} slug={slug} />;
+  }
 
   const related = song.artists && song.artists.length
     ? await searchSongs(song.artists[0], 12).catch(() => ({ items: [] }))
@@ -83,7 +89,12 @@ export default async function SongPage({ params }) {
           <h2 className="font-display text-xl font-extrabold text-cream">About this song</h2>
           <p className="mt-2 text-sm leading-7 text-dim">
             <strong className="text-cream">{song.title}</strong>
-            {artists.length ? <> — {artists.join(', ')}</> : null}
+            {artists.length ? <> — {artists.map((a, i) => (
+              <span key={a}>
+                <Link href={`/songs/artist/${artistSlug(a)}`} className="font-semibold text-gold hover:underline">{a}</Link>
+                {i < artists.length - 1 ? ', ' : ''}
+              </span>
+            ))}</> : null}
             {song.album ? <>, album <strong className="text-cream">{song.album}</strong></> : null}
             {song.year ? <> ({song.year})</> : null}. Duration {clockTime(song.duration)}
             {song.language ? `, ${song.language}` : ''}. Mizanora ke apne player mein sunne ke liye upar Play dabayein — koi signup,
@@ -105,7 +116,14 @@ export default async function SongPage({ params }) {
             {artists.length > 0 && (
               <div className="flex justify-between gap-2 border-b border-line pb-2">
                 <dt className="text-faint">Artist</dt>
-                <dd className="text-right font-bold text-cream">{artists.join(', ')}</dd>
+                <dd className="text-right font-bold text-cream">
+                  {artists.map((a, i) => (
+                    <span key={a}>
+                      <Link href={`/songs/artist/${artistSlug(a)}`} className="text-gold hover:underline">{a}</Link>
+                      {i < artists.length - 1 ? ', ' : ''}
+                    </span>
+                  ))}
+                </dd>
               </div>
             )}
             {song.album && (

@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Disc3, LoaderCircle, Music2, Pause, Play, Search, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
-import { clockTime } from '@/lib/songs';
+import { artistSlug, clockTime } from '@/lib/songs';
+import { searchSongsDirect } from '@/lib/songsClient';
 
 // v54 — the Songs browser: search anything, press play, keep listening while you scroll.
 export default function SongBrowser({ initialSongs = [], topics = [], initialQuery = '' }) {
@@ -10,6 +11,7 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
   const [items, setItems] = useState(initialSongs);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [current, setCurrent] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -25,25 +27,59 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
     const id = reqId.current + 1;
     reqId.current = id;
     setError('');
+    setNotice('');
     if (!text) { setItems(initialSongs); setLoading(false); return; }
     setLoading(true);
+    let items = [];
+    let upstreamDown = false;
     try {
       const res = await fetch(`/api/songs/search?q=${encodeURIComponent(text)}&limit=30`, { cache: 'no-store' });
       const data = await res.json();
       if (reqId.current !== id) return; // a newer keystroke already won
-      setItems(Array.isArray(data.items) ? data.items : []);
-      if (!data.items || !data.items.length) setError('Kuch nahi mila — doosra naam ya artist try karein.');
+      items = Array.isArray(data.items) ? data.items : [];
+      upstreamDown = data.upstream === 'down' || !items.length;
     } catch {
-      if (reqId.current === id) { setItems([]); setError('Songs service abhi jawab nahi de rahi.'); }
-    } finally {
-      if (reqId.current === id) setLoading(false);
+      upstreamDown = true;
     }
+
+    // v55: the server could not reach a mirror (preview sandbox / outage) — the browser tries
+    // the same mirrors directly before giving up, because a visit often works when the server does not.
+    if (upstreamDown) {
+      try {
+        const direct = await searchSongsDirect(text, 30);
+        if (reqId.current !== id) return;
+        if (direct.items.length) {
+          items = direct.items;
+          setNotice('Mirror se seedha load hua (browser).');
+        }
+      } catch { /* keep whatever the server gave us */ }
+    }
+
+    if (reqId.current !== id) return;
+    setItems(items);
+    if (!items.length) setError('Kuch nahi mila. Naam check karein, ya thori dair baad Retry dabayein.');
+    setLoading(false);
   }, [initialSongs]);
 
   useEffect(() => {
     const t = setTimeout(() => runSearch(q), 420);
     return () => clearTimeout(t);
   }, [q, runSearch]);
+
+  // Nothing came back from the server (offline preview / mirror down) — try the default seed once.
+  useEffect(() => {
+    if (initialSongs.length) return;
+    const seed = topics[0] || 'Atif Aslam';
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      const direct = await searchSongsDirect(seed, 24).catch(() => ({ items: [] }));
+      if (!alive) return;
+      if (direct.items.length) { setItems(direct.items); setNotice('Mirror se seedha load hua (browser).'); }
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [initialSongs.length, topics]);
 
   const play = useCallback((song) => {
     const el = audio.current;
@@ -109,7 +145,14 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
         )}
       </div>
 
-      {error && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">{error}</p>}
+      {notice && <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{notice}</p>}
+      {error && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+          <span className="flex-1">{error}</span>
+          <button type="button" onClick={() => runSearch(q || topics[0] || 'Atif Aslam')} className="rounded-full bg-amber-800 px-3 py-1 text-xs font-extrabold text-white">Retry</button>
+          <Link href="/admin/songs" className="rounded-full border border-amber-300 px-3 py-1 text-xs font-extrabold text-amber-900">Mirror status</Link>
+        </div>
+      )}
 
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((s) => (
@@ -135,7 +178,10 @@ export default function SongBrowser({ initialSongs = [], topics = [], initialQue
                 {s.title}
               </Link>
               <p className="line-clamp-1 text-[0.7rem] font-semibold text-dim">
-                {(s.artists || []).join(', ') || 'Unknown artist'}{s.album ? ` · ${s.album}` : ''}
+                {s.artists && s.artists.length ? (
+                  <Link href={`/songs/artist/${artistSlug(s.artists[0])}`} className="hover:text-gold">{s.artists.join(', ')}</Link>
+                ) : 'Unknown artist'}
+                {s.album ? ` · ${s.album}` : ''}
               </p>
               <p className="mt-0.5 text-[0.64rem] font-bold text-faint">
                 {clockTime(s.duration)}{s.language ? ` · ${s.language}` : ''}{s.year ? ` · ${s.year}` : ''}

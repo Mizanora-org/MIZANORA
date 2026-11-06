@@ -4,6 +4,7 @@ import { getEffectiveTmdbKey, getMoviesHub } from '@/lib/moviesServer';
 import { isValidImdbId, searchActors, searchMovies } from '@/lib/movies';
 import { searchWorldCatalog } from '@/lib/moviesAutoFeed';
 import { cinemetaSearch } from '@/lib/cinemeta';
+import { searchSeed } from '@/lib/imdbSeed';
 
 export const runtime = 'nodejs';
 export const revalidate = 300;
@@ -18,6 +19,9 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const q = String(searchParams.get('q') || '').slice(0, 80).trim();
   const limit = Math.max(1, Math.min(40, Number(searchParams.get('limit')) || 24));
+  // v55: "all" (default) searches films AND series; the browser can now filter by type.
+  const rawType = String(searchParams.get('type') || 'all').toLowerCase();
+  const type = rawType === 'movie' || rawType === 'series' ? rawType : 'all';
 
   if (q.length < 2) {
     return NextResponse.json({ ok: true, query: q, items: [], actors: [], sources: [] });
@@ -37,6 +41,12 @@ export async function GET(req) {
 
   let local = [];
   let localActors = [];
+  let snapshot = [];
+  try {
+    // The IMDb snapshot is in memory (a file read once), so it answers instantly and covers
+    // 16,000+ films and ~900 series even when nothing else is reachable.
+    snapshot = searchSeed(q, { type, limit: 18 });
+  } catch { /* no snapshot */ }
   try {
     const { movies, actors, config } = await getMoviesHub();
     if (config.enabled) {
@@ -44,7 +54,7 @@ export async function GET(req) {
       localActors = searchActors(q, actors, { limit: 6 });
     }
   } catch {
-    /* the world catalogue below can still answer */
+    /* the snapshot and world catalogues can still answer */
   }
 
   // v54: IMDb's own catalogue (Cinemeta) in parallel with the other world sources. Its posters
@@ -63,7 +73,8 @@ export async function GET(req) {
 
   const seen = new Set();
   const items = [];
-  for (const m of [...local, ...cine, ...(world.items || [])]) {
+  for (const m of [...local, ...snapshot, ...cine, ...(world.items || [])]) {
+    if (m && type !== 'all' && m.type !== type) continue;
     if (!m) continue;
     const key = (m.imdbId || m.slug || '').toLowerCase();
     if (!key || seen.has(key)) continue;
@@ -92,6 +103,8 @@ export async function GET(req) {
       ok: true,
       query: q,
       localCount: local.length,
+      snapshotCount: snapshot.length,
+      type,
       items,
       actors: localActors.map((a) => ({
         slug: a.slug,
@@ -100,7 +113,7 @@ export async function GET(req) {
         photo: a.photo || '',
         href: `/movies/actor/${a.slug}`,
       })),
-      sources: [...(cine.length ? [{ source: 'IMDb catalogue', count: cine.length }] : []), ...(world.sources || [])],
+      sources: [...(snapshot.length ? [{ source: 'IMDb snapshot', count: snapshot.length }] : []), ...(cine.length ? [{ source: 'IMDb catalogue', count: cine.length }] : []), ...(world.sources || [])],
     },
     { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=1800' } },
   );
