@@ -7,7 +7,7 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
-import { getMoviesHub } from '@/lib/moviesServer';
+import { enrichActorsWithPhotos, getMoviesHub } from '@/lib/moviesServer';
 import {
   MOVIE_REGIONS,
   actorFilmography,
@@ -41,7 +41,8 @@ export default async function ActorsDirectoryPage({ searchParams }) {
   const region = String(sp.region || 'all').slice(0, 40);
 
   const { actors, movies } = await getMoviesHub();
-  const filtered = searchActors(q, actors, { region, limit: 200 });
+  // v51: fill missing portraits from the official IMDb suggestion endpoint (cached 12h).
+  const filtered = await enrichActorsWithPhotos(searchActors(q, actors, { region, limit: 200 }), 12);
 
   const itemListLd = {
     '@context': 'https://schema.org',

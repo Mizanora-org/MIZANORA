@@ -125,6 +125,14 @@ export default function AdminTv() {
   const patch = (i, part) => setCfg((c) => { const next = c.channels.slice(); next[i] = { ...next[i], ...part }; return { ...c, channels: next }; });
   const drop = (i) => { setCfg((c) => ({ ...c, channels: c.channels.filter((_, k) => k !== i) })); setSelected((s) => { const n = new Set(); s.forEach((x) => { if (x !== i) n.add(x > i ? x - 1 : x); }); return n; }); };
   const move = (i, d) => setCfg((c) => { const j = i + d; if (j < 0 || j >= c.channels.length) return c; const next = c.channels.slice(); [next[i], next[j]] = [next[j], next[i]]; return { ...c, channels: next }; });
+  // v51: duplicate a channel (same stream, new row) - handy for regional HD/SD variants.
+  const duplicate = (i) => setCfg((c) => {
+    if (c.channels.length >= MAX_CHANNELS) return c;
+    const src = c.channels[i]; if (!src) return c;
+    const copy = { ...src, name: `${src.name} copy`.slice(0, 70), sources: Array.isArray(src.sources) ? [...src.sources] : src.sources };
+    const next = c.channels.slice(); next.splice(i + 1, 0, copy);
+    return { ...c, channels: next };
+  });
   const toggleSel = (i) => setSelected((s) => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n; });
   const selAllOnPage = () => setSelected((s) => { const n = new Set(s); const allOn = rows.every((r) => n.has(r.i)); rows.forEach((r) => (allOn ? n.delete(r.i) : n.add(r.i))); return n; });
   const selAllFiltered = () => setSelected((s) => (s.size === filtered.length && filtered.length ? new Set() : new Set(filtered.map((c) => c.i))));
@@ -410,6 +418,7 @@ export default function AdminTv() {
               <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="accent-[#0B6B45]" checked={!c.off} onChange={(e) => patch(c.i, { off: !e.target.checked })} /> on</label>
               <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => move(c.i, -1)} aria-label="Move up">↑</button>
               <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => move(c.i, 1)} aria-label="Move down">↓</button>
+              <button type="button" className="btn-ghost !px-2 !py-1" onClick={() => duplicate(c.i)} aria-label={`Duplicate ${c.name}`} title="Duplicate this channel">⧉</button>
               <button type="button" className="text-red-600" onClick={() => drop(c.i)} aria-label={`Delete ${c.name}`}><Trash2 size={16} /></button>
               <details className="basis-full rounded-lg bg-raised p-2">
                 <summary className="cursor-pointer font-semibold text-gold">Edit links &amp; details · {channelSources(c).length} source(s)</summary>

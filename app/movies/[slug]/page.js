@@ -8,6 +8,7 @@ import {
   Film,
   Globe2,
   Languages,
+  Play,
   ShieldCheck,
   Sparkles,
   Star,
@@ -21,8 +22,11 @@ import JsonLd from '@/components/JsonLd';
 import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import CinemaPlayer from '@/components/CinemaPlayer';
+import SafeImg from '@/components/SafeImg';
+import MovieListButton from '@/components/MovieListButton';
 import MoviePosterCard from '@/components/MoviePosterCard';
 import { getMovieCompanionProducts, resolveMovieOrSeries } from '@/lib/moviesServer';
+import { getMovieServers } from '@/lib/movieServersServer';
 import {
   STARTER_MOVIES,
   posterHue,
@@ -42,6 +46,15 @@ export async function generateMetadata({ params }) {
   const { slug } = await params;
   const { movie } = await resolveMovieOrSeries(slug);
   if (!movie) return {};
+  if (movie.stub) {
+    // Metadata unavailable right now: keep the page useful but out of the index until it fills in.
+    return pageMeta({
+      title: `IMDb ${movie.imdbId} — watch & title details`,
+      description: `Title details for IMDb ${movie.imdbId} could not be loaded yet. The player and the official IMDb link are still available.`,
+      path: `/movies/${movie.imdbId}`,
+      noindex: true,
+    });
+  }
   const label = movie.type === 'series' ? 'Series Guide, Cast & Trailer' : 'Official Trailer, Cast & Story';
   const desc = `${movie.title} (${movie.year}) — ${movie.tagline || movie.story.slice(0, 150)} Explore cast, director ${movie.director || ''}, IMDb ${movie.imdbId || ''}, and legal streaming options on Mizanora.`;
   const img = movie.poster || movie.backdrop || youtubeThumbUrl(movie.trailerYoutubeId) || undefined;
@@ -74,9 +87,11 @@ export default async function MovieDetailPage({ params }) {
     redirect(`/movies/${movie.slug}`);
   }
 
-  const companionProducts = config.ads && config.ads.enabled
-    ? await getMovieCompanionProducts(config.ads.slugs, movie.slug, 4)
-    : [];
+  const [companionProducts, serverCfg] = await Promise.all([
+    config.ads && config.ads.enabled ? getMovieCompanionProducts(config.ads.slugs, movie.slug, 4) : Promise.resolve([]),
+    getMovieServers(),
+  ]);
+  const playableCount = (serverCfg.servers || []).filter((s) => s.enabled !== false && (!s.scope || s.scope === 'all' || s.scope === movie.type)).length;
   const similar = relatedMovies(movie, movies, 6);
   const hue = posterHue(movie.slug || movie.title);
   const thumb = movie.poster || youtubeThumbUrl(movie.trailerYoutubeId);
@@ -106,6 +121,15 @@ export default async function MovieDetailPage({ params }) {
         }
       : {}),
     ...(movie.imdbId ? { sameAs: `https://www.imdb.com/title/${movie.imdbId}/` } : {}),
+    ...(playableCount > 0
+      ? {
+          potentialAction: {
+            '@type': 'WatchAction',
+            target: absUrl(`/movies/${movie.slug}#player`),
+            expectsAcceptanceOf: { '@type': 'Offer', category: 'Streaming' },
+          },
+        }
+      : {}),
     ...(movie.rating > 0
       ? {
           aggregateRating: {
@@ -145,10 +169,35 @@ export default async function MovieDetailPage({ params }) {
       />
 
       <PageHead
-        title={`${movie.title} (${movie.year})`}
+        title={`${movie.title}${movie.stub ? '' : ` (${movie.year})`}`}
         intro={movie.tagline || `${movie.region} ${movie.type === 'series' ? 'Series' : 'Movie'} · ${movie.language}`}
         crumbs={[['/', 'Home'], ['/movies', 'Movies & Series'], [null, movie.title]]}
       />
+
+      {movie.stub && (
+        <section className="mx-auto max-w-7xl px-3 pt-3 sm:px-4">
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-sm text-amber-900">
+            <b className="block">Official tafseel abhi load nahi ho saki (IMDb {movie.imdbId}).</b>
+            <p className="mt-1">
+              Poster, cast aur story ke liye thori dair baad page refresh karein. Player neeche mojood hai —
+              play servers is IMDb ID se link khud bana lete hain.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <a href={`/movies/${movie.imdbId}`} className="rounded-full bg-amber-600 px-3 py-1 text-xs font-extrabold text-white hover:brightness-95">
+                Try again
+              </a>
+              <a
+                href={`https://www.imdb.com/title/${movie.imdbId}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-amber-500 px-3 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100"
+              >
+                Open on IMDb
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Rich Cinema Identity Header */}
       <section className="mx-auto max-w-7xl px-3 pt-4 sm:px-4">
@@ -166,14 +215,7 @@ export default async function MovieDetailPage({ params }) {
               }}
             >
               {thumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={thumb}
-                  alt={movie.title}
-                  loading="eager"
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
-                />
+                <SafeImg src={thumb} alt={movie.title} loading="eager" className="h-full w-full object-cover" />
               ) : (
                 <span className="font-display text-3xl font-extrabold">{titleInitials(movie.title)}</span>
               )}
@@ -252,14 +294,46 @@ export default async function MovieDetailPage({ params }) {
                   </Link>
                 ))}
               </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <a
+                  href="#player"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-saffron px-4 py-2 text-xs font-extrabold text-[#2B1B00] shadow transition hover:brightness-95 sm:text-sm"
+                >
+                  <Play size={14} fill="currentColor" />
+                  {playableCount > 0 ? `Watch Now (${playableCount} server${playableCount === 1 ? '' : 's'})` : 'Watch Trailer'}
+                </a>
+                <MovieListButton movie={movie} />
+                <Link
+                  href="/movies/calendar"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/20 sm:text-sm"
+                >
+                  <Calendar size={14} /> Release calendar
+                </Link>
+                {movie.imdbId && (
+                  <a
+                    href={`https://www.imdb.com/title/${movie.imdbId}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/20 sm:text-sm"
+                  >
+                    <Star size={14} /> Rate on IMDb
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Cinema / Official Trailer Stage + Companion Shop Deals */}
-      <section className="mx-auto max-w-7xl px-3 pt-5 sm:px-4" aria-label="Player and watch options">
-        <CinemaPlayer movie={movie} companionProducts={companionProducts} />
+      <section id="player" className="mx-auto max-w-7xl scroll-mt-20 px-3 pt-5 sm:px-4" aria-label="Player and watch options">
+        <CinemaPlayer
+          movie={movie}
+          companionProducts={companionProducts}
+          servers={serverCfg.servers || []}
+          adConfig={serverCfg.ads}
+        />
         <AdsInject slots={['auto']} />
       </section>
 
@@ -328,12 +402,24 @@ export default async function MovieDetailPage({ params }) {
                   >
                     <span
                       aria-hidden="true"
-                      className="grid h-14 w-14 place-items-center rounded-full font-display text-base font-extrabold text-white"
+                      className="relative grid h-14 w-14 place-items-center overflow-hidden rounded-full font-display text-base font-extrabold text-white ring-2 ring-gold/25"
                       style={{
                         background: `linear-gradient(145deg, hsl(${cHue}, 58%, 32%), hsl(${(cHue + 40) % 360}, 65%, 16%))`,
                       }}
                     >
-                      {titleInitials(c.name)}
+                      {c.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={c.photo}
+                          alt={c.name}
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      ) : (
+                        titleInitials(c.name)
+                      )}
                     </span>
                     <b className="mt-2 line-clamp-1 text-sm text-cream group-hover:text-gold">{c.name}</b>
                     {c.character && <span className="mt-0.5 line-clamp-1 text-xs text-dim">as {c.character}</span>}

@@ -19,7 +19,10 @@ import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import MoviePosterCard from '@/components/MoviePosterCard';
 import MoviesBrowser from '@/components/MoviesBrowser';
+import ContinueWatching from '@/components/ContinueWatching';
+import MyListShelf from '@/components/MyListShelf';
 import { getMoviesHub } from '@/lib/moviesServer';
+import { getMovieServers } from '@/lib/movieServersServer';
 import { posterHue, searchMovies, titleInitials } from '@/lib/movies';
 
 export const revalidate = 1800;
@@ -51,7 +54,8 @@ export default async function MoviesHubPage({ searchParams }) {
   const initialRegion = String(sp.region || 'all').slice(0, 40);
   const initialFormat = String(sp.format || 'all').slice(0, 20);
 
-  const { config, movies, actors } = await getMoviesHub();
+  const [{ config, movies, actors }, serverCfg] = await Promise.all([getMoviesHub(), getMovieServers()]);
+  const playServers = (serverCfg.servers || []).filter((s) => s.enabled !== false);
   const upcomingTitles = searchMovies('', movies, { upcomingOnly: true, sort: 'upcoming', limit: 6 });
   const freeFilms = movies.filter((m) => Boolean(m.publicDomainStream));
   const pakistaniTitles = searchMovies('', movies, { region: 'Pakistan', sort: 'latest', limit: 6 });
@@ -88,7 +92,7 @@ export default async function MoviesHubPage({ searchParams }) {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#052e1d] via-[#0B6B45] to-[#13293d] p-5 text-white shadow-2xl sm:p-7">
           <div className="flex flex-wrap items-center gap-2 text-xs font-extrabold uppercase tracking-wider">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-saffron px-3 py-1 text-[#2B1B00]">
-              <Clapperboard size={13} /> v50 Cinema Discovery
+              <Clapperboard size={13} /> v51 Live World Search
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1">
               <Film size={12} /> {movies.length} Movies &amp; Series
@@ -99,6 +103,11 @@ export default async function MoviesHubPage({ searchParams }) {
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-3 py-1 text-emerald-200">
               <ShieldCheck size={12} /> 100% Legal &amp; Google-Safe
             </span>
+            {playServers.length > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1">
+                <Play size={12} fill="currentColor" /> {playServers.length} Play Server{playServers.length === 1 ? '' : 's'}
+              </span>
+            )}
           </div>
 
           <h2 className="mt-3.5 max-w-3xl font-display text-2xl font-extrabold leading-tight sm:text-4xl">
@@ -106,8 +115,10 @@ export default async function MoviesHubPage({ searchParams }) {
             <span className="text-[#F5B83D]">Trailers, Cast, Calendar &amp; Free Legal Classics</span>
           </h2>
           <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-white/85 sm:text-base">
-            Search any title or paste an IMDb ID (like <code className="rounded bg-black/35 px-1.5 py-0.5 font-mono text-[#F5B83D]">tt1375666</code>),
-            watch official trailers, explore Pakistani dramas &amp; regional films across India, Bangladesh, Iran &amp; Afghanistan, and enjoy timeless public-domain classics in Mizanora’s own player.
+            Search <b>any</b> movie or series — the live IMDb / TMDB / TVmaze catalogue answers even when a title is
+            not in our own list. Paste an IMDb ID (like{' '}
+            <code className="rounded bg-black/35 px-1.5 py-0.5 font-mono text-[#F5B83D]">tt1375666</code>) to open a page
+            instantly, then press <b>Watch Now</b> in Mizanora&apos;s own player.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-2.5">
@@ -134,6 +145,10 @@ export default async function MoviesHubPage({ searchParams }) {
 
         <AdsInject slots={['auto']} />
       </section>
+
+      {/* v51: this browser's own "Continue watching" shelf (private, localStorage only) */}
+      {!initialQuery && <ContinueWatching className="pt-6" />}
+      {!initialQuery && <MyListShelf className="pt-6" />}
 
       {/* Shelf 0: Upcoming 2026–2027 Releases (Ane Wali) */}
       {upcomingTitles.length > 0 && !initialQuery && (

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Film, Play, Sparkles, Star, Tv } from 'lucide-react';
+import SafeImg from '@/components/SafeImg';
 import { posterHue, titleInitials, youtubeThumbUrl } from '@/lib/movies';
 
 export default function MoviePosterCard({ movie, priority = false }) {
@@ -23,13 +24,10 @@ export default function MoviePosterCard({ movie, priority = false }) {
         }}
       >
         {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SafeImg
             src={thumb}
             alt={movie.title}
             loading={priority ? 'eager' : 'lazy'}
-            decoding="async"
-            referrerPolicy="no-referrer"
             className="h-full w-full object-cover opacity-90 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
           />
         ) : (
