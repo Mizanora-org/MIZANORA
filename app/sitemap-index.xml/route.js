@@ -1,29 +1,61 @@
 import { absUrl } from '@/lib/config';
-import { chunkCount, getSitemapIds } from '@/lib/moviesWorld';
+import { getSitemapIds } from '@/lib/moviesWorld';
 
-// Mizanora v54 — the sitemap INDEX.
+// Mizanora v56 — the sitemap INDEX.
 //
-// /sitemap.xml (the core pages: shop, blog, tools, Quran, live TV …) stays exactly as it was.
-// This index points at that file AND at the movie/series chunks that the IMDb catalogue fills.
-// A sitemap file may hold 50,000 addresses; we use 20,000 per chunk, so even a 500,000-title
-// pool (MOVIES_SITEMAP_LIMIT=500000) is a valid set of index entries.
-export const revalidate = 21600; // six hours
+// /sitemap.xml stays the shop's core file (products, blog, tools, Quran, live TV, pages).
+// This index points at that file PLUS the title catalogue, partitioned three ways so every file is
+// small, dated and obviously themed:
+//
+//   /sitemaps/titles-<year>.xml      one file per release year  (the canonical movie/series list)
+//   /sitemaps/actors-<a…z>.xml       actor profiles, A–Z
+//   /sitemaps/songs-<a…z>.xml        songs, A–Z (only listed when a mirror actually answered)
+//   /sitemaps/quran.xml              the 114 surahs
+//   /sitemaps/actors.xml             the actors directory page
+//   /sitemaps/live.xml               live TV channels
+//   /sitemaps/blog.xml               guides and news
+//   /sitemaps/songs.xml              songs hub + artists + newest tracks
+//
+// The old movies-N / series-N chunk files still answer for anyone holding a cached index, but they
+// are deliberately NOT listed here: submitting the same URL in two sitemaps is noise, and a dated
+// year file is easier for Google to trust than a 20,000-row block.
+export const revalidate = 21600;
 export const dynamic = 'force-dynamic';
 
 const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
 export async function GET() {
   const ids = await getSitemapIds().catch(() => []);
-  const movies = ids.filter((x) => x.type !== 'series').length;
-  const series = ids.length - movies;
-  const movieChunks = Math.max(1, chunkCount(movies));
-  const seriesChunks = Math.max(1, chunkCount(series));
-  const now = new Date().toISOString();
+  const years = [...new Set(ids.map((x) => Number(x.year)).filter((y) => y >= 1900 && y <= 2100))].sort((a, b) => a - b);
 
+  // Which actor letters actually have people in them? Loading the hub is cached in memory, so this
+  // is cheap — and it keeps the index free of empty files.
+  let actorLetters = [];
+  try {
+    const { getMoviesHub } = await import('@/lib/moviesServer');
+    const hub = await getMoviesHub();
+    const set = new Set((hub.actors || []).map((a) => String(a.slug || '').charAt(0)).filter((c) => /[a-z]/.test(c)));
+    actorLetters = LETTERS.filter((l) => set.has(l));
+  } catch { actorLetters = []; }
+
+  // Songs depend on a third-party mirror; only advertise the files if the catalogue answered.
+  let songLetters = [];
+  try {
+    const mod = await import('@/lib/songsServer');
+    const data = await mod.getSongsForSitemap();
+    const songs = Array.isArray(data) ? data : (data && data.songs) || [];
+    const set = new Set(songs.map((s) => String(s.slug || '').charAt(0)).filter((c) => /[a-z0-9]/.test(c)));
+    songLetters = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('').filter((l) => set.has(l));
+  } catch { songLetters = []; }
+
+  const now = new Date().toISOString();
   const files = [
     '/sitemap.xml',
-    ...Array.from({ length: movieChunks }, (_, i) => `/sitemaps/movies-${i}.xml`),
-    ...Array.from({ length: seriesChunks }, (_, i) => `/sitemaps/series-${i}.xml`),
+    ...years.map((y) => `/sitemaps/titles-${y}.xml`),
+    ...actorLetters.map((l) => `/sitemaps/actors-${l}.xml`),
+    ...songLetters.map((l) => `/sitemaps/songs-${l}.xml`),
+    '/sitemaps/quran.xml',
     '/sitemaps/actors.xml',
     '/sitemaps/live.xml',
     '/sitemaps/blog.xml',
@@ -40,6 +72,7 @@ ${files.map((f) => `  <sitemap>\n    <loc>${esc(absUrl(f))}</loc>\n    <lastmod>
     headers: {
       'content-type': 'application/xml; charset=utf-8',
       'cache-control': 'public, max-age=0, s-maxage=21600, stale-while-revalidate=86400',
+      'x-mizanora-sitemaps': String(files.length),
     },
   });
 }

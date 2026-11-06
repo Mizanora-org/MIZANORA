@@ -7,6 +7,7 @@ import {
   Film,
   Globe2,
   Play,
+  Search,
   ShieldCheck,
   Sparkles,
   Users,
@@ -18,6 +19,7 @@ import JsonLd from '@/components/JsonLd';
 import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import MoviePosterCard from '@/components/MoviePosterCard';
+import AvatarImg from '@/components/AvatarImg';
 import MoviesBrowser from '@/components/MoviesBrowser';
 import ContinueWatching from '@/components/ContinueWatching';
 import MyListShelf from '@/components/MyListShelf';
@@ -134,7 +136,46 @@ export default async function MoviesHubPage({ searchParams }) {
             instantly, then press <b>Watch Now</b> in Mizanora&apos;s own player.
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-2.5">
+          {/* v56: the search bar belongs at the TOP. It is a plain GET form, so it works before any
+              JavaScript runs (and Google can follow it too). */}
+          <form action="/movies" method="get" className="mt-5 rounded-2xl bg-white/95 p-2 shadow-xl ring-1 ring-black/10 sm:flex sm:items-center sm:gap-2">
+            <label htmlFor="movies-hero-q" className="sr-only">Search any movie, series, actor or IMDb ID</label>
+            <div className="relative flex-1">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5b6b62]" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+              </svg>
+              <input
+                id="movies-hero-q"
+                name="q"
+                type="search"
+                defaultValue={initialQuery}
+                placeholder="Movie, drama, actor, genre ya IMDb ID — jaise Inception, Parizaad, tt1375666"
+                className="w-full rounded-xl border border-transparent bg-transparent py-2.5 pl-9 pr-3 text-sm font-semibold text-[#0B3D28] outline-none placeholder:text-[#6b7d73] focus:border-[#0B6B45]/40"
+              />
+            </div>
+            <label htmlFor="movies-hero-format" className="sr-only">Type</label>
+            <select
+              id="movies-hero-format"
+              name="format"
+              defaultValue={initialFormat}
+              className="mt-2 w-full rounded-xl border border-[#0B6B45]/20 bg-[#f4f8f5] px-3 py-2.5 text-sm font-bold text-[#0B3D28] sm:mt-0 sm:w-auto"
+            >
+              <option value="all">Sab (Movies + Series)</option>
+              <option value="movie">Sirf Movies</option>
+              <option value="series">Sirf Series &amp; Dramas</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="free">Free legal films</option>
+            </select>
+            <button
+              type="submit"
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0B6B45] px-5 py-2.5 text-sm font-extrabold text-white shadow hover:brightness-110 sm:mt-0 sm:w-auto"
+            >
+              <Search size={15} /> Search
+            </button>
+          </form>
+
+          <div className="mt-4 flex flex-wrap gap-2.5">
             <a
               href="#explore-movies"
               className="inline-flex items-center gap-1.5 rounded-full bg-saffron px-4 py-2.5 text-xs font-extrabold text-[#2B1B00] shadow transition hover:brightness-95 sm:text-sm"
@@ -308,26 +349,13 @@ export default async function MoviesHubPage({ searchParams }) {
                     prefetch={false}
                     className="group flex h-full flex-col items-center rounded-2xl border border-line bg-surface p-3.5 text-center transition hover:-translate-y-0.5 hover:border-gold hover:shadow-md"
                   >
-                    {a.photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={a.photo}
-                        alt={a.name}
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        className="h-16 w-16 rounded-full object-cover ring-2 ring-gold/25"
-                      />
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className="grid h-16 w-16 place-items-center rounded-full font-display text-lg font-extrabold text-white shadow-inner"
-                        style={{
-                          background: `linear-gradient(145deg, hsl(${hue}, 58%, 32%), hsl(${(hue + 40) % 360}, 65%, 16%))`,
-                        }}
-                      >
-                        {titleInitials(a.name)}
-                      </span>
-                    )}
+                    <AvatarImg
+                      src={a.photo}
+                      name={a.name}
+                      hue={hue}
+                      initials={titleInitials(a.name)}
+                      className="h-16 w-16 rounded-full object-cover shadow-inner ring-2 ring-gold/25"
+                    />
                     <b className="mt-2.5 line-clamp-1 text-sm text-cream group-hover:text-gold">{a.name}</b>
                     <span className="mt-0.5 text-[0.68rem] font-semibold text-faint">{a.country}</span>
                     <span className="mt-1 line-clamp-1 text-[0.66rem] text-dim">{(a.knownFor || [])[0] || a.role}</span>

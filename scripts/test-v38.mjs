@@ -257,6 +257,8 @@ ok('check: it validates /blog/<slug> links', /BROKEN BLOG LINK/.test(src('script
     for (const m of t.matchAll(/\]\((\/blog\/[a-z0-9\-\/]+)\)/g)) {
       const s2 = m[1].replace(/^\/blog\//, '').replace(/\/$/, '');
       if (s2.startsWith('category/')) continue;
+      // v56: /blog/author/<slug> is the author hub route, not a post.
+      if (s2.startsWith('author/')) continue;
       if (!live.has(s2)) { console.log(`   broken: ${f} -> ${m[1]}`); broken += 1; }
     }
   }

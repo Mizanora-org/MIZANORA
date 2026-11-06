@@ -14,7 +14,15 @@ export default function SongDirectLoader({ id, slug }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const found = await songByIdDirect(id);
+      // v56: our own resolver first (it holds the mirror list + a fresh token), then a direct
+      // browser call to the mirrors if the server could not reach them.
+      let found = null;
+      try {
+        const res = await fetch(`/api/songs/stream/${encodeURIComponent(id)}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (data && data.ok && data.song) found = data.song;
+      } catch { /* server route unreachable — try the mirrors directly */ }
+      if (!found) found = await songByIdDirect(id);
       if (!alive) return;
       if (found) { setSong(found); setState('ok'); } else { setState('error'); }
     })();
@@ -42,6 +50,14 @@ export default function SongDirectLoader({ id, slug }) {
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <button type="button" onClick={() => window.location.reload()} className="rounded-full bg-gold px-4 py-2 text-sm font-extrabold text-white">Retry</button>
+          <a
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(slug.split('-').slice(0, 4).join(' '))}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-line px-4 py-2 text-sm font-bold text-dim hover:border-gold hover:text-gold"
+          >
+            YouTube par sunein
+          </a>
           <Link href="/songs" className="rounded-full border border-line px-4 py-2 text-sm font-bold text-dim hover:border-gold hover:text-gold">Songs home</Link>
           <Link href={`/songs?q=${encodeURIComponent(slug.split('-').slice(0, 3).join(' '))}`} className="inline-flex items-center gap-1 rounded-full border border-line px-4 py-2 text-sm font-bold text-dim hover:border-gold hover:text-gold">
             <Music2 size={14} /> Search this song

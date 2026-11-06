@@ -121,6 +121,8 @@ for (const f of readdirSync(dir).filter((x) => x.endsWith('.md'))) {
   for (const m of t.matchAll(/\]\((\/blog\/[a-z0-9\-\/]+)\)/g)) {
     const s = m[1].replace(/^\/blog\//, '').replace(/\/$/, '');
     if (s.startsWith('category/')) continue; // /blog/category/<slug> is a route, not a post
+    // v56: /blog/author/<slug> is the author hub route (app/blog/author/[name]), not a post.
+    if (s.startsWith('author/')) continue;
     if (!live.has(s)) { console.log(`   broken link in ${f}: ${m[1]}`); broken++; }
   }
 }

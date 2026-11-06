@@ -1,5 +1,6 @@
 import { absUrl } from '@/lib/config';
 import { SITEMAP_CHUNK, getSitemapIds } from '@/lib/moviesWorld';
+import { SURAHS, slugOfSurah } from '@/lib/quran';
 
 // Mizanora v54 — sitemap files.
 //
@@ -43,6 +44,41 @@ export async function GET(request, context) {
       changefreq: 'weekly',
       priority: '0.7',
     }));
+  } else if (/^titles-\d{4}$/.test(name)) {
+    // v56 — one file per release year. This is the canonical partition now: a sitemap chunk that
+    // mixes 1930s films with 2026 series tells Google nothing, while `titles-2026.xml` is a clean,
+    // small, dated list. (The old movies-N / series-N files still answer, but they are no longer
+    // listed in the index, so the same URL is never submitted twice.)
+    const year = Number(name.slice(7));
+    const ids = await getSitemapIds().catch(() => []);
+    entries = ids
+      .filter((x) => Number(x.year) === year)
+      .slice(0, 45000)
+      .map((x) => urlTag(`/movies/${x.id}`, { lastmod: today, changefreq: 'weekly', priority: year >= new Date().getFullYear() ? 0.8 : 0.7 }));
+  } else if (/^actors-[a-z]$/.test(name)) {
+    // A–Z actor files: small, obviously-themed lists are crawled far more reliably than one 40k file.
+    const letter = name.slice(7);
+    try {
+      const { getMoviesHub } = await import('@/lib/moviesServer');
+      const hub = await getMoviesHub();
+      entries = (hub.actors || [])
+        .filter((a) => String(a.slug || '').startsWith(letter))
+        .slice(0, 40000)
+        .map((a) => urlTag(`/movies/actor/${a.slug}`, { lastmod: today, changefreq: 'monthly', priority: '0.5' }));
+    } catch { entries = []; }
+  } else if (/^songs-[a-z0-9]$/.test(name)) {
+    const letter = name.slice(6);
+    try {
+      const mod = await import('@/lib/songsServer');
+      const data = await mod.getSongsForSitemap();
+      const songs = Array.isArray(data) ? data : (data && data.songs) || [];
+      entries = songs
+        .filter((sg) => String(sg.slug || '').startsWith(letter))
+        .slice(0, 40000)
+        .map((sg) => urlTag(`/songs/${sg.slug}`, { lastmod: today, changefreq: 'monthly', priority: '0.5' }));
+    } catch { entries = []; }
+  } else if (name === 'quran') {
+    entries = SURAHS.map((x) => urlTag(`/quran/${slugOfSurah(x.n)}`, { lastmod: today, changefreq: 'yearly', priority: '0.5' }));
   } else if (name === 'actors') {
     try {
       const { getMoviesHub } = await import('@/lib/moviesServer');

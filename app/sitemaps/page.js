@@ -8,6 +8,7 @@ import { getMoviesHub } from '@/lib/moviesServer';
 import { getTvConfig } from '@/lib/liveTvServer';
 import { getPosts } from '@/lib/blog';
 import { getSongsForSitemap } from '@/lib/songsServer';
+import { coverage, coverageVerdict } from '@/lib/coverage';
 
 // v55 — a human-readable map of every sitemap MIZANORA publishes.
 // Google needs the XML; shop owners, developers and "why is my page not indexed?" questions need
@@ -32,6 +33,8 @@ export default async function SitemapsGuidePage() {
   const seriesCount = ids.length - movieCount;
   const movieChunks = chunkCount(movieCount);
   const seriesChunks = chunkCount(seriesCount);
+  // v56 — the catalogue is now published one file per release year, plus A–Z actor/song files.
+  const years = [...new Set(ids.map((x) => Number(x.year)).filter((y) => y >= 1900 && y <= 2100))].sort((a, b) => a - b);
 
   const hub = await getMoviesHub().catch(() => ({ actors: [] }));
   const tv = await getTvConfig().catch(() => ({ channels: [] }));
@@ -39,6 +42,11 @@ export default async function SitemapsGuidePage() {
   const songData = await getSongsForSitemap().catch(() => ({ songs: [], artists: [] }));
   const songs = songData.songs || [];
   const artists = songData.artists || [];
+  const actorLetters = [...new Set((hub.actors || []).map((a) => String(a.slug || '').charAt(0)).filter((c) => /[a-z]/.test(c)))].sort();
+  const songLetters = [...new Set(songs.map((x) => String(x.slug || '').charAt(0)).filter((c) => /[a-z0-9]/.test(c)))].sort();
+  const fileCount = 1 + years.length + actorLetters.length + songLetters.length + 5;
+  const cov = coverage();
+  const verdict = coverageVerdict(cov);
 
   const rows = [
     {
@@ -53,25 +61,42 @@ export default async function SitemapsGuidePage() {
       file: '/sitemap-index.xml',
       title: 'Sitemap index',
       icon: Search,
-      count: `${2 + movieChunks + seriesChunks + 4} files`,
+      count: `${fileCount} files`,
+      note: 'Robots.txt advertises this one file. Search Console mein sirf yehi submit karein.',
       note: 'The entry point advertised in robots.txt. It lists /sitemap.xml and every chunk below — Google follows it automatically.',
       priority: '—',
     },
     {
-      file: `/sitemaps/movies-0.xml … movies-${movieChunks - 1}.xml`,
-      title: 'Movies',
+      file: years.length ? `/sitemaps/titles-${years[years.length - 1]}.xml … titles-${years[0]}.xml` : '/sitemaps/titles-2026.xml',
+      title: 'Movies & series by release year',
       icon: Film,
-      count: `${fmt(movieCount)} URLs · ${fmt(SITEMAP_CHUNK)} per file`,
-      note: 'Every IMDb film we know, newest first. 20,000 URLs per file so each stays well under Google\'s 50,000 limit. You can click chunk 0 to see the current list.',
-      priority: '0.7',
+      count: `${fmt(ids.length)} URLs · ${years.length} files · ${fmt(movieCount)} films + ${fmt(seriesCount)} series`,
+      note: 'v56: the catalogue is split one file per release year (titles-1999.xml, titles-2026.xml …). Small dated lists are crawled far more reliably than 20,000-row blocks. The old movies-N / series-N files still answer but are no longer listed, so no URL is submitted twice.',
+      priority: '0.7 – 0.8',
     },
     {
-      file: `/sitemaps/series-0.xml … series-${seriesChunks - 1}.xml`,
-      title: 'Series & dramas',
-      icon: Tv,
-      count: `${fmt(seriesCount)} URLs`,
-      note: 'IMDb series and dramas, same chunking. Each page carries its season/episode guide.',
-      priority: '0.7',
+      file: actorLetters.length ? `/sitemaps/actors-a.xml … actors-${actorLetters[actorLetters.length - 1]}.xml` : '/sitemaps/actors.xml',
+      title: 'Actor profiles A–Z',
+      icon: Users,
+      count: `${fmt((hub.actors || []).length)} URLs · ${actorLetters.length} files`,
+      note: 'Every actor page, one file per starting letter, so a crawl never depends on one huge list.',
+      priority: '0.5',
+    },
+    {
+      file: songLetters.length ? `/sitemaps/songs-a.xml … songs-${songLetters[songLetters.length - 1]}.xml` : '/sitemaps/songs.xml',
+      title: 'Songs A–Z',
+      icon: Music2,
+      count: `${fmt(songs.length)} URLs · ${songLetters.length} files`,
+      note: 'Only listed when a music mirror actually answered on the last build — an empty file is worse than no file.',
+      priority: '0.5',
+    },
+    {
+      file: '/sitemaps/quran.xml',
+      title: 'Quran (114 surahs)',
+      icon: FileText,
+      count: '114 URLs',
+      note: 'Every surah page with Urdu translation and ayah-by-ayah recitation.',
+      priority: '0.5',
     },
     {
       file: '/sitemaps/actors.xml',
@@ -114,6 +139,37 @@ export default async function SitemapsGuidePage() {
         intro="Google ko har page tak pohnchane ke liye Mizanora ye sitemaps publish karta hai. Neeche har file ka kaam, URL count aur submit karne ka tareeqa likha hai."
         crumbs={[['/', 'Home'], ['/sitemaps', 'Sitemaps']]}
       />
+
+      {/* v56 — the honest coverage card: how many advertised pages actually have data behind them */}
+      <section className="mx-auto max-w-6xl px-3 pt-2 sm:px-4">
+        <div className={`rounded-3xl border p-5 shadow-sm ${
+          verdict.tone === 'green' ? 'border-emerald-300 bg-emerald-50' : verdict.tone === 'red' ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'
+        }`}>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-display text-lg font-extrabold text-cream">Coverage — kitne pages ke peeche asli data hai</h2>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold text-[#0B3D28]">{cov.withDataPct}% bhare hue</span>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-4">
+            {[
+              ['Sitemap ids', fmt(cov.sitemapIds)],
+              ['Snapshot titles', fmt(cov.seeded)],
+              ['Live IMDb par depend', fmt(cov.missing)],
+              ['Files in index', fmt(fileCount)],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-2xl bg-white/70 px-3 py-2">
+                <p className="text-[0.62rem] font-extrabold uppercase tracking-wider text-faint">{k}</p>
+                <p className="font-display text-lg font-extrabold tabular-nums text-cream">{v}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2.5 text-sm font-semibold leading-6 text-cream/85">{verdict.text}</p>
+          <p className="mt-1 text-xs leading-6 text-dim">
+            <b>SITEMAP_DATA_ONLY=1</b> set karein to index sirf un titles ko list karega jinka data commit hai
+            (abhi {fmt(cov.seeded)}), aur baqi Cinemeta live hone par khud wapas aa jayenge. Har khali page ab
+            ek useful “data pending” page dikhata hai (search + popular titles), Google ke liye noindex.
+          </p>
+        </div>
+      </section>
 
       <section className="mx-auto max-w-6xl px-3 pt-2 sm:px-4">
         <div className="rounded-3xl border border-line bg-surface p-5 shadow-sm">

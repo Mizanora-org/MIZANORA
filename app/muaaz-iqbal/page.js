@@ -159,7 +159,7 @@ bas`}</code></pre>
           <div className="space-y-3">{FAQ.map(([q, a]) => <details key={q} className="rounded-2xl border border-line bg-surface p-4"><summary className="cursor-pointer font-bold">{q}</summary><p className="mt-2 text-sm text-dim">{a}</p></details>)}</div>
         </section>
 
-        <p className="mt-8 text-sm text-dim">Contact for orders and support: WhatsApp {FOUNDER.phone}. Related reading: <Link className="text-gold underline" href="/blog/muaaz-iqbal-kasur-developer-ai-researcher-marketer">Muaaz Iqbal, Kasur developer</Link>, <Link className="text-gold underline" href="/blog/muaaz-iqbal-story-how-mizanora-was-built">how Mizanora was built</Link>, <Link className="text-gold underline" href="/blog/barakatwave-tv-live-streaming-app-muaaz-iqbal">BarakatWave TV</Link>.</p>
+        <p className="mt-8 text-sm text-dim">Contact for orders and support: WhatsApp {FOUNDER.phone}. Related reading: <Link className="text-gold underline" href="/blog/muaaz-iqbal-kasur-developer-ai-researcher-marketer">Muaaz Iqbal, Kasur developer</Link>, <Link className="text-gold underline" href="/blog/muaaz-iqbal-story-how-mizanora-was-built">how Mizanora was built</Link>, <Link className="text-gold underline" href="/blog/barakatwave-tv-live-streaming-app-muaaz-iqbal">BarakatWave TV</Link>. Saare articles ek jagah: <Link className="text-gold underline" href="/blog/author/muaaz-iqbal">Muaaz Iqbal ke likhe hue guides</Link>.</p>
       </article>
       <JsonLd data={[breadcrumbJsonLd(crumbs), profile, faqJsonLd(FAQ)]} />
     </>

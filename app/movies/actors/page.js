@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
+import AvatarImg from '@/components/AvatarImg';
 import { Award, Calendar, Clapperboard, Search } from 'lucide-react';
 import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { absUrl } from '@/lib/config';
@@ -148,26 +149,13 @@ export default async function ActorsDirectoryPage({ searchParams }) {
                   >
                     <div>
                       <div className="flex items-center gap-3.5">
-                        {a.photo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={a.photo}
-                            alt={a.name}
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                            className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-gold/25"
-                          />
-                        ) : (
-                          <span
-                            aria-hidden="true"
-                            className="grid h-16 w-16 shrink-0 place-items-center rounded-full font-display text-lg font-extrabold text-white shadow"
-                            style={{
-                              background: `linear-gradient(145deg, hsl(${hue}, 58%, 32%), hsl(${(hue + 42) % 360}, 65%, 16%))`,
-                            }}
-                          >
-                            {titleInitials(a.name)}
-                          </span>
-                        )}
+                        <AvatarImg
+                          src={a.photo}
+                          name={a.name}
+                          hue={hue}
+                          initials={titleInitials(a.name)}
+                          className="h-16 w-16 shrink-0 rounded-full object-cover shadow ring-2 ring-gold/25"
+                        />
                         <div className="min-w-0">
                           <h2 className="line-clamp-1 font-display text-lg font-extrabold text-cream group-hover:text-gold">
                             {a.name}

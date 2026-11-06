@@ -52,6 +52,19 @@ for (const f of files) {
       for (const m of text.matchAll(/\]\((\/blog\/[a-z0-9\-\/]+)\)/g)) {
         const target = m[1].replace(/^\/blog\//, '').replace(/\/$/, '');
         if (target.startsWith('category/')) continue; // /blog/category/<slug> is a route, not a post
+        // v56: /blog/author/<slug> is a real author page (app/blog/author/[name]); verify the slug
+        // against the authors that actually write something instead of the post list.
+        if (target.startsWith('author/')) {
+          const want = target.slice(7);
+          const authors = new Set();
+          for (const g of fs.readdirSync(blogDir)) {
+            if (!g.endsWith('.md')) continue;
+            const am = fs.readFileSync(path.join(blogDir, g), 'utf8').match(/^author:\s*(.+)$/m);
+            authors.add(String(am ? am[1] : 'Muaaz Iqbal').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
+          }
+          if (!authors.has(want)) { bad++; console.log('BROKEN BLOG LINK', 'content/blog/' + f, '->', m[1]); }
+          continue;
+        }
         if (!slugs.has(target)) { bad++; console.log('BROKEN BLOG LINK', 'content/blog/' + f, '->', m[1]); }
       }
     }

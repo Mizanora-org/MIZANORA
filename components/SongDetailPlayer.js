@@ -7,6 +7,7 @@ import { clockTime } from '@/lib/songs';
 // v54 — the song page player: artwork, seek, volume and next/previous inside the queue.
 export default function SongDetailPlayer({ song, queue = [] }) {
   const audio = useRef(null);
+  const chain = useRef({ song: null, list: [], i: 0 });
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -16,12 +17,38 @@ export default function SongDetailPlayer({ song, queue = [] }) {
   const [current, setCurrent] = useState(song);
   const [failed, setFailed] = useState(false);
 
+  const attach = (target) => {
+    const el = audio.current;
+    if (!el || !target) return;
+    const list = [target.playUrl, target.proxyUrl, target.stream].filter(Boolean);
+    chain.current = { song: target, list: [...new Set(list)], i: 0 };
+    if (!chain.current.list.length) { setFailed(true); return; }
+    el.src = chain.current.list[0];
+    el.load();
+  };
+
   useEffect(() => {
     setCurrent(song);
     setTime(0);
     setDur(Number(song && song.duration) || 0);
     setFailed(false);
+    attach(song);
   }, [song]);
+
+  // v56: Mizanora route → upstream proxy → raw CDN link. Only after all three fail do we say so.
+  const onAudioError = () => {
+    const el = audio.current;
+    const c = chain.current;
+    if (el && c.song && c.i + 1 < c.list.length) {
+      c.i += 1;
+      el.src = c.list[c.i];
+      el.load();
+      el.play().catch(() => setPlaying(false));
+      return;
+    }
+    setFailed(true);
+    setReady(false);
+  };
 
   const list = queue.length ? queue : song ? [song] : [];
   const at = Math.max(0, list.findIndex((s) => s && current && s.id === current.id));
@@ -30,15 +57,18 @@ export default function SongDetailPlayer({ song, queue = [] }) {
     const next = list[(at + dir + list.length) % list.length];
     if (next) {
       setCurrent(next);
+      setFailed(false);
+      attach(next);
       const el = audio.current;
-      if (el) { el.src = next.stream; el.load(); el.play().catch(() => setPlaying(false)); }
+      if (el) el.play().catch(() => setPlaying(false));
     }
   };
 
   const toggle = () => {
     const el = audio.current;
     if (!el) return;
-    if (el.paused) el.play().catch(() => setFailed(true)); else el.pause();
+    if (el.paused) el.play().catch(() => setFailed(true));
+    else el.pause();
   };
 
   return (
@@ -47,7 +77,13 @@ export default function SongDetailPlayer({ song, queue = [] }) {
         <div className="mx-auto h-44 w-44 shrink-0 overflow-hidden rounded-2xl bg-raised shadow-lg sm:mx-0 sm:h-52 sm:w-52">
           {current && current.image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={current.image} alt={current.title} className="h-full w-full object-cover" />
+            <img
+              src={current.image}
+              alt={current.title}
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover"
+              onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement?.classList.add('mz-cover-dead'); }}
+            />
           ) : (
             <span className="grid h-full w-full place-items-center text-gold"><Music2 size={44} /></span>
           )}
@@ -109,14 +145,34 @@ export default function SongDetailPlayer({ song, queue = [] }) {
             )}
           </div>
 
-          {failed && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">Ye track abhi stream nahi ho raha — agla try karein.</p>}
-          {!current?.hasStream && <p className="mt-3 text-xs font-semibold text-faint">Is song ka audio link maujood nahi.</p>}
+          {failed && (
+            <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+              <p>Ye track abhi stream nahi ho raha — music mirror jawab nahi de raha.</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setFailed(false); attach(current); const el = audio.current; if (el) el.play().catch(() => {}); }}
+                  className="rounded-full bg-amber-600 px-3 py-1 text-[0.68rem] font-extrabold text-white"
+                >
+                  Retry
+                </button>
+                <a
+                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${current?.title || ''} ${(current?.artists || []).join(' ')}`.trim())}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-amber-600/40 px-3 py-1 text-[0.68rem] font-extrabold text-amber-800"
+                >
+                  YouTube par sunein
+                </a>
+              </div>
+            </div>
+          )}
+          {!current?.hasStream && <p className="mt-3 text-xs font-semibold text-faint">Is song ka audio link maujood nahi — neeche queue se doosra gaana chunein.</p>}
         </div>
       </div>
 
       <audio
         ref={audio}
-        src={current && current.stream ? current.stream : undefined}
         preload="metadata"
         onCanPlay={() => setReady(true)}
         onPlay={() => setPlaying(true)}
@@ -124,7 +180,7 @@ export default function SongDetailPlayer({ song, queue = [] }) {
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime || 0)}
         onLoadedMetadata={(e) => setDur(e.currentTarget.duration || Number(current && current.duration) || 0)}
         onEnded={() => go(1)}
-        onError={() => { setFailed(true); setReady(false); }}
+        onError={onAudioError}
       />
       <p className="border-t border-line px-5 py-2 text-[0.65rem] font-semibold text-faint">
         {ready ? 'Audio ready · 320kbps jahan available ho' : 'Audio load ho raha hai…'} · Music third-party catalogue se aata hai, personal listening ke liye.
