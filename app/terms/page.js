@@ -14,6 +14,15 @@ export default function Terms() {
         <p>Prices are shown in Pakistani rupees (PKR). Payment is cash on delivery. Please keep the exact amount ready for the rider.</p>
         <h2>Accuracy</h2>
         <p>We try to keep product information accurate. Colours may look slightly different on different screens.</p>
+        <h2>Movies, series &amp; live TV</h2>
+        <p>
+          Mizanora&apos;s Movies &amp; Series hub is a discovery service: official trailers, cast and story guides, a
+          release calendar, and — where the site admin has configured a licensed play server — streaming that the
+          admin is authorised to provide. You may not download, re-stream, mirror, sell or redistribute any video
+          played here. Playback quality depends on your connection and on the configured server. If you own content
+          and believe it is shown without permission, use the <a href="/copyright">copyright &amp; takedown</a> page;
+          we act on complete reports within 48 hours.
+        </p>
         <h2>Links</h2>
         <p>This site links to third-party services. We are not responsible for their content.</p>
       </Prose>

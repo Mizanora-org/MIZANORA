@@ -700,7 +700,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
           const conn = typeof navigator !== 'undefined' ? navigator.connection : null;
           const estimate = conn && conn.downlink ? Math.max(500000, Math.min(8000000, Math.round(conn.downlink * 700000))) : 1200000;
           const h = new Hls({
-            enableWorker: true, lowLatencyMode: false, startFragPrefetch: true, testBandwidth: true, capLevelToPlayerSize: true,
+            enableWorker: true, lowLatencyMode: false, startFragPrefetch: true, testBandwidth: false, capLevelToPlayerSize: true,
             abrEwmaDefaultEstimate: estimate, abrEwmaFastLive: 2.5, abrEwmaSlowLive: 6, abrBandWidthFactor: 0.85, abrBandWidthUpFactor: 0.65, startLevel: -1,
             maxBufferLength: 30, maxMaxBufferLength: 60, backBufferLength: 20, maxBufferHole: 0.5,
             liveSyncDurationCount: 3, liveMaxLatencyDurationCount: 10, maxLiveSyncPlaybackRate: 1.08,

@@ -32,6 +32,7 @@ ${cats.slice(0, 40).map((c) => `- [${c.name}](${absUrl(`/category/${c.slug}`)}):
 - [Movies Release Calendar](${absUrl('/movies/calendar')})
 - [Actors & Cast Directory](${absUrl('/movies/actors')})
 - [Movies JSON API](${absUrl('/api/movies')})
+- [Movies search API: any title across IMDb, TMDB and TVmaze](${absUrl('/api/movies/search?q=jawan')})
 - [Quran: 114 surahs with Urdu translation and recitation](${absUrl('/quran')})
 - [Islamic reminders](${absUrl('/islamic')})
 - [Muaaz Iqbal, founder and developer of Mizanora (Kasur, Pakistan)](${absUrl('/muaaz-iqbal')})
@@ -41,6 +42,8 @@ ${cats.slice(0, 40).map((c) => `- [${c.name}](${absUrl(`/category/${c.slug}`)}):
 - [Returns](${absUrl('/returns')})
 - [Terms](${absUrl('/terms')})
 - [Privacy](${absUrl('/privacy-policy')})
+- [Licence & streaming rights](${absUrl('/licence')})
+- [Copyright & takedown](${absUrl('/copyright')})
 - [FAQ](${absUrl('/faq')})
 - [How to order](${absUrl('/how-to-order')})
 `;

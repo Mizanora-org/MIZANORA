@@ -380,9 +380,9 @@ for (const slug of expectedGuides) {
 ok('blogs: 4 new Movies & Series guides published with clean internal links');
 
 const pkg = JSON.parse(read('package.json'));
-assert.equal(pkg.version, '50.0.0');
+assert.ok(Number(String(pkg.version).split('.')[0]) >= 50, `v50 or later, got ${pkg.version}`);
 assert.ok(pkg.scripts.test.includes('test-v50.mjs'));
 assert.ok(exists('UPGRADE-v50.md'));
-ok('release: v50.0.0 version, test chain & UPGRADE-v50.md verified');
+ok('release: version 50+, test chain & UPGRADE-v50.md verified');
 
 console.log(`\nAll ${pass} v50 checks passed.`);

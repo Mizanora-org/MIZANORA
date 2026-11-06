@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { authClient } from '@/lib/firebase-client';
 import { MOVIE_REGIONS, MOVIES_DEFAULT, extractImdbIds, slugifyMovie } from '@/lib/movies';
+import MovieServersAdmin from '@/components/MovieServersAdmin';
 
 const EMPTY_FORM = {
   title: '',
@@ -366,6 +367,9 @@ export default function AdminMoviesPage() {
           <Link href="/movies" target="_blank" className="btn-ghost inline-flex items-center gap-1.5 text-xs font-bold">
             Open /movies <ExternalLink size={13} />
           </Link>
+          <a href="#play-servers" className="btn-ghost inline-flex items-center gap-1.5 text-xs font-bold">
+            Play Servers ↓
+          </a>
           <button
             type="button"
             onClick={saveAll}
@@ -767,6 +771,11 @@ export default function AdminMoviesPage() {
           </button>
         </div>
       </details>
+
+      {/* v51 — PLAY SERVERS: the sources the Cinema Player builds every movie link from. */}
+      <div id="play-servers" className="scroll-mt-24">
+        <MovieServersAdmin />
+      </div>
     </div>
   );
 }

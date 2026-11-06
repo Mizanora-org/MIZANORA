@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import {
   Bot, Boxes, Clapperboard, Tv, Flame, MoonStar, Sparkles, Clock, ImageOff, Image, Images, LayoutDashboard, LogOut, Menu, Megaphone, Music4, Package, Plug, Power,
-  Radio, Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X,
+  Radio, Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X, Server,
 } from 'lucide-react';
 import { authClient } from '@/lib/firebase-client';
 import { adminHit } from '@/lib/adminSearch';
@@ -24,6 +24,7 @@ export const ADMIN_MENU = [
       { href: '/admin/studio', label: 'Studio', icon: Sparkles, hint: 'Animations and your own CSS/JS/HTML', tag: 'NEW' },
       { href: '/admin/tv', label: 'Live TV', icon: Tv, hint: 'M3U channels + product ads', tag: 'NEW' },
       { href: '/admin/movies', label: 'Movies & Series', icon: Clapperboard, hint: 'Trailers, cast, calendar & legal films', tag: 'NEW' },
+      { href: '/admin/play-servers', label: 'Play Servers', icon: Server, hint: 'Movie sources: add, edit, delete, order', tag: 'NEW' },
       { href: '/admin/quran', label: 'Quran session', icon: MoonStar, hint: 'Recitation + ayat at set times', tag: 'NEW' },
       { href: '/admin/deals', label: 'Deals page', icon: Flame, hint: 'One-link /deals settings', tag: 'NEW' },
       { href: '/admin/connections', label: 'Connections', icon: Plug, hint: 'Firestore, Realtime Database and GitHub test', tag: 'NEW' },
