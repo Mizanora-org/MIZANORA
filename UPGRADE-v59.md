@@ -31,6 +31,19 @@ A calendar that opens on "date TBA" was the most obvious symptom of the old beha
 
 **`app/movies/page.js`**: the badge no longer prints a bare `(0 Upcoming)`.
 
+**Two more date bugs found while wiring this up:**
+
+1. **`lib/cinemeta.js` threw away every real release date.** `movieFromCinemeta()` tested
+   `meta.released` with `/^\d{4}-\d{2}-\d{2}$/`, but Cinemeta sends a full timestamp
+   (`2026-12-18T00:00:00.000Z`) — so the test never matched and every card lost its day. It now slices
+   the day, rejects `0000-00-00`-style placeholders, and sets `upcoming`/`released` from the actual date.
+2. **Nothing in the calendar was genuinely in the future.** The committed snapshot stops at the current
+   year, so "0 upcoming releases" was arithmetically true. New `upcomingFromPool()` reads the id pool
+   (`data/imdb-ids.txt` carries next year's announcements), asks Cinemeta for a card for the few ids whose
+   year is in the future, and keeps only the ones that really are upcoming — budgeted (6 s, 10 workers).
+   The page header now says `N upcoming releases · M exact dates confirmed` when there are any, and
+   otherwise states plainly that the next release has not been announced yet.
+
 If Cinemeta cannot be reached, the calendar keeps its old honest behaviour — dates stay empty rather
 than being guessed.
 
@@ -95,7 +108,7 @@ description, intro and placeholder (`Kesariya`, `Atif Aslam`).
 
 ```bash
 npm run check     # 489 files, 0 problems
-npm test          # includes the new 66-check v59 suite
+npm test          # includes the new 76-check v59 suite
 rm -rf .next && npm run build:offline
 ```
 
@@ -113,7 +126,7 @@ Offline smoke test of the built server (`next start`):
 | `/sitemap.xml` | 200 · **12,183 URLs** |
 | `/movies/calendar`, `/search?q=atif`, `/sitemaps` | 200 |
 
-`scripts/test-v59.mjs` (66 checks) proves the behaviour without any network: it stubs `fetch` to return
+`scripts/test-v59.mjs` (76 checks) proves the behaviour without any network: it stubs `fetch` to return
 Cinemeta-shaped payloads and asserts that dates are filled, statuses flip, limits/budgets hold, prose is
 rejected, TBA groups sort last, letter files are complete, the songs feed is memoised and search is playable.
 
