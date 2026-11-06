@@ -116,8 +116,8 @@ export default async function SitemapsGuidePage() {
       file: '/sitemaps/actors.xml',
       title: 'Actors',
       icon: Users,
-      count: `${fmt((hub.actors || []).length)} URLs`,
-      note: 'Actor profiles built from the cast of every title — photo, biography and filmography.',
+      count: `${fmt(seedCastSize(3) + (hub.actors || []).length)} URLs (cast + curated)`,
+      note: 'The whole directory in one file: every snapshot cast member with 3+ titles plus the curated profiles.',
       priority: '0.5',
     },
     {
