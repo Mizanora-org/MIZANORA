@@ -3,6 +3,7 @@ import { PageHead } from '@/components/Prose';
 import Stars from '@/components/Stars';
 import { getRecentReviews } from '@/lib/reviews';
 import { summarize } from '@/lib/reviewStats';
+import ProductAds from '@/components/ProductAds';
 
 export const revalidate = 3600;
 export const metadata = pageMeta({ title: 'Customer reviews of Mizanora', description: 'Real reviews written by Mizanora customers, checked by us before they are shown. How we keep reviews honest and how to spot fake ones.', path: '/reviews' });
@@ -37,6 +38,9 @@ export default async function ReviewsPage() {
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-dim"><li>Sab reviews ek jaise alfaaz mein aur 5 star hon.</li><li>Product ki tafseel nahi, sirf &quot;best, super&quot; likha ho.</li><li>Ek hi din mein bohat saare reviews.</li><li>Photo ya asli tajurba ka zikr na ho (size, rang, delivery).</li><li>Kam rating wale reviews bilkul na hon: asli shop par kuch na kuch shikayat hoti hai.</li></ul></div>
         </div>
       </section>
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="reviews" />
     </>
   );
 }

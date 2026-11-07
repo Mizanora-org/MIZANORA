@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { ShieldCheck, Truck, Headphones, Banknote, Footprints, Shirt, Gem, Baby, Smartphone, Cpu, Home as HomeIcon, Sparkles, Dumbbell, HeartPulse, ShoppingBasket, Car, ArrowRight } from 'lucide-react';
 import { SITE } from '@/lib/config';
+import { photoUrl } from '@/lib/photo';
 import { getShopAll, getBanners, getReels, getCategories, getTotalCount } from '@/lib/products';
 import { getReelMusic } from '@/lib/reelMusicServer';
 import { getPosts } from '@/lib/blog';
@@ -71,7 +71,7 @@ function Shelf({ id, title, href, products, priorityFirst = false, tone = '', an
           {href && <Link href={href} className="flex items-center gap-1 whitespace-nowrap text-sm font-bold text-gold">View all <ArrowRight size={15} /></Link>}
         </div>
         <div className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2 md:mx-0 md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:px-0 lg:grid-cols-5">
-          {products.map((p, i) => <div key={p.id} className="w-[44vw] max-w-[200px] shrink-0 snap-start md:w-auto md:max-w-none"><ProductCard p={p} priority={priorityFirst && i < 3} /></div>)}
+          {products.map((p, i) => <div key={p.id} className="w-[44vw] max-w-[200px] shrink-0 snap-start md:w-auto md:max-w-none"><ProductCard p={p} priority={priorityFirst && i === 0} /></div>)}
         </div>
       </div>
     </section></Reveal>
@@ -89,31 +89,33 @@ export default async function Home() {
   const muaazImgs = await getMuaazImages().catch(() => []);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
-    .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
-  const picks = all.filter((p) => p.featured).slice(0, 10);
-  const fresh = all.slice(0, 12);
+    .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 6);
+  const picks = all.filter((p) => p.featured).slice(0, 6);
+  const fresh = all.slice(0, 6);
   // The 8 biggest categories get their own shelf (all categories stay one tap away in the circles above). Fewer cards = a lighter, smoother home page.
-  const shelves = categories.slice(0, 8).map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).sort(byPrice).slice(0, 8) }));
+  // v60: six category shelves stay (a shopper still sees the whole market) but each shows 4 products
+  // instead of 8. The shelf header links to the full category, so nothing is hidden - the page is just lighter.
+  const shelves = categories.slice(0, 6).map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).sort(byPrice).slice(0, 4) }));
   // CHEAPEST FIRST: every category shelf starts with its cheapest products, and one shelf shows the cheapest item of EVERY category.
   const inStockAll = all.filter((p) => p.inStock !== false && p.price > 0);
   const budget = categories.map((c) => inStockAll.filter((p) => inCategory(p, c.name)).sort(byPrice)[0]).filter(Boolean)
-    .filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i).sort(byPrice).slice(0, 16);
+    .filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i).sort(byPrice).slice(0, 8);
   const cheapest = inStockAll.length ? Math.min(...inStockAll.map((p) => p.price)) : 0;
   const assistant = await getPublicAssistant();
   const themeMode = await getThemeMode();
   const season = seasonFor(new Date(), themeMode);
-  const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 10) : [];
+  const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 6) : [];
   const posts = getPosts().slice(0, 4);
   // The mixed feed: products + Islamic posts + live channels + tools (changes every day, same all day)
   const tvSlugs = tv && tv.enabled ? channelSlugs(tv.channels) : [];
   const tvItems = tv && tv.enabled ? tv.channels.map((c, i) => ({ ...c, slug: tvSlugs[i] })).filter((c) => !c.off) : [];
-  const feed = buildFeed({ products: all.slice(0, 120), islamic: [...feedPosts, ...ISLAMIC_ITEMS], channels: tvItems, tools: TOOLS, images: muaazImgs, day: Math.floor((Date.now() + 5 * 3600000) / 86400000), max: 36 });
+  const feed = buildFeed({ products: all.slice(0, 48), islamic: [...feedPosts, ...ISLAMIC_ITEMS], channels: tvItems, tools: TOOLS, images: muaazImgs, day: Math.floor((Date.now() + 5 * 3600000) / 86400000), max: 18 });
   const socials = SITE.social.filter((s) => s.url);
   const delivery = SITE.shippingFee > 0 ? `Delivery ${formatPKR(SITE.shippingFee)}` : 'Free delivery';
 
   // Moving "Trending now" strip: featured first, then newest. Repeated so a small catalog still fills the strip.
-  const trendBase = [...picks, ...all.filter((p) => !p.featured)].slice(0, 14);
-  const trend = trendBase.length && trendBase.length < 8 ? Array.from({ length: Math.ceil(8 / trendBase.length) }, () => trendBase).flat() : trendBase;
+  const trendBase = [...picks, ...all.filter((p) => !p.featured)].slice(0, 8);
+  const trend = trendBase;
 
   // Circles: real categories first, then starter departments that have no products yet.
   const have = new Set(categories.map((c) => c.slug));
@@ -180,7 +182,11 @@ export default async function Home() {
             <li key={c.slug} className="shrink-0">
               <Link href={`/category/${c.slug}`} className="block w-[5.2rem] text-center sm:w-28">
                 <span className={`relative mx-auto grid h-[4.4rem] w-[4.4rem] place-items-center overflow-hidden rounded-full border-2 sm:h-24 sm:w-24 ${c.real ? 'border-gold bg-raised' : 'border-line bg-surface text-gold'}`}>
-                  {c.image ? <Image referrerPolicy="no-referrer" src={c.image} alt="" fill sizes="96px" className="object-cover" /> : c.Icon ? <c.Icon size={30} /> : <span className="font-display text-3xl text-gold">{c.name[0]}</span>}
+                  {c.image ? (
+                    // v60: category circles asked for the FULL supplier photo (often 500 KB) inside a 96 px circle. Now it is a 160 px WebP.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img referrerPolicy="no-referrer" src={photoUrl(c.image, 160)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+                  ) : c.Icon ? <c.Icon size={30} /> : <span className="font-display text-3xl text-gold">{c.name[0]}</span>}
                 </span>
                 <span className="mt-1.5 block text-xs font-semibold leading-tight text-cream sm:text-sm">{c.name}</span>
                 {c.real && <span className="block text-[0.7rem] text-faint">{c.count} item{c.count > 1 ? 's' : ''}</span>}
@@ -206,7 +212,7 @@ export default async function Home() {
       {reels.length > 0 && (
         <Reveal><section className="mx-auto max-w-7xl px-3 pt-8 sm:px-4" aria-labelledby="reels">
           <div className="mb-3 flex items-end justify-between"><h2 id="reels" className="section-title">Reels: watch and shop</h2><Link href="/reels" className="flex items-center gap-1 text-sm font-bold text-gold">All reels <ArrowRight size={15} /></Link></div>
-          <ReelsRail reels={reels.slice(0, 12)} music={reelMusic} />
+          <ReelsRail reels={reels.slice(0, 6)} music={reelMusic} />
         </section></Reveal>
       )}
 
