@@ -1,26 +1,28 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { Play } from 'lucide-react';
 import { parseVideo } from '@/lib/video';
 import { proxyImage } from '@/lib/imgFallback';
+import { W, photoSrcSet, photoUrl } from '@/lib/photo';
 
 // THE CARD PICTURE, WITH FOUR STEPS (so a card is never an empty grey box):
-//   1. the product photo (optimised by Next);
-//   1b. v19: if the optimiser cannot fetch it (many supplier / Facebook / Instagram hosts refuse server downloads), the SAME photo
-//       is loaded straight by the visitor's browser with no referrer. This alone fixes most "image not loading" cases;
-//   1c. v32: if the browser also refuses it (hotlink protection, expired signature, http link), the shop's own relay
-//       (/api/img) fetches it on the server and serves it from our address;
+//   1. v60: the product photo, resized + WebP from OUR OWN domain (/api/photo). A 200 KB supplier
+//      JPEG becomes a 12-20 KB picture of exactly the size the card can show. This is the single
+//      biggest speed win on a phone (PageSpeed: the biggest picture = the LCP);
+//   1b. if that cannot be made, the SAME photo loaded straight by the visitor's browser with no
+//      referrer (many supplier / Facebook / Instagram hosts refuse server downloads);
+//   1c. if the browser also refuses it (hotlink protection, expired signature, http link), the
+//      shop's own relay (/api/img) fetches it on the server and serves it from our address;
 //   2. if that photo cannot load at all -> the product's video (a real <video> first frame, or a
 //      branded play cover for Facebook / Instagram / TikTok / YouTube embeds);
 //   3. only if there is no photo AND no video, the card removes itself with CSS ([data-card][data-dead]).
-export default function CardMedia({ img, alt, priority = false, sizes, video = '' }) {
-  const first = img ? 'img' : video ? 'video' : 'dead';
-  const [state, setState] = useState(first); // 'img' | 'raw' | 'proxy' | 'video' | 'dead'
+export default function CardMedia({ img, alt, priority = false, sizes, video = '', width = W.card2x }) {
+  const first = img ? 'photo' : video ? 'video' : 'dead';
+  const [state, setState] = useState(first); // 'photo' | 'raw' | 'proxy' | 'video' | 'dead'
   const v = parseVideo(video) || null;
 
   // A recycled card (list refresh, "load more", filter) must not keep the state of the previous product.
-  useEffect(() => { setState(img ? 'img' : video ? 'video' : 'dead'); }, [img, video]);
+  useEffect(() => { setState(img ? 'photo' : video ? 'video' : 'dead'); }, [img, video]);
 
   if (state === 'dead' || (!img && !video)) {
     return <div data-die="1" className="h-full w-full bg-raised" aria-hidden="true" />;
@@ -50,15 +52,18 @@ export default function CardMedia({ img, alt, priority = false, sizes, video = '
     return <img src={state === 'proxy' ? proxyImage(img) : img} alt={alt} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" onError={() => setState(state === 'raw' ? 'proxy' : video ? 'video' : 'dead')} />;
   }
 
+  // eslint-disable-next-line @next/next/no-img-element
   return (
-    <Image referrerPolicy="no-referrer"
-      src={img}
+    <img
+      src={photoUrl(img, width)}
+      srcSet={photoSrcSet(img, width)}
       alt={alt}
-      fill
-      priority={priority}
       sizes={sizes}
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
       decoding="async"
-      className="object-cover"
+      referrerPolicy="no-referrer"
+      className="absolute inset-0 h-full w-full object-cover"
       onError={() => setState('raw')}
     />
   );

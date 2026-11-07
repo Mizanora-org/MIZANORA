@@ -22,6 +22,8 @@ import MusicProvider from '@/components/MusicProvider';
 import MiniPlayer from '@/components/MiniPlayer';
 import PwaRegister from '@/components/PwaRegister';
 import MetaPixel from '@/components/MetaPixel';
+import AdSense from '@/components/AdSense';
+import AdsInject from '@/components/AdsInject';
 import JsonLd from '@/components/JsonLd';
 import SeasonFX from '@/components/SeasonFX';
 import { getThemeMode } from '@/lib/themeServer';
@@ -34,7 +36,6 @@ import AdminEditLayer from '@/components/AdminEditLayer';
 import SplashScreen from '@/components/SplashScreen';
 import RouteProgress from '@/components/RouteProgress';
 import CardEvents from '@/components/CardEvents';
-import AppFeel from '@/components/AppFeel';
 import AssistantFab from '@/components/AssistantFab';
 import { getPublicAssistant } from '@/lib/assistantPublic';
 import { getAppMusic } from '@/lib/appMusicServer';
@@ -54,7 +55,6 @@ import { getInject } from '@/lib/injectServer';
 
 const display = localFont({
   src: [
-    { path: '../public/fonts/plus-jakarta-sans-latin-600-normal.woff2', weight: '600', style: 'normal' },
     { path: '../public/fonts/plus-jakarta-sans-latin-700-normal.woff2', weight: '700', style: 'normal' },
     { path: '../public/fonts/plus-jakarta-sans-latin-800-normal.woff2', weight: '800', style: 'normal' },
   ],
@@ -69,12 +69,15 @@ const arabic = localFont({
   ],
   variable: '--font-arabic',
   display: 'swap',
+  // v60: the two Arabic files are 100 KB EACH and only the Quran / Hadith / Arabic pages use them.
+  // Preloading them on the shop meant 200 KB of fonts in front of the first paint on every page.
+  // The browser now fetches them only when Arabic text is actually on the screen.
+  preload: false,
   fallback: ['Noto Naskh Arabic', 'Geeza Pro', 'Tahoma', 'serif'],
 });
 const body = localFont({
   src: [
     { path: '../public/fonts/inter-latin-400-normal.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/inter-latin-500-normal.woff2', weight: '500', style: 'normal' },
     { path: '../public/fonts/inter-latin-600-normal.woff2', weight: '600', style: 'normal' },
     { path: '../public/fonts/inter-latin-700-normal.woff2', weight: '700', style: 'normal' },
   ],
@@ -86,8 +89,8 @@ const body = localFont({
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // v60: pinch-zoom is ALLOWED again. Blocking it is an accessibility failure (Lighthouse:
+  // "Prevents zooming and scaling"): low-vision visitors could not enlarge the shop's text.
   colorScheme: 'light',
   viewportFit: 'cover',
   themeColor: '#0B6B45',
@@ -128,8 +131,9 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${body.variable} ${arabic.variable}`}>
       <head>
-        {/* Google AdSense auto ads (site-wide). A plain script tag, as AdSense asks: the Next <Script> component adds a data-nscript attribute AdSense warns about. */}
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4008582341764263" crossOrigin="anonymous" />
+        {/* Google AdSense: the account meta tag is the verification; the script itself is added by
+            components/AdSense.js after the page is usable (v60), so the ~160 KB third-party tag no
+            longer competes with the first paint. AdSense still gets its plain <script> element. */}
         <meta name="google-adsense-account" content="ca-pub-4008582341764263" />
       </head>
       <body data-season={(seasonFor(new Date(), themeMode) || {}).id || 'none'}>
@@ -148,6 +152,10 @@ export default async function RootLayout({ children }) {
             <SiteInject items={inject.items} slot="top" />
             <main id="main">
               {children}
+              {/* v60: ONE ad slot at the end of every page (the shop's own Ads API fills it when the
+                  admin switches ads on; checkout, cart, account and admin are skipped inside AdsInject).
+                  Pages that want a slot inside their content add their own <AdsInject>. */}
+              <HideOnAdmin><div className="mx-auto max-w-7xl px-3 sm:px-4"><AdsInject slots={['auto']} /></div></HideOnAdmin>
               <HideOnAdmin><Footer categories={categories} /></HideOnAdmin>
               <HideOnAdmin><WhatsAppFab /></HideOnAdmin>
             </main>
@@ -161,7 +169,6 @@ export default async function RootLayout({ children }) {
             <SeasonFX mode={themeMode} />
             <BackToTop />
             <CardEvents />
-            <AppFeel />
           </InstallProvider>
         </CartProvider>
         </MusicProvider>
@@ -173,6 +180,7 @@ export default async function RootLayout({ children }) {
         <WorkerPrices />
         <WishSync />
         <AdminEditLayer />
+        <AdSense />
         <MetaPixel />
         <PwaRegister />
         <JsonLd data={[orgJsonLd(), websiteJsonLd()]} />

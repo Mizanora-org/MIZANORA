@@ -52,6 +52,27 @@ export default async function MoviesCalendarPage() {
   // with a time budget; anything it does not answer keeps its honest "date TBA" group.
   await enrichReleaseDates(movies, { limit: 200, budgetMs: 8000, concurrency: 12 });
 
+  // v60 — THE CALENDAR SHIPPED EVERY MOVIE OBJECT TO THE BROWSER.
+  // The client only draws six fields of a card, but the whole hub object (long story, awards, full
+  // cast, links, ratings...) travelled in the page payload: 745 KB of inline data for 1,700 nodes.
+  // A slim copy is all the calendar needs - same screen, a fraction of the bytes.
+  const slimMovies = movies.slice(0, 900).map((m) => ({
+    slug: m.slug,
+    title: m.title,
+    year: m.year,
+    region: m.region,
+    type: m.type,
+    status: m.status,
+    releaseDate: m.releaseDate || '',
+    poster: m.poster || '',
+    posterSrc: m.posterSrc || '',
+    imdbId: m.imdbId || '',
+    tagline: m.tagline || '',
+    story: m.story ? String(m.story).slice(0, 160) : '',
+    cast: (m.cast || []).slice(0, 3).map((c) => ({ name: c.name })),
+    off: Boolean(m.off),
+  }));
+
   const upcoming = movies.filter((m) => m.status === 'upcoming');
   const dated = movies.filter((m) => /^\d{4}-\d{2}-\d{2}$/.test(m.releaseDate || '')).length;
 
@@ -110,7 +131,7 @@ export default async function MoviesCalendarPage() {
         </div>
 
         <AdsInject slots={['auto']} />
-        <MoviesCalendarClient movies={movies} todayIso={todayIso} />
+        <MoviesCalendarClient movies={slimMovies} todayIso={todayIso} />
       </section>
 
       <Suspense fallback={null}>

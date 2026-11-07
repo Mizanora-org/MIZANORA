@@ -23,6 +23,11 @@ function loadScript() {
   (document.head || document.documentElement).appendChild(s);
 }
 
+// Pages where an ad must NEVER appear: checkout, cart, account, order tracking, thank-you and the
+// admin panel. (AdSense policy: no ads on transactional/confirmation screens; and putting them
+// there would only get in the buyer's way.)
+const NO_ADS = /^\/(checkout|cart|thank-you|track|account|admin|offline|connect)(\/|$)/;
+
 export default function AdsInject({ slots = [] }) {
   const pathname = usePathname();
 
@@ -32,6 +37,8 @@ export default function AdsInject({ slots = [] }) {
     const t = setTimeout(() => { try { window.MZADS_API && window.MZADS_API.refresh(); } catch { /* ignore */ } }, 350);
     return () => clearTimeout(t);
   }, [pathname]);
+
+  if (NO_ADS.test(pathname || '')) return null;
 
   return slots.map((t, i) => (
     <div

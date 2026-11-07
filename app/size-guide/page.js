@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { waLink } from '@/lib/config';
 import { pageMeta } from '@/lib/seo';
 import { PageHead, Prose } from '@/components/Prose';
+import ProductAds from '@/components/ProductAds';
 
 export const metadata = pageMeta({ title: 'Size guide', description: 'How to measure yourself and choose the right size for clothes and shoes when you shop online in Pakistan.', path: '/size-guide' });
 
@@ -31,6 +32,9 @@ export default function SizeGuide() {
         <h2>Still unsure?</h2>
         <p>Send us your measurements on <a href={waLink('Assalam o Alaikum, please help me choose a size. Product: ')} target="_blank" rel="noopener noreferrer">WhatsApp</a> and we will help. Read also <Link href="/blog/how-to-choose-the-right-size-online">how to choose the right size online</Link> and our <Link href="/returns">returns page</Link>.</p>
       </Prose>
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="size-guide" />
     </>
   );
 }

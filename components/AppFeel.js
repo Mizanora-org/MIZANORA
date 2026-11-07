@@ -1,18 +1,21 @@
 'use client';
 import { useEffect } from 'react';
 
-// App-like touch behaviour: the page itself never pinch-zooms or "bounces" (like a real app).
-// Normal scrolling, taps, the photo swipe and typing are not affected.
+// v60 — the old AppFeel put a NON-PASSIVE touchmove listener on document and cancelled every
+// multi-touch gesture. Two problems:
+//   1. a non-passive touchmove on document means the browser must ask JavaScript before it can
+//      scroll, on every single finger movement (the classic "scroll feels sticky" bug);
+//   2. it blocked pinch-zoom, which is an accessibility failure (low-vision visitors could not
+//      enlarge the shop) and PageSpeed lists it under "Prevents zooming and scaling".
+// The shop now behaves like a normal web page: fast native scrolling and working zoom. The app-like
+// touches that DO help (no rubber-band on the sheets, tap feedback, swipe rows) are handled by the
+// individual components. This file stays so old imports keep working.
 export default function AppFeel() {
   useEffect(() => {
-    const stop = (e) => e.preventDefault();
-    const move = (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); };
-    ['gesturestart', 'gesturechange', 'gestureend'].forEach((t) => document.addEventListener(t, stop));
-    document.addEventListener('touchmove', move, { passive: false });
-    return () => {
-      ['gesturestart', 'gesturechange', 'gestureend'].forEach((t) => document.removeEventListener(t, stop));
-      document.removeEventListener('touchmove', move);
-    };
+    // One tiny, passive guard: a double-tap on a button must not zoom the page on iOS.
+    const no = (e) => { if (e.touches && e.touches.length > 1) return; };
+    document.addEventListener('touchstart', no, { passive: true });
+    return () => document.removeEventListener('touchstart', no);
   }, []);
   return null;
 }

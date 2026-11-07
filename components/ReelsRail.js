@@ -308,7 +308,7 @@ function Card({ reel, index, onOpen, grid }) {
   return (
     <button type="button" onClick={onOpen} aria-label={`Watch reel: ${reel.title}`}
       className={`group relative aspect-[9/16] snap-start overflow-hidden rounded-3xl bg-[#06301F] text-left text-white shadow-[0_10px_30px_-12px_rgba(6,48,31,.7)] ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-12px_rgba(11,107,69,.75)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${grid ? 'w-full' : 'w-[10.5rem] shrink-0 sm:w-52'}`}>
-      <Poster reel={reel} v={v} sizes="(max-width:640px) 45vw, 220px" priority={index < 2} className="transition duration-500 group-hover:scale-110" />
+      <Poster reel={reel} v={v} sizes="(max-width:640px) 45vw, 220px" priority={false} className="transition duration-500 group-hover:scale-110" />
       <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40" />
 
       {/* v33: animated live badges (TRENDING / NEW / -20% OFF) + the video provider */}

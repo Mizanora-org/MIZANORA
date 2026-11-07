@@ -3,6 +3,7 @@ import { SITE, waLink } from '@/lib/config';
 import { formatPKR } from '@/lib/format';
 import { pageMeta } from '@/lib/seo';
 import { PageHead, Prose } from '@/components/Prose';
+import ProductAds from '@/components/ProductAds';
 
 export const metadata = pageMeta({ title: 'Delivery and shipping', description: 'How Mizanora delivers across Pakistan: cash on delivery, the delivery fee, tracking your order and what to check when the parcel arrives.', path: '/shipping' });
 
@@ -29,6 +30,9 @@ export default function Shipping() {
         <h2>When the parcel arrives</h2>
         <p>Open it in front of the rider where possible and compare it with the product page. Our <Link href="/blog/parcel-arrived-checklist-what-to-check">parcel checklist</Link> shows what to check. If something is wrong, read our <Link href="/returns">returns page</Link> and message us on <a href={waLink('Assalam o Alaikum, I have a question about my delivery. Order ID: ')} target="_blank" rel="noopener noreferrer">WhatsApp</a> with your order ID and a photo.</p>
       </Prose>
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="shipping" />
     </>
   );
 }
