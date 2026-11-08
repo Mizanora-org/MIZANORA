@@ -147,6 +147,29 @@ body { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org
 .mz-iconbtn[data-done] .ic-idle, .mz-add[data-done] .qa-idle { display: none; }
 .mz-iconbtn[data-done] .ic-done { display: block; }
 .mz-add[data-done] .qa-done { display: inline-flex; }
+
+/* ---- v60: CARD ICONS WITHOUT 900 <svg> ELEMENTS ----
+   A product card used to carry five lucide icons (heart, share, check, plus, play). With ~150 cards
+   on the home page that was ~750 inline SVGs and ~950 <path> elements: about 200 KB of markup and
+   ~3000 DOM nodes the phone had to parse before it could paint. The same pictures are now drawn by
+   CSS masks from five tiny data-URIs, so a card ships <span class="ic ic-heart"> instead of an SVG
+   tree, and the browser paints them on the GPU. Same look, a fraction of the work. */
+.ic {
+  display: inline-block; width: 16px; height: 16px; flex: none;
+  background-color: currentColor;
+  -webkit-mask: var(--ic) center / contain no-repeat;
+  mask: var(--ic) center / contain no-repeat;
+}
+.ic-sm { width: 13px; height: 13px; }
+.ic-lg { width: 18px; height: 18px; }
+.ic-heart { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'/%3E%3C/svg%3E"); }
+.ic-share { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='18' cy='5' r='3'/%3E%3Ccircle cx='6' cy='12' r='3'/%3E%3Ccircle cx='18' cy='19' r='3'/%3E%3Cpath d='M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49'/%3E%3C/svg%3E"); }
+.ic-check { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); }
+.ic-plus { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M12 5v14'/%3E%3C/svg%3E"); }
+.ic-play { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 3 20 12 6 21Z' fill='%23000'/%3E%3C/svg%3E"); }
+/* the wishlist heart is solid once saved (the mask redraws, so no extra element is needed) */
+.mz-heart[data-on="1"] .ic-heart { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'/%3E%3C/svg%3E"); }
+
 a:active, button:not(:disabled):active { opacity: .92; }
 
 /* Soft fade between pages (opacity only: cheap) */
@@ -168,7 +191,9 @@ a:active, button:not(:disabled):active { opacity: .92; }
 img[data-dead="1"] { display: none !important; }
 /* A card whose picture cannot load AND has no video removes itself: the grid reflows with no empty box. */
 [data-card]:has([data-die]) { display: none !important; }
-.mz-card img { animation: mz-fadein .3s ease-out both; }
+/* v60: every card picture used to run an opacity animation with fill-mode:both, which makes each
+   image its own composited layer for the whole life of the page (90 cards = 90 layers on a phone).
+   The photos now appear at once - the card's hover lift is still there. */
 @keyframes mz-fadein { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- Splash (first open of the shop in a visit) ---- */
@@ -176,6 +201,13 @@ img[data-dead="1"] { display: none !important; }
   background: radial-gradient(120% 90% at 50% 0%, #0E8556 0%, #0B6B45 42%, #06301F 100%); transition: opacity .5s ease, visibility .5s; }
 #mz-splash[data-hide] { opacity: 0; visibility: hidden; pointer-events: none; }
 #mz-splash[data-gone], .mz-nosplash #mz-splash { display: none; }
+/* v60: THE SPLASH HIDES ITSELF, WITHOUT WAITING FOR JAVASCRIPT.
+   Before this line the opening screen stayed up until React had hydrated the page - on the
+   2 MB home page that could be 4-6 seconds on a phone, and PageSpeed measured the largest
+   paint of that dark screen. Now it is a short brand moment (0.55 s) that always ends by 1 s,
+   whether the JavaScript has arrived or not. SplashControl still stores the "seen" flag. */
+#mz-splash { animation: mz-splash-out .45s ease .55s forwards; }
+@keyframes mz-splash-out { to { opacity: 0; visibility: hidden; } }
 .mz-splash-geo { position: absolute; inset: 0; opacity: .55; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.13' stroke-width='1'%3E%3Crect x='18' y='18' width='36' height='36'/%3E%3Crect x='18' y='18' width='36' height='36' transform='rotate(45 36 36)'/%3E%3Ccircle cx='36' cy='36' r='4'/%3E%3C/g%3E%3C/svg%3E"); }
 .mz-splash-glow { position: absolute; left: 50%; top: 42%; width: 340px; height: 340px; margin: -170px 0 0 -170px; border-radius: 9999px; background: radial-gradient(circle, rgba(242, 184, 75, .28), transparent 65%); animation: mz-breathe 3s ease-in-out infinite; }
 .mz-splash-box { position: relative; text-align: center; padding: 0 24px; }

@@ -5,6 +5,7 @@ import { PageHead } from '@/components/Prose';
 import ReelsRail from '@/components/ReelsRail';
 import LiveBadge from '@/components/LiveBadge';
 import Link from 'next/link';
+import ProductAds from '@/components/ProductAds';
 
 export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const metadata = pageMeta({ title: 'Reels: Watch and Shop', description: 'Watch short videos of Mizanora products and shop them with one tap. Cash on delivery across Pakistan.', path: '/reels' });
@@ -27,6 +28,9 @@ export default async function ReelsPage() {
           <div className="card text-center"><p className="text-dim">Reels are coming soon.</p><Link href="/products" className="btn-gold mt-4">Browse products</Link></div>
         )}
       </div>
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="reels" />
     </>
   );
 }

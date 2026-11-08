@@ -7,7 +7,7 @@ import ProductCard from './ProductCard';
 const Card = memo(ProductCard);
 // The list of cards only re-renders when the visible products really change (not on every key press or filter tap).
 const Cards = memo(function Cards({ items }) {
-  return items.map((p, i) => <Card key={p.id} p={p} priority={i < 4} />);
+  return items.map((p, i) => <Card key={p.id} p={p} priority={i === 0} />);
 });
 
 // A placeholder card, shown while the next page of a big catalogue is loading (v18: a real skeleton

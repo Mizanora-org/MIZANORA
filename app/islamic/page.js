@@ -4,6 +4,7 @@ import { PageHead } from '@/components/Prose';
 import { ISLAMIC_ITEMS, KIND_COLOR, KIND_LABEL } from '@/lib/islamic';
 import { REMINDERS } from '@/lib/reminders';
 import { getFeedPosts } from '@/lib/feedPosts';
+import ProductAds from '@/components/ProductAds';
 
 export const revalidate = 3600;
 export const metadata = pageMeta({ title: 'Islamic reminders: ayat, hadees and duas', description: 'A collection of short ayat of the Quran, ahadees, duas and aqwal with Urdu meaning and exact references, from the Mizanora Islami Feed.', path: '/islamic' });
@@ -36,6 +37,9 @@ export default async function IslamicPage() {
           ))}
         </div>
       </div>
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="islamic" />
     </>
   );
 }

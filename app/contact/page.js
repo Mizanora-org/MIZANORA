@@ -2,6 +2,7 @@ import { SITE, waLink } from '@/lib/config';
 import { pageMeta } from '@/lib/seo';
 import { PageHead, Prose } from '@/components/Prose';
 import { WhatsAppIcon } from '@/components/Icons';
+import ProductAds from '@/components/ProductAds';
 
 export const metadata = pageMeta({
   title: 'Contact Mizanora Support',
@@ -21,6 +22,9 @@ export default function Contact() {
         </div>
         <p className="mt-6"><strong>Location:</strong> {SITE.city}. We deliver across Pakistan.</p>
       </Prose>
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="contact" />
     </>
   );
 }
