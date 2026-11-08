@@ -19,6 +19,9 @@ import { getTvConfig } from '@/lib/liveTvServer';
 import { getPosts } from '@/lib/blog';
 import { FOUNDER_LINKS } from '@/lib/team';
 import { assistantIntent, localAssistantHelp } from '@/lib/assistantIntent';
+import { readLimitedJson } from '@/lib/readLimitedJson';
+import { limitRequest } from '@/lib/requestRate';
+import { securityIp, logSecurityEvent } from '@/lib/securityControl';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,13 +29,6 @@ export const maxDuration = 30;
 
 // The shop assistant. Gemini only TALKS; everything it states about products comes from the tools below, and any
 // discount is decided by priceDeal() on the server (admin limits), never by the AI and never by the browser.
-const hits = new Map();
-const rate = (ip) => {
-  const now = Date.now();
-  const a = (hits.get(ip) || []).filter((t) => now - t < 60000); a.push(now); hits.set(ip, a);
-  if (hits.size > 3000) hits.clear();
-  return a.length > 20;
-};
 
 const TOOLS = [{
   functionDeclarations: [
@@ -189,11 +185,15 @@ ${previousSlugs.length ? `Previously displayed product identifiers: ${previousSl
 export async function POST(req) {
   const closed = await denyIf('assistant');
   if (closed) return closed;
-  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'x';
-  if (rate(ip)) return NextResponse.json({ ok: false, text: 'Thori der ruk kar dobara poochein, bohat zyada messages aa gaye.' }, { status: 429 });
+  const ip = securityIp(req.headers) || 'unknown';
+  if (!limitRequest('assistant', ip, 20).allowed) {
+    await logSecurityEvent(req, 'rate-limit', { reason: 'assistant', severity: 'medium' });
+    return NextResponse.json({ ok: false, text: 'Thori der ruk kar dobara poochein, bohat zyada messages aa gaye.' }, { status: 429 });
+  }
 
   let body;
-  try { body = await req.json(); } catch { return NextResponse.json({ ok: false }, { status: 400 }); }
+  try { body = await readLimitedJson(req, 16 * 1024); } catch (e) { return NextResponse.json({ ok: false, error: e.message }, { status: e.status || 400 }); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ ok: false }, { status: 400 });
   const history = (Array.isArray(body.messages) ? body.messages : []).slice(-8)
     .map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', text: clip(m.text, 400) })).filter((m) => m.text);
   if (!history.length || history[history.length - 1].role !== 'user') return NextResponse.json({ ok: false }, { status: 400 });
@@ -266,7 +266,7 @@ export async function POST(req) {
       asks[p.id] = (asks[p.id] || 0) + 1;
       const r = priceDeal(p.price, asks[p.id], cfg, await costOf(p.id), p.dealRoom);
       if (!r.granted) return { granted: false, reason: r.reason, current_price_pkr: p.price };
-      deals.push({ slug: p.slug, name: p.name, image: p.images[0] || '', price: p.price, off: r.off, newPrice: r.newPrice, token: makeDeal(p.id, r.off), hasOptions: hasOpts(p) });
+      deals.push({ slug: p.slug, name: p.name, image: p.images[0] || '', price: p.price, off: r.off, newPrice: r.newPrice, token: makeDeal(p.id, r.off, p.price), hasOptions: hasOpts(p) });
       return { granted: true, discount_pkr: r.off, new_price_pkr: r.newPrice, final_best_price: r.final };
     }
     if (name === 'shop_pages') {

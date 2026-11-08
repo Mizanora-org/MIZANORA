@@ -2,9 +2,8 @@
 import { useEffect, useState } from 'react';
 import { GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 import { AlertTriangle, CheckCircle2, Plug, ShieldCheck } from 'lucide-react';
-import { collection, getDocs, limit, query } from 'firebase/firestore';
 import Link from 'next/link';
-import { authClient, dbClient, firebaseConfigured } from '@/lib/firebase-client';
+import { authClient, firebaseConfigured } from '@/lib/firebase-client';
 import { AdminSearchProvider } from '@/components/AdminSearch';
 import AdminNav from '@/components/AdminNav';
 
@@ -35,11 +34,11 @@ const inAppBrowser = () => typeof navigator !== 'undefined' && /FBAN|FBAV|Instag
 // The owner's own visits are not counted in the visitor statistics.
 const rememberNoTrack = () => { try { localStorage.setItem('mz_notrack', '1'); } catch (_) { /* ignore */ } };
 
-// Admin access is decided by Firestore itself (the same rules that protect the orders): reading ONE order is enough.
-// The answer is remembered for 15 minutes per browser session so every admin page does not pay that read again.
+// Admin access is checked by /api/admin/auth using a verified Firebase ID token (Auth API, zero Firestore reads).
+// Cache a short-lived successful decision for THIS user only; the APIs still check every action.
 const OK_KEY = 'mz_admin_ok';
-const okFresh = () => {
-  try { const j = JSON.parse(sessionStorage.getItem(OK_KEY) || 'null'); return Boolean(j && j.uid && Date.now() - j.t < 15 * 60e3 ? j : false); } catch (_) { return false; }
+const okFresh = (uid) => {
+  try { const j = JSON.parse(sessionStorage.getItem(OK_KEY) || 'null'); return Boolean(j && j.uid === uid && Date.now() - j.t < 5 * 60e3); } catch (_) { return false; }
 };
 const rememberOk = (uid) => { try { sessionStorage.setItem(OK_KEY, JSON.stringify({ uid, t: Date.now() })); localStorage.setItem('mz_admin_uid', uid); } catch (_) { /* ignore */ } };
 const forgetOk = () => { try { sessionStorage.removeItem(OK_KEY); } catch (_) { /* ignore */ } };
@@ -77,7 +76,8 @@ export default function AdminGate({ children }) {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [access, setAccess] = useState('checking'); // checking | ok | denied
+  const [access, setAccess] = useState('checking'); // checking | ok | denied | error
+  const [accessError, setAccessError] = useState('');
   useEffect(() => { rememberNoTrack(); }, []);
 
   useEffect(() => {
@@ -85,19 +85,20 @@ export default function AdminGate({ children }) {
     return onAuthStateChanged(authClient(), (u) => setUser(u || null));
   }, []);
 
-  // Ask Firestore itself whether this account is the admin. No environment variable is needed for this check.
+  // Never open the panel on a network error or a session belonging to a different UID.
   useEffect(() => {
-    if (!user) { setAccess('checking'); return undefined; }
-    if (okFresh()) { setAccess('ok'); return undefined; }
+    if (!user) { forgetOk(); setAccess('checking'); return undefined; }
+    if (okFresh(user.uid)) { setAccess('ok'); return undefined; }
     let live = true;
-    setAccess('checking');
-    getDocs(query(collection(dbClient(), 'orders'), limit(1)))
-      .then(() => { if (!live) return; rememberOk(user.uid); setAccess('ok'); })
-      .catch((e) => {
+    setAccess('checking'); setAccessError('');
+    user.getIdToken().then((token) => fetch('/api/admin/auth', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }))
+      .then(async (r) => {
+        const result = await r.json().catch(() => ({}));
         if (!live) return;
-        // permission-denied is the real "not the admin". Other errors (offline) keep the panel open, the rules still protect the data.
-        if (e && e.code === 'permission-denied') { forgetOk(); setAccess('denied'); } else setAccess('ok');
-      });
+        if (r.ok && result.ok && result.uid === user.uid) { rememberOk(user.uid); setAccess('ok'); }
+        else { forgetOk(); setAccessError(result.error || `Access check failed (${r.status})`); setAccess(r.status === 403 ? 'denied' : 'error'); }
+      })
+      .catch(() => { if (live) { forgetOk(); setAccess('error'); setAccessError('Could not reach the admin access check. Check your connection and try again.'); } });
     return () => { live = false; };
   }, [user]);
 
@@ -147,9 +148,10 @@ export default function AdminGate({ children }) {
         </div>
         {user && !allowed && (
           <div className="mb-3 rounded-xl border border-red-300 bg-red-500/10 p-3 text-sm text-red-700">
-            <p>This account is not the store admin.</p>
+            <p>{access === 'denied' ? 'This account is not the store admin.' : 'Admin access could not be verified right now.'}</p>
+            {accessError && <p className="mt-1">{accessError}</p>}
             <p className="mt-1 break-all">Signed in as: <b>{user.email || 'unknown'}</b></p>
-            <p className="mt-1 break-all text-xs text-red-700/80">Your UID: {user.uid}<br />Firestore rules only allow the UID or the verified email you pasted in the rules. Add this account there and click Publish.</p>
+            <p className="mt-1 break-all text-xs text-red-700/80">Your UID: {user.uid}<br />Set ADMIN_UID to this UID in Vercel (or NEXT_PUBLIC_ADMIN_EMAIL to a verified admin email), then redeploy. Firestore rules must protect client-side writes separately.</p>
             <button type="button" onClick={() => signOut(authClient())} className="mt-2 rounded-full border border-red-400 px-4 py-1.5 font-semibold">Sign out and try again</button>
           </div>
         )}

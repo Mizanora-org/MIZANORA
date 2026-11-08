@@ -11,7 +11,7 @@ const nextConfig = {
   experimental: { optimizePackageImports: ['lucide-react'] },
   // The product archive (data/catalog/*.json) is read from disk by the server, so it must travel with the serverless functions.
   // v36: the photo manifest must travel with the serverless functions too (it is read from disk).
-  outputFileTracingIncludes: { '/**': ['./data/catalog/**/*', './data/*.json', './data/*.txt'] },
+  outputFileTracingIncludes: { '/**': ['./data/catalog/**/*', './data/snap/**/*', './data/*.json', './data/*.txt'] },
   images: {
     // v21: photos load straight from their own host by default. The Vercel optimizer has a monthly limit on source images; when it is
     // used up, or a host refuses it, EVERY photo broke. Set NEXT_IMAGE_OPTIMIZE=1 in Vercel to use the optimizer again.

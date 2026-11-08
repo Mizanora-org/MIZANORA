@@ -39,7 +39,7 @@ const grep = (re) => files.filter((f) => re.test(readFileSync(f, 'utf8'))).map((
 // --------------------------------------------------- 1. the routes are really gone
 const gone = [
   'app/iptv', 'app/account/iptv', 'app/admin/iptv', 'app/reseller',
-  'app/api/iptv', 'app/api/admin/iptv', 'app/api/cron', 'app/api/gw', 'app/api/reseller',
+  'app/api/iptv', 'app/api/admin/iptv', 'app/api/cron/iptv', 'app/api/gw', 'app/api/reseller',
   'app/timeshift', 'lib/gateway', 'docs/IPTV-AUDIT-2026-11.md', 'docs/IPTV-PLAN.md',
 ];
 for (const p of gone) ok(`removed: ${p}`, !existsSync(join(root, p)));

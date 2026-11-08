@@ -95,10 +95,10 @@ export default function LiveStrip({
 
       {/* right: channels + the way in */}
       <div className="mz-live-strip-side">
-        {model.channels.length > 0 && (
+        {model.tvCount > 0 && (
           <span className="mz-live-strip-chans">
             <Tv size={13} aria-hidden="true" />
-            <b>{model.channels.length}</b> channels
+            <b>{model.tvCount}</b> channels
           </span>
         )}
         <Link href={href} className="mz-live-strip-cta">

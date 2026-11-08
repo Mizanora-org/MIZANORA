@@ -30,8 +30,11 @@ ok('imgFallback: relay once, then hide (no broken icons)');
 
 // The relay route must exist and be careful.
 const relay = read('app/api/img/route.js');
-assert.match(relay, /https:/);
-assert.match(relay, /privateHost/);
+const pinnedFetch = read('lib/safeFetch.js');
+assert.match(relay, /httpsOnly:\s*true/);
+assert.match(relay, /safePublicFetch/);
+assert.match(pinnedFetch, /isPrivateIp/); // shared pinned-DNS SSRF guard, not the obsolete privateHost helper
+
 assert.match(relay, /image\//);
 assert.match(relay, /MAX_BYTES/);
 assert.match(relay, /NEXT_IMAGE_PROXY_HOSTS/);

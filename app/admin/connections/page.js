@@ -70,6 +70,8 @@ export default function Connections() {
     ['Auth domain', c.authDomain],
     ['App id', c.appId],
     ['Server key (FIREBASE_SERVICE_ACCOUNT / CLIENT_EMAIL + PRIVATE_KEY)', c.adminKey],
+    ['Admin UID (ADMIN_UID)', c.adminUid],
+    ['Legacy rules probe (ADMIN_RULES_FALLBACK)', c.adminRulesFallback],
     ['Realtime Database address', c.databaseUrl, c.databaseUrlFromEnv ? 'from env' : 'derived from project id'],
     ['GitHub token (GITHUB_TOKEN) + repo (GITHUB_REPO)', c.github.ready, c.github.repo || ''],
     ['Photo upload key (IMGBB_API_KEY)', c.imgbb],
@@ -92,13 +94,15 @@ export default function Connections() {
       </div>
 
       {err && <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{err}</p>}
+      {d?.quotaMessage && <p role="alert" className="rounded-xl border border-amber-500 bg-amber-50 p-3 text-sm text-amber-950">{d.quotaMessage}</p>}
+      {d && !d.config.adminUid && !d.config.adminEmails && !d.config.adminRulesFallback && <p role="alert" className="rounded-xl border border-amber-500 bg-amber-50 p-3 text-sm text-amber-950">Admin login ke liye ADMIN_UID (recommended) ya NEXT_PUBLIC_ADMIN_EMAIL Vercel mein set karein. Warna verified admin check fail-closed hai; Firestore orders read karke access nahin diya jayega.</p>}
 
       {d && (
         <div className={`flex flex-wrap items-center gap-3 rounded-2xl border-2 p-3 ${d.verdict === 'healthy' ? 'border-emerald-300 bg-emerald-500/10' : d.verdict === 'partial' ? 'border-saffron/60 bg-saffron/10' : 'border-red-300 bg-red-500/10'}`}>
           {d.verdict === 'healthy' ? <ShieldCheck size={22} className="text-gold" /> : <AlertTriangle size={22} className="text-saffron" />}
           <div className="min-w-0 flex-1 text-sm">
             <p className="font-bold">
-              {d.verdict === 'healthy' ? 'Everything is connected.' : d.verdict === 'partial' ? 'The shop works, but not every connection is on.' : 'The main database is NOT reachable - orders cannot be saved.'}
+              {d.verdict === 'healthy' ? 'Everything is connected.' : d.quotaTripped ? 'Firestore quota exhausted. RTDB order backup is available for eligible orders; not every order can be accepted.' : d.verdict === 'partial' ? 'The shop works, but not every connection is on.' : 'The main database is NOT reachable - orders may not be saved.'}
             </p>
             <p className="text-xs text-dim">
               Tested {new Date(d.at).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })} · Firestore {d.critical.firestore ? 'OK' : 'FAILING'} · Realtime Database {d.critical.rtdb ? 'OK' : 'not reachable'} · GitHub {d.critical.github ? 'OK' : 'not connected'}

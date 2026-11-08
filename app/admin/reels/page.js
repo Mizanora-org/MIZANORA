@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
-import { dbClient } from '@/lib/firebase-client';
+import { authClient, dbClient } from '@/lib/firebase-client';
 import { readCache, writeCache, revalidateSite } from '@/lib/admin-cache';
 import { parseVideo } from '@/lib/video';
+import { snapshotCall } from '@/lib/adminSnapshotsClient';
 
 const EMPTY = { id: '', url: '', title: '', productSlug: '', link: '', order: '', active: true };
 
@@ -14,38 +15,74 @@ export default function AdminReels() {
   const [form, setForm] = useState(EMPTY);
   const [show, setShow] = useState(false);
   const [msg, setMsg] = useState('');
+  const [source, setSource] = useState('loading');
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const r = await getDocs(collection(dbClient(), 'reels'));
-    setList(r.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0)));
-    // Product names for the dropdown: reuse the copy the Products page already loaded when there is one.
-    let prods = readCache('products');
-    if (!prods) {
-      const p = await getDocs(collection(dbClient(), 'products'));
-      prods = p.docs.map((d) => ({ id: d.id, ...d.data() }));
-      writeCache('products', prods);
+    const result = await snapshotCall('reels', 'read');
+    setSource(result.source);
+    if (result.source !== 'firestore' && result.source !== 'none') {
+      setList(Array.isArray(result.data) ? result.data.map(({ id, data }) => ({ id, ...data })) : []);
+    } else {
+      const r = await getDocs(collection(dbClient(), 'reels'));
+      setList(r.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0)));
     }
-    setProducts(prods.map((x) => ({ id: x.id, name: x.name })).sort((a, b) => String(a.name).localeCompare(String(b.name))));
+    let options = readCache('reel-product-options');
+    if (!options) {
+      const token = await authClient().currentUser.getIdToken();
+      const response = await fetch('/api/admin/product-options', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Product list could not load.');
+      options = data.options;
+      writeCache('reel-product-options', options);
+    }
+    setProducts(options);
   }, []);
-  useEffect(() => { load().catch((e) => { setList([]); setMsg(e.code === 'permission-denied' ? 'Publish the updated firestore.rules first (it adds the reels section).' : e.message); }); }, [load]);
+  useEffect(() => { load().catch((e) => { setSource('pending'); setList([]); setMsg(e.code === 'permission-denied' ? 'Publish the updated firestore.rules first (it adds the reels section).' : e.message); }); }, [load]);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const v = parseVideo(form.url);
 
   async function save(e) {
     e.preventDefault();
     if (!v) { setMsg('This link is not supported. Use a YouTube, Facebook, Instagram, TikTok, Vimeo, Dailymotion, Streamable, Google Drive, Dropbox or direct .mp4 / .webm link.'); return; }
-    const id = form.id || Date.now().toString(36);
+    const id = form.id || crypto.randomUUID();
+    setBusy(true);
     try {
-      await setDoc(doc(dbClient(), 'reels', id), { url: form.url.trim(), title: form.title.trim(), productSlug: form.productSlug, link: form.link.trim(), order: Number(form.order) || 0, active: Boolean(form.active), updatedAtMs: Date.now() });
-      setForm(EMPTY); setShow(false); setMsg('Reel saved. It is live on the home page and /reels.'); await load(); await revalidateSite();
+      const data = { url: form.url.trim(), title: form.title.trim(), productSlug: form.productSlug, link: form.link.trim(), order: Number(form.order) || 0, active: Boolean(form.active), updatedAtMs: Date.now() };
+      if (source === 'archive') {
+        await snapshotCall('reels', 'upsert', { id, data });
+        setSource('pending');
+        setMsg('Reel GitHub par save ho gaya. Deploy ke baad live hoga; tab tak editing ruki hai.');
+      } else if (source === 'firestore' || source === 'none') {
+        await setDoc(doc(dbClient(), 'reels', id), data);
+        setMsg('Reel saved. It is live on the home page and /reels.');
+        await load(); await revalidateSite();
+      } else throw new Error('Archive deploy pending. Reload after deployment.');
+      setForm(EMPTY); setShow(false);
     } catch (e2) { setMsg(e2.message); }
+    setBusy(false);
+  }
+
+  async function remove(r) {
+    if (!confirm('Delete this reel?')) return;
+    setBusy(true);
+    try {
+      if (source === 'archive') {
+        await snapshotCall('reels', 'delete', { id: r.id });
+        setSource('pending');
+        setMsg('Reel GitHub se hata di. Deploy ke baad live change hoga; tab tak editing ruki hai.');
+      } else if (source === 'firestore' || source === 'none') {
+        await deleteDoc(doc(dbClient(), 'reels', r.id)); await load(); await revalidateSite();
+      } else throw new Error('Archive deploy pending. Reload after deployment.');
+    } catch (e) { setMsg(e.message); }
+    setBusy(false);
   }
 
   return (
     <div className="min-w-0">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="text-3xl font-extrabold">Reels</h1>
-        <button type="button" className="btn-gold !px-5 !py-2.5" onClick={() => { setForm(EMPTY); setShow(true); }}>+ Add reel</button>
+        <button type="button" disabled={busy || source === 'pending' || source === 'loading'} className="btn-gold !px-5 !py-2.5" onClick={() => { setForm(EMPTY); setShow(true); }}>+ Add reel</button>
       </div>
       {/* The music of the shop is managed in one place now: Admin > Music (app music + reels music). */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-raised p-4">
@@ -54,6 +91,7 @@ export default function AdminReels() {
       </div>
       <p className="mb-4 text-sm text-dim">Paste a YouTube video or Short, Facebook reel, Instagram reel, TikTok, Vimeo, Dailymotion, Streamable, Google Drive (share link) or any direct .mp4 / .webm / .mov link. Pick the product so the viewer gets a Shop now button. Product videos also appear here automatically.</p>
       {msg && <p role="status" className="mb-3 rounded-xl bg-raised p-3 text-sm">{msg}</p>}
+      {source === 'pending' && <p role="status" className="mb-3 rounded-xl bg-raised p-3 text-sm">Archive deploy pending hai. Deployment aur reload se pehle reel editing band hai; Firestore fallback nahi hoga.</p>}
 
       {show && (
         <form onSubmit={save} className="card mb-6 space-y-3">
@@ -68,7 +106,7 @@ export default function AdminReels() {
             <div><label className="label" htmlFor="ro">Order (1 shows first)</label><input id="ro" type="number" className="input" value={form.order} onChange={set('order')} /></div>
             <label className="flex items-end gap-2 pb-3 text-sm"><input type="checkbox" checked={form.active} onChange={set('active')} className="h-4 w-4 accent-[#0B6B45]" /> Visible</label>
           </div>
-          <div className="flex gap-3"><button className="btn-gold flex-1">Save reel</button><button type="button" className="btn-ghost" onClick={() => setShow(false)}>Cancel</button></div>
+          <div className="flex gap-3"><button className="btn-gold flex-1" disabled={busy || source === 'pending' || source === 'loading'}>Save reel</button><button type="button" className="btn-ghost" onClick={() => setShow(false)}>Cancel</button></div>
         </form>
       )}
 
@@ -80,8 +118,8 @@ export default function AdminReels() {
                 <p className="truncate font-bold">{r.title || r.url} {r.active === false && <span className="text-xs text-red-700">(hidden)</span>}</p>
                 <p className="truncate text-xs text-dim">{(parseVideo(r.url) || {}).label || 'Unsupported'} · {r.productSlug ? `Product: ${(products.find((p) => p.id === r.productSlug) || {}).name || r.productSlug}` : (r.link || 'All products')}</p>
               </div>
-              <button className="btn-ghost !px-4 !py-2 text-sm" onClick={() => { setForm({ ...EMPTY, ...r, order: r.order || '' }); setShow(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</button>
-              <button className="px-2 text-sm text-red-700" onClick={() => { if (confirm('Delete this reel?')) deleteDoc(doc(dbClient(), 'reels', r.id)).then(load).then(() => revalidateSite()); }}>Delete</button>
+              <button className="btn-ghost !px-4 !py-2 text-sm" disabled={busy || source === 'pending' || source === 'loading'} onClick={() => { setForm({ ...EMPTY, ...r, order: r.order || '' }); setShow(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</button>
+              <button className="px-2 text-sm text-red-700" disabled={busy || source === 'pending' || source === 'loading'} onClick={() => remove(r)}>Delete</button>
             </li>
           ))}
         </ul>

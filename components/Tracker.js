@@ -9,7 +9,7 @@ export default function Tracker({ off = false }) {
   useEffect(() => {
     if (off || path.startsWith('/admin')) return undefined;
     trackPage(path);
-    const t = setInterval(() => { if (document.visibilityState === 'visible') heartbeat(path); }, 40000);
+    const t = setInterval(() => { if (document.visibilityState === 'visible') heartbeat(path); }, 60000);
     return () => clearInterval(t);
   }, [path, off]);
   return null;

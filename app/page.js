@@ -89,30 +89,35 @@ export default async function Home() {
   const muaazImgs = await getMuaazImages().catch(() => []);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
-    .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 10);
-  const picks = all.filter((p) => p.featured).slice(0, 10);
-  const fresh = all.slice(0, 12);
-  // The 8 biggest categories get their own shelf (all categories stay one tap away in the circles above). Fewer cards = a lighter, smoother home page.
-  const shelves = categories.slice(0, 8).map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).sort(byPrice).slice(0, 8) }));
+    .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 6);
+  const picks = all.filter((p) => p.featured).slice(0, 6);
+  const fresh = all.slice(0, 8);
+  // Keep the first paint small: category circles link to every category; six compact shelves
+  // are enough for discovery without shipping ~2 MB of HTML to a phone.
+  const shelves = categories.slice(0, 6).map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).sort(byPrice).slice(0, 4) }));
   // CHEAPEST FIRST: every category shelf starts with its cheapest products, and one shelf shows the cheapest item of EVERY category.
   const inStockAll = all.filter((p) => p.inStock !== false && p.price > 0);
   const budget = categories.map((c) => inStockAll.filter((p) => inCategory(p, c.name)).sort(byPrice)[0]).filter(Boolean)
-    .filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i).sort(byPrice).slice(0, 16);
+    .filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i).sort(byPrice).slice(0, 8);
   const cheapest = inStockAll.length ? Math.min(...inStockAll.map((p) => p.price)) : 0;
   const assistant = await getPublicAssistant();
   const themeMode = await getThemeMode();
   const season = seasonFor(new Date(), themeMode);
-  const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 10) : [];
+  const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 6) : [];
   const posts = getPosts().slice(0, 4);
   // The mixed feed: products + Islamic posts + live channels + tools (changes every day, same all day)
-  const tvSlugs = tv && tv.enabled ? channelSlugs(tv.channels) : [];
-  const tvItems = tv && tv.enabled ? tv.channels.map((c, i) => ({ ...c, slug: tvSlugs[i] })).filter((c) => !c.off) : [];
-  const feed = buildFeed({ products: all.slice(0, 120), islamic: [...feedPosts, ...ISLAMIC_ITEMS], channels: tvItems, tools: TOOLS, images: muaazImgs, day: Math.floor((Date.now() + 5 * 3600000) / 86400000), max: 36 });
+  const activeTvCount = tv?.enabled ? tv.channels.reduce((n, c) => n + (c.off ? 0 : 1), 0) : 0;
+  // Only a small preview ever crosses the LiveStrip client boundary. Sending the full
+  // 100k-channel TV config to a one-line banner would explode the RSC/HTML payload.
+  const tvPreview = tv?.enabled ? tv.channels.slice(0, 80) : [];
+  const tvSlugs = channelSlugs(tvPreview);
+  const tvItems = tvPreview.map((c, i) => ({ ...c, slug: tvSlugs[i] })).filter((c) => !c.off);
+  const feed = buildFeed({ products: all.slice(0, 80), islamic: [...feedPosts, ...ISLAMIC_ITEMS], channels: tvItems, tools: TOOLS, images: muaazImgs, day: Math.floor((Date.now() + 5 * 3600000) / 86400000), max: 24 });
   const socials = SITE.social.filter((s) => s.url);
   const delivery = SITE.shippingFee > 0 ? `Delivery ${formatPKR(SITE.shippingFee)}` : 'Free delivery';
 
   // Moving "Trending now" strip: featured first, then newest. Repeated so a small catalog still fills the strip.
-  const trendBase = [...picks, ...all.filter((p) => !p.featured)].slice(0, 14);
+  const trendBase = [...picks, ...all.filter((p) => !p.featured)].slice(0, 8);
   const trend = trendBase.length && trendBase.length < 8 ? Array.from({ length: Math.ceil(8 / trendBase.length) }, () => trendBase).flat() : trendBase;
 
   // Circles: real categories first, then starter departments that have no products yet.
@@ -133,7 +138,7 @@ export default async function Home() {
           channel={chCfg}
           initialAt={Date.now()}
           variant="home"
-          tv={tv && tv.enabled ? { count: tvItems.length, channels: tvItems.map((c) => ({ name: c.name, slug: c.slug, group: c.group })) } : null}
+          tv={tv && tv.enabled ? { count: activeTvCount, channels: tvItems.slice(0, 14).map((c) => ({ name: c.name, slug: c.slug, group: c.group })) } : null}
         />
         <h1 className="sr-only">Mizanora: online shopping market in Pakistan with cash on delivery</h1>
       </div>

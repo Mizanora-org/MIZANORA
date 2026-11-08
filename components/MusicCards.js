@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { dbClient } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
+import { snapshotCall } from '@/lib/adminSnapshotsClient';
 import { APP_MUSIC_DEFAULT, cleanAppMusic } from '@/lib/appMusic';
 import { REEL_MUSIC_DEFAULT, cleanReelMusic } from '@/lib/reelMusic';
 
@@ -58,17 +59,26 @@ function MusicForm({ kind, defaults, docId, title, intro, linkLabel, linkPlaceho
   const [cfg, setCfg] = useState(null);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [source, setSource] = useState('firestore');
+  const archiveKind = kind === 'app' ? 'app-music' : 'reel-music';
 
   // 'app' -> the whole app, 'reels' -> the reels only
   const clean = kind === 'app' ? cleanAppMusic : cleanReelMusic;
 
   useEffect(() => {
     let alive = true;
-    getDoc(doc(dbClient(), 'siteMeta', docId))
-      .then((d) => { if (alive) setCfg({ ...defaults, ...(d.exists() ? d.data() : {}) }); })
-      .catch((e) => { if (alive) { setCfg({ ...defaults }); setMsg(e.message); } });
+    (async () => {
+      try {
+        const s = await snapshotCall(archiveKind, 'read');
+        if (!alive) return;
+        if (s.source === 'pending') { setSource('pending'); setMsg('Archive deploy pending; please wait before editing.'); setCfg({ ...defaults }); return; }
+        if (s.source === 'archive') { setSource('archive'); setCfg({ ...defaults, ...s.data }); return; }
+        const d = await getDoc(doc(dbClient(), 'siteMeta', docId));
+        if (alive) setCfg({ ...defaults, ...(d.exists() ? d.data() : {}) });
+      } catch (e) { if (alive) { setCfg({ ...defaults }); setSource('pending'); setMsg(`Cannot verify music settings: ${e.message}`); } }
+    })();
     return () => { alive = false; };
-  }, [docId, defaults]);
+  }, [docId, defaults, archiveKind]);
 
   if (!cfg) return <p className="card mb-6 text-sm text-dim">Loading music settings...</p>;
 
@@ -79,12 +89,14 @@ function MusicForm({ kind, defaults, docId, title, intro, linkLabel, linkPlaceho
     e.preventDefault();
     const res = clean(cfg);
     if (!res.ok) { setMsg(res.error); return; }
+    if (source === 'pending') { setMsg('Wait for the archive deployment before saving.'); return; }
     setBusy(true);
     try {
-      await setDoc(doc(dbClient(), 'siteMeta', docId), { ...res.value, updatedAtMs: Date.now() });
+      if (source === 'archive') { await snapshotCall(archiveKind, 'save', { data: res.value }); setSource('pending'); }
+      else await setDoc(doc(dbClient(), 'siteMeta', docId), { ...res.value, updatedAtMs: Date.now() });
       setCfg({ ...defaults, ...res.value });
       await revalidateSite();
-      setMsg('Saved. The shop is using this music now (it can take a minute to refresh on the phones).');
+      setMsg(source === 'archive' ? 'Committed to GitHub. The music will update after the next deployment.' : 'Saved. The shop is using this music now (it can take a minute to refresh on the phones).');
     } catch (err) { setMsg(err.message); }
     setBusy(false);
   }
@@ -121,7 +133,7 @@ function MusicForm({ kind, defaults, docId, title, intro, linkLabel, linkPlaceho
         </div>
       )}
       <div className="flex flex-wrap gap-3">
-        <button className="btn-gold" disabled={busy}>{busy ? 'Saving...' : 'Save music'}</button>
+        <button className="btn-gold" disabled={busy || source === 'pending'}>{busy ? 'Saving...' : 'Save music'}</button>
         <button type="button" className="btn-ghost" onClick={() => setCfg((c) => ({ ...c, url: '' }))}>Remove link</button>
       </div>
       <TestPlayer url={r.ok ? r.value.url : ''} volume={cfg.volume} />

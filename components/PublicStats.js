@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Radio } from 'lucide-react';
 
-// v37: the public numbers, drawn as graphs. Refreshes by itself every minute and shows a live
+// v37: the public numbers, drawn as graphs. Refreshes only while visible, every five minutes and shows a live
 // dot while people are on the site. Everything here is a total - see /api/stats for the promise.
 
 const nf = new Intl.NumberFormat('en-PK');
@@ -32,14 +32,16 @@ export default function PublicStats() {
     let alive = true;
     const load = async () => {
       try {
-        const r = await fetch('/api/stats', { cache: 'no-store' });
+        const r = await fetch('/api/stats');
         const j = await r.json().catch(() => ({}));
         if (alive) { setD(j); setErr(j.setup || !j.ok ? '' : ''); }
       } catch (e) { if (alive) setErr('Could not load the numbers.'); }
     };
     load();
-    const t = setInterval(load, 60000);
-    return () => { alive = false; clearInterval(t); };
+    const onFocus = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onFocus);
+    const t = setInterval(() => { if (document.visibilityState === 'visible') load(); }, 300000);
+    return () => { alive = false; clearInterval(t); document.removeEventListener('visibilitychange', onFocus); };
   }, []);
 
   if (err) return <p className="rounded-2xl border border-line bg-surface p-6 text-dim">{err}</p>;
@@ -69,7 +71,7 @@ export default function PublicStats() {
             On the site now
           </p>
           <p className="mt-1 font-display text-4xl font-extrabold text-gold">{nf.format(online)}</p>
-          <p className="text-xs text-faint">{online ? <><Radio size={10} className="inline" /> live, refreshed every minute</> : 'nobody right now'}</p>
+          <p className="text-xs text-faint">{online ? <><Radio size={10} className="inline" /> recently active, refreshed every five minutes</> : 'no recent visitors'}</p>
         </div>
         <div className="card !p-4">
           <p className="text-xs font-bold uppercase tracking-wide text-dim">Page views today</p>

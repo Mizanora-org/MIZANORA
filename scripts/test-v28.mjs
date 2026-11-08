@@ -91,7 +91,9 @@ assert.ok(!/<main className="mzc-stage"/.test(liveChannel) && /<section classNam
 ok('live tv: parallel ad fetch, static channel pages, static Islamic channel shell, no nested main');
 
 const relay = read('lib/tvProxy.js');
-assert.ok(/AbortSignal\.any/.test(relay) && /timeoutSignal/.test(relay));
+const pinnedFetcher = read('lib/safeFetch.js');
+// Timeouts + viewer disconnect moved into the shared pinned-DNS fetcher (TV/image/metadata).
+assert.ok(/safePublicFetch/.test(relay) && /AbortSignal\.any/.test(pinnedFetcher) && /AbortSignal\.timeout/.test(pinnedFetcher));
 assert.ok(/signal: req\.signal/.test(read('app/api/tv/p/route.js')));
 const adminTv = read('app/admin/tv/page.js');
 // v38: this used to match the exact wording of the message. The admin page was rewritten and

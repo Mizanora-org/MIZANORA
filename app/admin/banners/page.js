@@ -4,6 +4,7 @@ import { addDoc, collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/fi
 import { authClient, dbClient } from '@/lib/firebase-client';
 import { revalidateSite } from '@/lib/admin-cache';
 import ImageUploader from '@/components/ImageUploader';
+import { snapshotCall } from '@/lib/adminSnapshotsClient';
 
 const EMPTY = { id: '', image: '', title: '', subtitle: '', link: '/products', cta: 'Shop now', order: 1, active: true };
 
@@ -12,12 +13,19 @@ export default function AdminBanners() {
   const [form, setForm] = useState(EMPTY);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [source, setSource] = useState('loading');
 
   const load = useCallback(async () => {
+    const result = await snapshotCall('banners', 'read');
+    setSource(result.source);
+    if (result.source !== 'firestore' && result.source !== 'none') {
+      setList(Array.isArray(result.data) ? result.data.map(({ id, data }) => ({ id, ...data })) : []);
+      return;
+    }
     const snap = await getDocs(collection(dbClient(), 'banners'));
     setList(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0)));
   }, []);
-  useEffect(() => { load().catch((e) => setMsg(e.message)); }, [load]);
+  useEffect(() => { load().catch((e) => { setSource('pending'); setMsg(e.message); }); }, [load]);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
@@ -33,19 +41,33 @@ export default function AdminBanners() {
         link: form.link.trim() || '/products', cta: form.cta.trim() || 'Shop now',
         order: Number(form.order) || 0, active: Boolean(form.active), updatedAt: Date.now(),
       };
-      if (form.id) await setDoc(doc(dbClient(), 'banners', form.id), data);
-      else await addDoc(collection(dbClient(), 'banners'), data);
-      await revalidate();
-      setMsg('Banner saved. It is live on the home page.');
+      if (source === 'archive') {
+        await snapshotCall('banners', 'upsert', { id: form.id || crypto.randomUUID(), data });
+        setSource('pending');
+        setMsg('Banner GitHub par save ho gaya. Deploy ke baad live hoga; tab tak editing ruki hai.');
+      } else if (source === 'firestore' || source === 'none') {
+        if (form.id) await setDoc(doc(dbClient(), 'banners', form.id), data);
+        else await addDoc(collection(dbClient(), 'banners'), data);
+        await revalidate();
+        setMsg('Banner saved. It is live on the home page.');
+        await load();
+      } else throw new Error('Archive deploy pending. Reload after deployment.');
       setForm(EMPTY);
-      await load();
     } catch (err) { setMsg(err.message); }
     setBusy(false);
   }
 
   async function remove(b) {
     if (!confirm('Delete this banner?')) return;
-    await deleteDoc(doc(dbClient(), 'banners', b.id)); await revalidate(); await load();
+    try {
+      if (source === 'archive') {
+        await snapshotCall('banners', 'delete', { id: b.id });
+        setSource('pending');
+        setMsg('Banner GitHub se hata diya. Deploy ke baad live change hoga; tab tak editing ruki hai.');
+      } else if (source === 'firestore' || source === 'none') {
+        await deleteDoc(doc(dbClient(), 'banners', b.id)); await revalidate(); await load();
+      } else throw new Error('Archive deploy pending. Reload after deployment.');
+    } catch (err) { setMsg(err.message); }
   }
 
   return (
@@ -54,6 +76,7 @@ export default function AdminBanners() {
         <h1 className="mb-1 text-4xl font-bold">Home banners</h1>
         <p className="mb-4 text-sm text-dim">Banners slide at the top of the home page. Use a wide image, about 1600 x 640 pixels. Smallest order number shows first.</p>
         {msg && <p role="status" className="mb-3 rounded-xl bg-raised p-3 text-sm text-cream">{msg}</p>}
+        {source === 'pending' && <p role="status" className="mb-3 rounded-xl bg-raised p-3 text-sm text-cream">Archive deploy pending hai. Deployment aur reload se pehle banner editing band hai; Firestore fallback nahi hoga.</p>}
         {!list ? <p className="text-dim">Loading...</p> : list.length === 0 ? <p className="card text-center text-dim">No banners yet. The home page shows the default Mizanora banner.</p> : (
           <ul className="space-y-3">
             {list.map((b) => (
@@ -65,8 +88,8 @@ export default function AdminBanners() {
                     <p className="truncate font-semibold">{b.title || '(no title)'} {b.active === false && <span className="text-xs text-red-700">(hidden)</span>}</p>
                     <p className="truncate text-sm text-dim">Order {b.order} · links to {b.link}</p>
                   </div>
-                  <button className="btn-ghost !px-4 !py-2 text-sm" onClick={() => { setForm({ ...EMPTY, ...b }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</button>
-                  <button className="px-2 text-sm text-red-700" onClick={() => remove(b)}>Delete</button>
+                  <button className="btn-ghost !px-4 !py-2 text-sm" disabled={source === 'pending' || source === 'loading'} onClick={() => { setForm({ ...EMPTY, ...b }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</button>
+                  <button className="px-2 text-sm text-red-700" disabled={source === 'pending' || source === 'loading'} onClick={() => remove(b)}>Delete</button>
                 </div>
               </li>
             ))}
@@ -92,7 +115,7 @@ export default function AdminBanners() {
           <div><label className="label" htmlFor="bo">Order</label><input id="bo" type="number" className="input" value={form.order} onChange={set('order')} /></div>
           <label className="flex items-center gap-2 pb-3 text-sm"><input type="checkbox" checked={Boolean(form.active)} onChange={set('active')} className="h-4 w-4 accent-[#0B6B45]" /> Visible</label>
         </div>
-        <button className="btn-gold w-full" disabled={busy}>{busy ? 'Saving...' : 'Save banner'}</button>
+        <button className="btn-gold w-full" disabled={busy || source === 'pending' || source === 'loading'}>{busy ? 'Saving...' : 'Save banner'}</button>
         {form.id && <button type="button" className="btn-ghost w-full" onClick={() => setForm(EMPTY)}>Cancel edit</button>}
       </form>
     </div>

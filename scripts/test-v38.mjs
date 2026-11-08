@@ -222,11 +222,11 @@ ok('dashboard: page keys are turned back into real paths', /pageLabel/.test(dash
 ok('charts: a donut and a horizontal bar chart were added', /export function Donut/.test(src('components/Charts.js')) && /export function HBarChart/.test(src('components/Charts.js')));
 
 const analytics = src('app/api/admin/analytics/route.js');
-ok('analytics: byHour now reads data that is actually written', /'hr'/.test(analytics) && /hr\/\{?d|`hr/.test(src('lib/track.js')));
+ok('analytics: byHour now reads data that is actually written', /'hr'/.test(analytics) && /hr\/\$\{day\}\//.test(src('app/api/telemetry/route.js')));
 ok('analytics: the old dead branch is gone', !/o\.hours/.test(analytics));
 ok('analytics: hr is swept by the cleaner like every other metric', /'rt', 'hr'/.test(analytics));
-ok('track: stats/hr/<day>/<HH> is written on every page view', /hr\/\$\{d\}\/\$\{hourKey\(\)\.slice\(11\)\}/.test(src('lib/track.js')));
-ok('rules: the database allows the hr metric', /hr/.test(src('database.rules.json')));
+ok('track: stats/hr/<day>/<HH> is written on every page view', /hr\/\$\{day\}\/\$\{hourKey\(now\)\.slice\(11\)\}/.test(src('app/api/telemetry/route.js')));
+ok('rules: hr is written by the server only', /hr\//.test(src('app/api/telemetry/route.js')) && /stats.*write.*false/.test(src('database.rules.json')));
 
 // ------------------------------------------------- 5. SEO and links
 const seo = src('lib/seo.js');

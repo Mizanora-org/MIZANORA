@@ -4,16 +4,17 @@ import { dayKey, rtdbOn } from '@/lib/rtdb';
 import { pageLabel } from '@/lib/track';
 
 export const runtime = 'nodejs';
-export const revalidate = 60;
+export const dynamic = 'force-dynamic'; // never freeze build-time 'setup' state
+
 
 // v37: PUBLIC numbers. No sign-in, no personal data, nothing that can identify a visitor:
 // only totals, a 14-day sparkline, the busiest pages (a path, never a person) and the split of
-// devices and sources. Everything comes from the Realtime Database and is cached for a minute,
+// devices and sources. Everything comes from the Realtime Database and is cached for five minutes,
 // so this page costs no Firestore reads and cannot be used to hammer the database.
 //
 // Deliberately NOT exposed: individual presence records, visitor ids, order contents, searches
 // that could contain personal words (those stay in the admin dashboard only).
-const json = (b, s = 200) => NextResponse.json(b, { status: s, headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' } });
+const json = (b, s = 200) => NextResponse.json(b, { status: s, headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } });
 
 const top = (map, n = 10) => Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ k, v }));
 const addInto = (acc, o) => { for (const [k, v] of Object.entries(o || {})) acc[k] = (acc[k] || 0) + (Number(v) || 0); };
@@ -42,13 +43,13 @@ export async function GET() {
     dev.forEach((s) => addInto(devices, v(s)));
     src.forEach((s) => addInto(sources, v(s)));
 
-    // "on the site now" - count presence records touched in the last 90 seconds, never return them
+    // "on the site now" - count presence records touched in the last two minutes, never return them
     let online = 0;
     try {
       const now = Date.now();
       const p = await ref('presence');
       const val = p.val() || {};
-      online = Object.values(val).filter((x) => x && now - (Number(x.t) || 0) < 90e3).length;
+      online = Object.values(val).filter((x) => x && now - (Number(x.t) || 0) < 120e3).length;
     } catch { online = 0; }
 
     const today = series[series.length - 1] || { views: 0, uv: 0 };

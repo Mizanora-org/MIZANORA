@@ -4,7 +4,7 @@ import { adminDb, adminReady, adminRtdb, rtdbUrl } from '@/lib/firebase-admin';
 import { rtdbOn, rtdbPublicGet } from '@/lib/rtdb';
 import { restReady, restListPage } from '@/lib/firestore-rest';
 import { ghReady, ghInfo, ghTest } from '@/lib/github';
-import { quotaTripped } from '@/lib/quota';
+import { noteFirestoreError, quotaTripped } from '@/lib/quota';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,7 +41,9 @@ export async function POST(req) {
   if (!a.ok) return json({ ok: false, error: a.error }, a.status);
 
   // ---- Firestore through the service account (write + read + delete one tiny doc) ----
-  const firestoreSdk = adminReady()
+  const quotaOpen = quotaTripped();
+  const quotaMsg = 'Firestore free quota appears exhausted. The shop serves deployed archive files; eligible COD orders use the private Realtime Database backup. Do not keep retrying Firestore; wait for its quota reset and check Admin > Dashboard for backup orders.';
+  const firestoreSdk = quotaOpen ? { ok: false, ms: 0, error: quotaMsg, fix: 'Verify RTDB is working below. Avoid test writes until quota resets.' } : adminReady()
     ? await timed(async () => {
       const ref = adminDb().collection('_health').doc('conn');
       await ref.set({ at: Date.now(), by: a.uid || '' });
@@ -52,17 +54,22 @@ export async function POST(req) {
       return { docs: snap.exists ? 1 : 0, products, project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '' };
     })
     : { ok: false, ms: 0, error: 'FIREBASE_SERVICE_ACCOUNT (or FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY) is missing in Vercel.' };
-  if (!firestoreSdk.ok && !/missing in Vercel/.test(firestoreSdk.error || '')) firestoreSdk.fix = plainFirestore(firestoreSdk.error || '');
+  if (!firestoreSdk.ok && !quotaOpen && /RESOURCE_EXHAUSTED|quota|429/i.test(firestoreSdk.error || '')) noteFirestoreError(new Error(firestoreSdk.error));
+  if (!firestoreSdk.ok && !quotaOpen && !/missing in Vercel/.test(firestoreSdk.error || '')) firestoreSdk.fix = plainFirestore(firestoreSdk.error || '');
 
   // ---- Firestore through the public/browser key (the fallback path for public reads) ----
-  const firestoreRest = restReady()
+  const quotaRestOpen = quotaTripped();
+  const firestoreRest = quotaRestOpen ? { ok: false, ms: 0, error: quotaMsg, fix: 'Use the archive and RTDB backup until quota resets.' } : restReady()
     ? await timed(async () => {
       const r = await restListPage('products', 1, '');
       return { docs: r.docs.length, next: Boolean(r.next), project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '' };
     })
     : { ok: false, ms: 0, error: 'NEXT_PUBLIC_FIREBASE_API_KEY or NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing in Vercel.' };
-  if (!firestoreRest.ok && restReady()) {
-    firestoreRest.fix = /403|permission/i.test(firestoreRest.error || '')
+  if (!firestoreRest.ok && !quotaRestOpen && /RESOURCE_EXHAUSTED|quota|429/i.test(firestoreRest.error || '')) noteFirestoreError(new Error(firestoreRest.error));
+  if (!firestoreRest.ok && restReady() && !quotaRestOpen) {
+    firestoreRest.fix = /RESOURCE_EXHAUSTED|quota|429/i.test(firestoreRest.error || '')
+      ? quotaMsg
+      : /403|permission/i.test(firestoreRest.error || '')
       ? 'The browser key cannot read products. Check firestore.rules (products must be readable by anyone) and that the key belongs to this project.'
       : 'Check the API key and your network. This path is only the fallback for public reads; orders and the admin panel use the service account.';
   }
@@ -87,7 +94,7 @@ export async function POST(req) {
     : { ok: false, ms: 0, error: 'No Realtime Database address (FIREBASE_DATABASE_URL / NEXT_PUBLIC_FIREBASE_DATABASE_URL or a project id to derive it from).' };
   if (!rtdbRest.ok && rtdbUrl()) {
     rtdbRest.fix = /401|403|permission/i.test(rtdbRest.error || '')
-      ? 'Publish database.rules.json in Firebase Console > Realtime Database > Rules (the shop must be allowed to read siteStatus, stats, presence).'
+      ? 'Publish database.rules.json in Firebase Console > Realtime Database > Rules (only siteStatus is public; stats and presence are server-only).'
       : 'If the database address is not https://PROJECT-default-rtdb.firebaseio.com, put the real one in FIREBASE_DATABASE_URL and NEXT_PUBLIC_FIREBASE_DATABASE_URL and redeploy.';
   }
 
@@ -119,6 +126,7 @@ export async function POST(req) {
     siteUrl: p.NEXT_PUBLIC_SITE_URL || '',
     storeWindow: Number(p.STORE_WINDOW) || 2500,
     adminEmails: (p.NEXT_PUBLIC_ADMIN_EMAIL || '') ? String(p.NEXT_PUBLIC_ADMIN_EMAIL).split(',').map((s) => s.trim()).filter(Boolean).length : 0,
+    adminUid: Boolean(p.ADMIN_UID), adminRulesFallback: p.ADMIN_RULES_FALLBACK === '1',
   };
 
   // CSV import: what can it actually do right now? (this is what "link the product CSV" depends on)
@@ -127,12 +135,13 @@ export async function POST(req) {
     : { mode: 'firebase', text: stillOnFirestore(firestoreSdk), link: '/admin/import' };
 
   const critical = { firestore: firestoreSdk.ok || firestoreRest.ok, rtdb: rtdbSdk.ok, github: github.ok };
+  const quotaNow = quotaTripped();
   return json({
     ok: true,
     at: Date.now(),
-    verdict: critical.firestore ? (critical.rtdb ? 'healthy' : 'partial') : 'broken',
+    verdict: critical.firestore ? (critical.rtdb ? 'healthy' : 'partial') : quotaNow && critical.rtdb ? 'partial' : 'broken',
     critical,
-    quotaTripped: quotaTripped(),
+    quotaTripped: quotaNow, quotaMessage: quotaNow ? quotaMsg : '',
     firestoreSdk, firestoreRest, rtdbSdk, rtdbRest, github, config, csv,
   });
 }

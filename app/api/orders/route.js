@@ -17,6 +17,9 @@ import { PAY_METHODS, payMethod, prepaidOff, cleanPayRef } from '@/lib/payments'
 import { archiveDocs } from '@/lib/archive';
 import { backupOrder, isQuotaError, recordOrder } from '@/lib/orderFallback';
 import { noteFirestoreError, quotaTripped } from '@/lib/quota';
+import { limitRequest } from '@/lib/requestRate';
+import { logSecurityEvent, securityIp } from '@/lib/securityControl';
+import { readLimitedJson } from '@/lib/readLimitedJson';
 import { cleanWorkerCode, effectiveTier, lineEarning, maxMarkupFor } from '@/lib/workers';
 
 export const runtime = 'nodejs';
@@ -36,11 +39,16 @@ export async function POST(req) {
   if (closed) return closed;
   if (!adminReady()) return fail('The store is not fully set up yet. Please contact support on WhatsApp.', 503);
 
-  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
-  if (recentCount(ip) >= 12) return fail('You have placed several orders in a short time. Please wait a few minutes, or contact support on WhatsApp if you need more.', 429);
+  const ip = securityIp(req.headers) || 'unknown';
+  if (!limitRequest('order-attempt', ip, 30, 10 * 60_000).allowed || recentCount(ip) >= 12) {
+    void logSecurityEvent(req, 'rate-limit', { reason: 'order-attempt', severity: 'medium' });
+    return fail('You have placed several orders in a short time. Please wait a few minutes, or contact support on WhatsApp if you need more.', 429);
+  }
 
   let body;
-  try { body = await req.json(); } catch { return fail('Invalid request'); }
+  try { body = await readLimitedJson(req, 40_000); } catch { return fail('Invalid or oversized order request'); }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return fail('Invalid request');
 
   // Bots fill hidden fields. Pretend success so they do not retry.
   if (body.website) return NextResponse.json({ ok: true, order: { orderId: 'MZ-00000000', items: [], customer: {}, total: 0, shipping: 0 } });
@@ -52,7 +60,13 @@ export async function POST(req) {
   if (!rawItems.length) return fail('Your cart is empty.');
 
   // Firestore said "quota used up" a moment ago: do not wait for it to fail again, take the order in the backup database at once.
-  if (quotaTripped()) { const saved = await backupOrder({ body, clean, rawItems }); if (saved) return saved; }
+  if (quotaTripped()) {
+    const saved = await backupOrder({ body, clean, rawItems });
+    if (saved?.ok) countOrder(ip);
+    // Never retry Firestore while its quota breaker is active. No order is claimed unless it
+    // was actually persisted in the private RTDB backup (or a precise validation error returned).
+    return saved || fail('Firestore quota is used up and the backup could not save this order. It was NOT placed. Please contact support on WhatsApp or try again later.', 503);
+  }
 
   try {
     const db = adminDb();
@@ -83,7 +97,7 @@ export async function POST(req) {
       const size = String(r.size || '');
       if (!validVariant(optionsOf(p), size)) return fail(`Please choose the options (for example colour and size) for ${p.name} again.`);
       // Assistant deal: a signed token made by our own server for this product (never trusted from the browser). Up to 5 pieces.
-      const off = r.deal ? dealOff(r.deal, String(r.id)) : 0;
+      const off = r.deal ? dealOff(r.deal, String(r.id), p.price) : 0;
       if (r.deal && !off) return fail(`The special price for ${p.name} has expired. Please remove it from the cart and add it again.`);
       if (off && qty > DEAL_MAX_QTY) return fail(`The special price for ${p.name} is valid for up to ${DEAL_MAX_QTY} pieces.`);
       const shopPrice = Math.max(1, (Number(p.price) || 0) - off);
@@ -213,7 +227,7 @@ export async function POST(req) {
     console.error('order failed', e && e.message);
     // Firestore's free quota is used up: still take the order (saved in the Realtime Database, moved over later from Admin > Dashboard).
     noteFirestoreError(e);
-    if (isQuotaError(e)) { const saved = await backupOrder({ body, clean, rawItems }); if (saved) return saved; }
+    if (isQuotaError(e)) { const saved = await backupOrder({ body, clean, rawItems }); if (saved) { if (saved.ok) countOrder(ip); return saved; } }
     return fail('Our order system is having a problem right now. Your order was not placed. Please try again in a minute, or send it to support on WhatsApp.', 500);
   }
 }

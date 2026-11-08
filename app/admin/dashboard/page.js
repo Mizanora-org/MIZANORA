@@ -42,15 +42,18 @@ export default function Dashboard() {
     loadLive();
     const onVis = () => { visible.current = document.visibilityState === 'visible'; if (visible.current) loadLive(); };
     document.addEventListener('visibilitychange', onVis);
-    const t = setInterval(() => { if (visible.current) loadLive(); }, 20000);
-    const t2 = setInterval(() => { if (visible.current) loadAll(); }, 120000);
+    const t = setInterval(() => { if (visible.current) loadLive(); }, 60000);
+    const t2 = setInterval(() => { if (visible.current) loadAll(); }, 300000);
     return () => { clearInterval(t); clearInterval(t2); document.removeEventListener('visibilitychange', onVis); };
   }, [loadLive, loadAll]);
 
   const act = async (kind, id) => {
+    const row = (back || []).find((o) => o.orderId === id);
+    if (kind === 'dismiss' && !window.confirm(`Permanently delete backup order ${id}? This cannot be undone.`)) return;
+    if (kind === 'move' && row?.workerRef && !window.confirm(`Worker referral ${row.workerRef} needs manual commission reconciliation after moving ${id}. Continue?`)) return;
     setBusy(id); setMsg('');
     const j = await call('/api/admin/backup-orders', { action: kind, id });
-    setMsg(j.ok ? (kind === 'move' ? `${id} moved to the orders list.` : `${id} removed from the backup.`) : j.error || 'Failed');
+    setMsg(j.ok ? (j.note || (kind === 'move' ? `${id} moved to the orders list.` : `${id} removed from the backup.`)) : j.error || 'Failed');
     await loadLive(); setBusy('');
   };
   const cleanup = async () => { if (!window.confirm('Delete tracking numbers older than 90 days? (orders are not touched)')) return; const j = await call('/api/admin/analytics', { action: 'cleanup', keepDays: 90 }); setMsg(j.ok ? `Old counters removed: ${j.removed}.` : j.error || 'Failed'); };
@@ -89,11 +92,11 @@ export default function Dashboard() {
       {back && back.length > 0 && (
         <section className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-3">
           <h2 className="text-base font-extrabold text-amber-900">{back.length} order(s) are waiting in the backup database</h2>
-          <p className="text-xs text-amber-900/80">They were taken while Firestore&apos;s free quota was used up. They are safe. When Firestore works again press &quot;Move to orders&quot;. Call these customers if urgent.</p>
+          <p className="text-xs text-amber-900/80">They were saved in the private backup database. When Firestore works again press &quot;Move to orders&quot;. Prepaid references need manual verification; worker referrals need manual commission reconciliation. Do not remove a real order by mistake.</p>
           <ul className="mt-2 space-y-1.5">
             {back.map((o) => (
               <li key={o.orderId} className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-2 text-sm">
-                <b>{o.orderId}</b><span className="min-w-0 flex-1 truncate">{o.customer && o.customer.name} · {o.customer && o.customer.phone} · {o.customer && o.customer.city} · {formatPKR(o.total)} · {(o.items || []).length} item(s)</span>
+                <b>{o.orderId}</b><span className="min-w-0 flex-1 truncate">{o.customer && o.customer.name} · {o.customer && o.customer.phone} · {o.customer && o.customer.city} · {formatPKR(o.total)} · {(o.items || []).length} item(s){o.paymentMethod !== 'COD' ? ' · PREPAID: verify reference' : ''}{o.workerRef ? ` · WORKER ${o.workerRef}: reconcile commission` : ''}</span>
                 <button type="button" className="btn-gold !px-3 !py-1 text-xs" disabled={busy === o.orderId} onClick={() => act('move', o.orderId)}>Move to orders</button>
                 <button type="button" className="btn-ghost !px-3 !py-1 text-xs" disabled={busy === o.orderId} onClick={() => act('dismiss', o.orderId)}>Remove</button>
               </li>
@@ -103,7 +106,7 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        <Kpi l="Live now" v={lv ? lv.online : '...'} s="active in the last 90 s" />
+        <Kpi l="Live now" v={lv ? lv.online : '...'} s="active in the last 2 min" />
         <Kpi l="Visitors today" v={t ? t.uv.toLocaleString('en-PK') : '...'} />
         <Kpi l="Page views today" v={t ? t.views.toLocaleString('en-PK') : '...'} />
         <Kpi l="Orders today" v={t ? t.orders : '...'} />

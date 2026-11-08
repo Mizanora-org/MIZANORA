@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminReady } from '@/lib/firebase-admin';
+import { snapshotGet } from '@/lib/snapshot';
 import {
   MAX_CUSTOM_MOVIES,
   MOVIES_DEFAULT,
@@ -26,6 +27,7 @@ import { bulkResolveImdbIds, runAutoFeedDiscovery } from '@/lib/moviesAutoFeed';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 120; // large archived movie lists may need several atomic GitHub blob uploads
 
 const json = (b, s = 200) => NextResponse.json(b, { status: s, headers: { 'Cache-Control': 'no-store' } });
 
@@ -102,8 +104,10 @@ export async function POST(req) {
 
   const envTmdb = String(process.env.TMDB_API_KEY || '').trim();
 
-  // When Firestore is not configured in local dev, keep load & preview actions smooth
-  if (!adminReady()) {
+  // A deployed archive can be read/edited without the Firestore Admin SDK.
+  const archiveMode = Boolean(await snapshotGet('movies'));
+  // When neither Firestore nor an archive is configured, keep load & preview actions smooth.
+  if (!adminReady() && !archiveMode) {
     if (action === 'load') {
       return json({
         ok: true,
@@ -142,10 +146,10 @@ export async function POST(req) {
   }
 
   try {
-    const db = adminDb();
+    const db = adminReady() ? adminDb() : null;
 
     if (action === 'load') {
-      const [cfg, secrets] = await Promise.all([readMoviesAll(db), readMoviesSecrets(db)]);
+      const [cfg, secrets] = await Promise.all([readMoviesAll(db), db ? readMoviesSecrets(db) : { tmdbApiKey: '' }]);
       const activeKey = envTmdb || secrets.tmdbApiKey || '';
       return json({
         ok: true,
@@ -154,11 +158,13 @@ export async function POST(req) {
         tmdbConfigured: Boolean(activeKey),
         tmdbKeyMasked: maskKey(activeKey),
         tmdbFromEnv: Boolean(envTmdb),
-        dbReady: true,
+        dbReady: Boolean(db || archiveMode),
+        source: archiveMode ? 'archive' : 'firestore',
       });
     }
 
     if (action === 'saveTmdbKey') {
+      if (!db) return json({ ok: false, error: 'TMDB API keys stay private. Set TMDB_API_KEY in Vercel or configure the Firebase Admin SDK; never commit keys to a public archive.' }, 503);
       const rawKey = String(body.tmdbApiKey || '').trim();
       await writeMoviesSecrets(db, { tmdbApiKey: rawKey });
       revalidateMoviesEverywhere();
@@ -205,7 +211,7 @@ export async function POST(req) {
         parts: saved.parts,
         added: merged.added,
         discoveredCount: (discovered.movies || []).length,
-        message: `Auto-Sync complete! Added ${merged.added} new titles (${saved.cfg.customMovies.length} synced + ${STARTER_MOVIES.length} built-in across ${saved.parts} database shards). Sitemap & pages updated.`,
+        message: saved.source === 'archive' ? `Auto-Sync committed ${merged.added} new titles to GitHub. They appear after the new deployment (no Firebase writes).` : `Auto-Sync complete! Added ${merged.added} new titles (${saved.cfg.customMovies.length} synced + ${STARTER_MOVIES.length} built-in across ${saved.parts} database shards). Sitemap & pages updated.`,
       });
     }
 
@@ -240,7 +246,7 @@ export async function POST(req) {
         added: merged.added,
         resolvedCount: batch.movies.length,
         failedCount: batch.failed.length,
-        message: `Bulk IMDb import finished: resolved ${batch.movies.length} of ${ids.length} IMDb IDs (${merged.added} newly added). Sitemap & pages updated!`,
+        message: saved.source === 'archive' ? `Committed ${merged.added} titles to the archive. They appear after the deployment (no Firebase writes).` : `Bulk IMDb import finished: resolved ${batch.movies.length} of ${ids.length} IMDb IDs (${merged.added} newly added). Sitemap & pages updated!`,
       });
     }
 
@@ -291,13 +297,13 @@ export async function POST(req) {
         ok: true,
         cfg: saved.cfg,
         parts: saved.parts,
-        message: `Saved Movies & Series Hub (${saved.cfg.customMovies.length} synced/custom + ${STARTER_MOVIES.length} built-in across ${saved.parts} shards).`,
+        message: saved.source === 'archive' ? `Saved ${saved.cfg.customMovies.length} titles to GitHub; visible after the new deployment (no Firebase writes).` : `Saved Movies & Series Hub (${saved.cfg.customMovies.length} synced/custom + ${STARTER_MOVIES.length} built-in across ${saved.parts} shards).`,
       });
     }
 
     return json({ ok: false, error: 'Unknown action.' }, 400);
   } catch (e) {
     console.error('admin movies route failed:', e.message);
-    return json({ ok: false, error: 'Could not reach Firestore. Try again.' }, 500);
+    return json({ ok: false, error: e.status ? e.message : 'Could not save Movies. Try again.' }, e.status || 500);
   }
 }

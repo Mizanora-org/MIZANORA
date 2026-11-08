@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { verifyAdmin } from '@/lib/adminAuth';
 import { adminDb, adminRtdb } from '@/lib/firebase-admin';
 import { rtdbOn } from '@/lib/rtdb';
+import { readLimitedJson } from '@/lib/readLimitedJson';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,8 @@ export async function POST(req) {
   const a = await verifyAdmin(req);
   if (!a.ok) return json({ ok: false, error: a.error }, a.status);
   if (!rtdbOn()) return json({ ok: false, error: 'Realtime Database is not set up.' }, 503);
-  let b = {}; try { b = await req.json(); } catch { /* defaults */ }
+  let b; try { b = await readLimitedJson(req, 16 * 1024); } catch (e) { return json({ ok: false, error: e.message }, e.status || 400); }
+  if (!b || Array.isArray(b) || typeof b !== 'object') return json({ ok: false, error: 'Invalid request.' }, 400);
   const id = String(b.id || '').replace(/[^A-Z0-9-]/gi, '').slice(0, 20);
   try {
     if (b.action === 'list') {
@@ -34,7 +36,9 @@ export async function POST(req) {
       const { source, workerRef, ...rest } = o;
       await adminDb().collection('orders').doc(id).create({ ...rest, uid: '', email: '', createdAt: FieldValue.serverTimestamp(), movedFromBackup: true, workerRef: workerRef || '' });
       await ref.remove();
-      return json({ ok: true });
+      return json({ ok: true, note: workerRef
+        ? 'Order moved. Worker referral was preserved, but no automatic commission was created during the quota outage: reconcile this worker manually.'
+        : o.paymentMethod !== 'COD' ? 'Order moved. Verify the prepaid payment reference manually before shipping.' : '' });
     }
     return json({ ok: false, error: 'Unknown action' }, 400);
   } catch (e) {
