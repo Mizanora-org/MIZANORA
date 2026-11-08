@@ -56,7 +56,7 @@ export default function PhotoGallery({ photos = [], title = 'Photos' }) {
                 alt={ph.alt || ph.title || 'Muaaz Iqbal'}
                 width={ph.width || 480}
                 height={ph.height || 480}
-                loading="lazy"
+                loading={i < 4 ? 'eager' : 'lazy'}
                 decoding="async"
                 referrerPolicy="no-referrer"
               />

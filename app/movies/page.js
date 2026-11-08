@@ -26,8 +26,8 @@ import MyListShelf from '@/components/MyListShelf';
 import { getMoviesHub } from '@/lib/moviesServer';
 import { getMovieServers } from '@/lib/movieServersServer';
 import { getWorldRows } from '@/lib/moviesWorld';
-import { seedActorLetters, seedActorRows, seedCastSize, seedRows, seedSize } from '@/lib/imdbSeed';
-import { posterHue, searchMovies, slimListMovie, titleInitials } from '@/lib/movies';
+import { seedRows, seedSize } from '@/lib/imdbSeed';
+import { posterHue, searchMovies, titleInitials } from '@/lib/movies';
 
 export const revalidate = 1800;
 
@@ -78,13 +78,6 @@ export default async function MoviesHubPage({ searchParams }) {
     .filter((m) => ['India', 'Iran & Afghanistan', 'Bangladesh', 'Turkey & Arabic'].includes(m.region) && m.status === 'released')
     .slice(0, 6);
   const upcomingCount = movies.filter((m) => m.status === 'upcoming').length;
-  // v60 — EVERY actor, not just the twelve on the rail.
-  // The full cast snapshot (10,000+ real people from IMDb's cast lists) is listed right under the
-  // hub, A-Z, so a visitor who scrolled to the bottom of Movies always finds the person they came
-  // for without hunting in a menu. The rail keeps the famous faces; this is the whole directory.
-  const castAll = seedActorRows({ limit: 60, minTitles: 3 });
-  const castLetters = seedActorLetters(3);
-  const castCount = seedCastSize(3);
 
   const itemListLd = {
     '@context': 'https://schema.org',
@@ -229,7 +222,7 @@ export default async function MoviesHubPage({ searchParams }) {
           <div className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-3 sm:gap-3.5 sm:overflow-visible sm:px-0 lg:grid-cols-6">
             {row.movies.map((m, i) => (
               <div key={m.imdbId || m.slug} className="w-[42vw] max-w-[185px] shrink-0 snap-start sm:w-auto sm:max-w-none">
-                <MoviePosterCard movie={m} priority={i === 0} />
+                <MoviePosterCard movie={m} priority={i < 2} />
               </div>
             ))}
           </div>
@@ -254,7 +247,7 @@ export default async function MoviesHubPage({ searchParams }) {
           <div className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-3 sm:gap-3.5 sm:overflow-visible sm:px-0 lg:grid-cols-6">
             {upcomingTitles.map((m, i) => (
               <div key={m.slug} className="w-[42vw] max-w-[185px] shrink-0 snap-start sm:w-auto sm:max-w-none">
-                <MoviePosterCard movie={m} />
+                <MoviePosterCard movie={m} priority={i < 2} />
               </div>
             ))}
           </div>
@@ -276,7 +269,7 @@ export default async function MoviesHubPage({ searchParams }) {
           <div className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-3 sm:gap-3.5 sm:overflow-visible sm:px-0 lg:grid-cols-6">
             {freeFilms.slice(0, 6).map((m, i) => (
               <div key={m.slug} className="w-[42vw] max-w-[185px] shrink-0 snap-start sm:w-auto sm:max-w-none">
-                <MoviePosterCard movie={m} />
+                <MoviePosterCard movie={m} priority={i < 2} />
               </div>
             ))}
           </div>
@@ -328,8 +321,7 @@ export default async function MoviesHubPage({ searchParams }) {
 
       {/* Interactive Search, IMDb ID Jump & Multi-Filter Grid */}
       <MoviesBrowser
-        // v60: the browser gets a slim copy of every title (poster + the fields search/filter use).
-        movies={movies.map(slimListMovie)}
+        movies={movies}
         initialQuery={initialQuery}
         initialRegion={initialRegion}
         initialFormat={initialFormat}
@@ -348,7 +340,7 @@ export default async function MoviesHubPage({ searchParams }) {
             </Link>
           </div>
           <ul className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-4 sm:gap-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
-            {actors.slice(0, 18).map((a) => {
+            {actors.slice(0, 12).map((a) => {
               const hue = posterHue(a.slug || a.name);
               return (
                 <li key={a.slug} className="w-40 shrink-0 snap-start sm:w-auto">
@@ -374,59 +366,6 @@ export default async function MoviesHubPage({ searchParams }) {
           </ul>
         </section>
       )}
-
-      {/* v60 — THE WHOLE CAST DIRECTORY, A-Z, UNDER THE HUB */}
-      {castAll.rows.length > 0 && (
-        <section className="mx-auto max-w-7xl px-3 pt-10 sm:px-4" aria-labelledby="hub-cast-all">
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-wider text-gold">The full directory</p>
-              <h2 id="hub-cast-all" className="section-title">All Actors, Actresses &amp; Directors</h2>
-              <p className="mt-0.5 text-sm text-dim">
-                {castAll.total.toLocaleString()} people with three or more titles, straight from IMDb&apos;s cast lists.
-                Tap a name for the complete filmography.
-              </p>
-            </div>
-            <Link href="/movies/actors" className="inline-flex items-center gap-1 text-sm font-bold text-gold hover:underline">
-              Open the full cast directory ({castCount.toLocaleString()}) <ArrowRight size={15} />
-            </Link>
-          </div>
-
-          <div className="no-sb -mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Browse actors by first letter">
-            {castLetters.map((l) => (
-              <Link
-                key={l}
-                href={`/movies/actors?letter=${l}`}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-surface text-xs font-extrabold uppercase text-dim transition hover:border-gold hover:text-gold"
-              >
-                {l}
-              </Link>
-            ))}
-          </div>
-
-          <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
-            {castAll.rows.map((a) => (
-              <li key={a.slug}>
-                <Link
-                  href={`/movies/actor/${a.slug}`}
-                  prefetch={false}
-                  className="flex items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-1.5 transition hover:border-gold hover:bg-gold/5"
-                >
-                  <Users size={13} className="shrink-0 text-gold" aria-hidden="true" />
-                  <span className="min-w-0 flex-1">
-                    <b className="block truncate text-[0.8rem] font-semibold text-cream">{a.name}</b>
-                    <span className="block text-[0.65rem] text-faint">
-                      {a.count} title{a.count === 1 ? '' : 's'}{a.from ? ` · ${a.from}${a.to && a.to !== a.from ? `–${a.to}` : ''}` : ''}
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <AdsInject slots={['auto']} />
 
       {/* Editorial Guides Links */}
       <section className="mx-auto max-w-5xl px-4 pt-8 text-sm text-dim">

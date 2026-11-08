@@ -217,19 +217,6 @@ contrast. The admin can pin a season from **Admin > Theme**.
 Every animation is CSS-only and honours `prefers-reduced-motion`. Images use the 3-step chain
 (`RemoteImg` → `/api/img` relay → hide), so a dead photo never shows a broken icon.
 
-**v60 — speed release.** Every remote photo is now fetched once, resized and served as WebP from our
-own domain (`/api/photo?u=…&w=400`, one-year edge cache), exactly one picture per page is eager
-(the LCP), the fonts are down to five files, AdSense loads after the page is usable, the splash hides
-itself with CSS, and the home page went from **1,989 KB / 7,241 DOM nodes / 10 image preloads** to
-**914 KB / 3,373 nodes / 2 preloads**. Measure it yourself:
-
-```bash
-npm run build && npm run perf     # weight table for every built page
-npm run perf:budget               # fails if a page breaks the v60 weight budget
-```
-
-See [UPGRADE-v60.md](UPGRADE-v60.md) for the full list.
-
 ## Categories and filters
 `/products` and `/category/<slug>` share one filter bar (`price`, `colour`, `sale`, `sort`). The URL is the
 state, so every combination is shareable and every page is static.
@@ -238,7 +225,7 @@ state, so every combination is shareable and every page is static.
 ```bash
 npm ci
 npm run check      # scripts/check.js  +  scripts/typecheck.js
-npm test           # all suites, including v60 (speed/weight), v48 (IPTV removed) and v38 (Live TV)
+npm test           # 22 test files, including v48 (IPTV removed) and v38 (Live TV)
 npm run build:offline
 ```
 Both feeds are paged (each part stays under ~4 MB):

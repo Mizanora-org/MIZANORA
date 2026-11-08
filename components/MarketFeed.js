@@ -17,7 +17,7 @@ export default function MarketFeed({ feed }) {
       <FeedFilter>
         {feed.map(({ kind, item }, i) => (
           <div key={`${kind}-${i}`} data-kind={kind} className="mz-feed-item mb-2.5 break-inside-avoid sm:mb-3">
-            {kind === 'product' && <ProductCard p={item} priority={false} />}
+            {kind === 'product' && <ProductCard p={item} priority={i < 2} />}
             {kind === 'islamic' && (
               <article className="rounded-2xl border border-gold/25 bg-gradient-to-br from-[#F4F8F1] via-white to-[#EAF4EE] p-4">
                 <span className={`mb-2 inline-block rounded-full px-2.5 py-0.5 text-[0.68rem] font-extrabold text-white ${KIND_COLOR[item.kind] || 'bg-emerald-600'}`}>{KIND_LABEL[item.kind] || 'Yaad-dehani'}</span>
