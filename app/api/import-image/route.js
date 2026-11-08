@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/adminAuth';
+import { publicUrl, readLimited, safePublicFetch } from '@/lib/safeFetch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,16 +9,18 @@ export const maxDuration = 30;
 const json = (body, status = 200) => NextResponse.json(body, { status });
 // Only the supplier's own image hosts may be fetched (stops this route being used to reach other sites).
 const HOSTS = new Set(['www.markaz.app', 'markaz.app', 'static.markaz.app']);
-const okUrl = (u) => { try { const x = new URL(u); return x.protocol === 'https:' && HOSTS.has(x.hostname); } catch { return false; } };
+const okUrl = (u) => { try { return Boolean(publicUrl(u, { httpsOnly: true, hosts: [...HOSTS], exactHosts: true })); } catch { return false; } };
 
 async function grab(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MizanoraImport/1.0)', Accept: 'image/*' }, redirect: 'follow', signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`source ${res.status}`);
-  if (res.url && !okUrl(res.url)) throw new Error('redirected to an unknown host');
+  const { res } = await safePublicFetch(url, {
+    httpsOnly: true, hosts: [...HOSTS], exactHosts: true, timeout: 15000,
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MizanoraImport/1.0)', Accept: 'image/*' },
+  });
+  if (!res.ok) { await res.body?.cancel(); throw new Error(`source ${res.status}`); }
   const type = (res.headers.get('content-type') || '').toLowerCase();
-  if (!type.startsWith('image/')) throw new Error('not an image');
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length > 8 * 1024 * 1024) throw new Error('image too large');
+  if (!type.startsWith('image/')) { await res.body?.cancel(); throw new Error('not an image'); }
+  const buf = await readLimited(res, 8 * 1024 * 1024);
+  if (!buf.length) throw new Error('empty image');
   return buf;
 }
 
@@ -30,7 +33,7 @@ export async function POST(req) {
 
   let body;
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Bad request.' }, 400); }
-  const url = String((body && body.url) || '');
+  const url = String((body && body.url) || '').slice(0, 2001);
   if (!okUrl(url)) return json({ ok: false, error: 'Only Markaz photo links can be copied.' }, 400);
 
   // Try the link as given, then the plain CDN address inside ?src=

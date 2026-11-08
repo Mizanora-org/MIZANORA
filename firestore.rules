@@ -59,7 +59,25 @@ service cloud.firestore {
 
     // Each customer's own profile and saved addresses.
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // A signed-in visitor can only change their own profile/addresses/wishlist. Never
+      // allow arbitrary extra fields (or large collections) to be written by a web client.
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'email', 'phone', 'createdAtMs', 'updatedAtMs', 'addresses', 'defaultAddressId', 'wishlist', 'wishlistAtMs'])
+        && safeProfile();
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'phone', 'updatedAtMs', 'addresses', 'defaultAddressId', 'wishlist', 'wishlistAtMs'])
+        && safeProfile();
+      allow delete: if false;
+    }
+    function safeProfile() {
+      let p = request.resource.data;
+      return (!('name' in p) || (p.name is string && p.name.size() <= 100))
+        && (!('email' in p) || (p.email is string && p.email.size() <= 160))
+        && (!('phone' in p) || (p.phone is string && p.phone.size() <= 30))
+        && (!('addresses' in p) || (p.addresses is list && p.addresses.size() <= 10))
+        && (!('wishlist' in p) || (p.wishlist is list && p.wishlist.size() <= 200))
+        && (!('defaultAddressId' in p) || (p.defaultAddressId is string && p.defaultAddressId.size() <= 32));
     }
 
     // Discount coupons: admin only (the server checks them when an order is placed).
@@ -72,9 +90,17 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid
         && id == request.auth.uid + '_' + request.resource.data.productId
+        && request.resource.data.keys().hasOnly(['productId', 'productName', 'uid', 'name', 'rating', 'text', 'approved', 'createdAtMs'])
+        && request.resource.data.keys().hasAll(['productId', 'productName', 'uid', 'name', 'rating', 'text', 'approved', 'createdAtMs'])
+        && request.resource.data.productId is string && request.resource.data.productId.size() <= 120
+        && request.resource.data.productName is string && request.resource.data.productName.size() <= 160
+        && request.resource.data.name is string && request.resource.data.name.size() <= 40
+        && request.resource.data.createdAtMs is int
+        && request.resource.data.createdAtMs >= request.time.toMillis() - 600000
+        && request.resource.data.createdAtMs <= request.time.toMillis() + 60000
         && request.resource.data.approved == false
         && request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
-        && request.resource.data.text is string && request.resource.data.text.size() <= 600;
+        && request.resource.data.text is string && request.resource.data.text.size() >= 15 && request.resource.data.text.size() <= 600;
       allow update, delete: if isAdmin();
     }
 

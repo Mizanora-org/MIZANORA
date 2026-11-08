@@ -36,7 +36,7 @@ Quran & Hadith live channel, reels aur free tools.
 
 ---
 
-Next.js 15 (App Router) + Tailwind + Firebase + Meta Pixel/CAPI + installable PWA. See [SETUP.md](SETUP.md).
+Next.js 15 (App Router) + Tailwind + Firebase + Meta Pixel/CAPI + installable PWA. See [SETUP.md](SETUP.md) and [data, security and deployment operations](docs/DATA-SECURITY-OPERATIONS.md) before migrating live Firestore data or publishing Firebase rules.
 Checks without installing: `node scripts/check.js` (syntax and imports).
 
 **Live:** <https://mizanora.vercel.app> · **Live channel:** <https://mizanora.vercel.app/live-channel> ·

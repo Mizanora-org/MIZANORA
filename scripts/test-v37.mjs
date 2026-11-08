@@ -64,7 +64,7 @@ ok('analytics: the new metrics are cleaned up like the old ones', (src('app/api/
 const statsApi = src('app/api/stats/route.js');
 ok('stats API: needs no sign-in (public)', !/isAdmin|requireAdmin/.test(statsApi));
 ok('stats API: counts who is on the site right now', /online/.test(statsApi) && /presence/.test(statsApi));
-ok('stats API: online means seen within the last few minutes', /90e3|90000|90\s*\*\s*1000/.test(statsApi));
+ok('stats API: online means seen within the last few minutes', /90e3|120e3|90000|120000|90\s*\*\s*1000/.test(statsApi));
 ok('stats API: it leaks no visitor id', !/Object\.keys\(p\w*\)\.map|id:\s*/.test(statsApi));
 ok('stats API: it leaks no order or cart contents', !/ordersBackup|liveOrders/.test(statsApi));
 ok('stats API: it leaks no search words', !/['"]q0['"]|searchWords|rawQ/.test(statsApi));
@@ -133,7 +133,7 @@ const pkg = JSON.parse(src('package.json'));
 ok('version: it is at least 37', Number(String(pkg.version).split('.')[0]) >= 37);
 ok('tests: this file is in the npm test chain', /test-v37\.mjs/.test(src('package.json')));
 ok('docs: UPGRADE-v37.md exists and says what changed', /Xtream/i.test(src('UPGRADE-v37.md')) && /news/i.test(src('UPGRADE-v37.md')));
-ok('rules: the database rules allow the new per-page and return-visit stats', /['"]rt['"]/.test(src('database.rules.json')) && /['"]pg['"]/.test(src('database.rules.json')));
+ok('rules: page and returning stats are server-only (no anonymous RTDB writes)', /hr\/|pg\//.test(src('app/api/telemetry/route.js')) && /rt\//.test(src('app/api/telemetry/route.js')) && /"stats": \{ \"\.read\": false, \"\.write\": false/.test(src('database.rules.json')));
 
 console.log(`\n# v37: ${pass} checks passed, ${fails.length} failed`);
 if (fails.length) { console.log(fails.map((f) => `  - ${f}`).join('\n')); process.exit(1); }

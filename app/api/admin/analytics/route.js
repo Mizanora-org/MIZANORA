@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 // Admin only. Everything the dashboard shows comes from the Realtime Database: zero Firestore reads.
-//   POST { live: true }            -> only "who is on the site now" + the live order feed (cheap, refreshed every 20 s)
+//   POST { live: true }            -> only "who is on the site now" + the live order feed (cheap, refreshed every 60 s)
 //   POST { days: 14 }              -> the full picture
 //   POST { action: 'cleanup', keepDays: 90 }  -> delete old counters
 const json = (b, s = 200) => NextResponse.json(b, { status: s });
@@ -69,7 +69,7 @@ export async function POST(req) {
     const series = days.map((d, i) => ({ d, views: Number(dd[i] && dd[i].views) || 0, uv: Number(dd[i] && dd[i].uv) || 0, orders: Number(dd[i] && dd[i].orders) || 0, sales: Number(dd[i] && dd[i].sales) || 0 }));
     // Which hours of the day are busy, added up over the whole range.
     // v38: this used to read a `hours` array inside each day that NOTHING ever wrote, so the
-    // chart was flat zero on every shop. lib/track.js now writes stats/hr/<day>/<HH> and this
+    // chart was flat zero on every shop. app/api/telemetry now writes stats/hr/<day>/<HH> and this
     // reads that. A day recorded before the fix contributes nothing rather than a made-up curve.
     const byHour = new Array(24).fill(0);
     let byHourDays = 0;

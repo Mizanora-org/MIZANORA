@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import {
   Bot, Boxes, Clapperboard, Tv, Flame, MoonStar, Sparkles, Clock, ImageOff, Image, Images, LayoutDashboard, LogOut, Menu, Megaphone, Music4, Package, Plug, Power,
-  Radio, Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X, Server, Activity,
+  Radio, Search, ShoppingBag, Star, TicketPercent, Upload, Users, Video, FileSpreadsheet, Archive, X, Server, Activity, ShieldAlert,
 } from 'lucide-react';
 import { authClient } from '@/lib/firebase-client';
 import { adminHit } from '@/lib/adminSearch';
@@ -35,6 +35,7 @@ export const ADMIN_MENU = [
   {
     title: 'Catalogue',
     items: [
+      { href: '/admin/data', label: 'Archive settings', icon: Archive, hint: 'Live TV, movies, play servers and public settings → repo files', tag: 'NEW' },
       { href: '/admin/catalogue', label: 'Catalogue (files)', icon: Boxes, hint: 'Zero-Firebase shop: edit archived products in the files', tag: 'NEW' },
       { href: '/admin/products', label: 'Products', icon: Package, hint: 'Add, edit, search live + archived products' },
       { href: '/admin/import', label: 'Import CSV', icon: Upload, hint: 'Supplier CSV into Firestore or the archive', tag: 'CSV' },
@@ -69,6 +70,7 @@ export const ADMIN_MENU = [
     title: 'System',
     items: [
       { href: '/admin/control', label: 'Control room', icon: Power, hint: 'Shut down, high alert, feature switches' },
+      { href: '/admin/security', label: 'Security & IP alerts', icon: ShieldAlert, hint: 'Suspicious activity, logs and IP blocks', tag: 'NEW' },
     ],
   },
 ];

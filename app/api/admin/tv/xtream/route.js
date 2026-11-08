@@ -4,7 +4,9 @@ import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { xtreamTest, xtreamImport } from '@/lib/xtreamServer';
 import { cleanXtreamCreds, maskXtream, mergeXtreamChannels, XTREAM_LIMITS } from '@/lib/xtream';
 import { readTvAll, writeTvAll } from '@/lib/liveTvStore';
-import { MAX_CHANNELS } from '@/lib/liveTv';
+import { MAX_CHANNELS, cleanTv } from '@/lib/liveTv';
+import { snapshotGet } from '@/lib/snapshot';
+import { ensureNoPendingCapture, saveArchivedSetting } from '@/lib/snapshotStore';
 import { revalidatePath, revalidateTag } from 'next/cache';
 
 export const runtime = 'nodejs';
@@ -52,7 +54,8 @@ export async function POST(req) {
   if (!creds.ok) return json({ ok: false, error: creds.error }, 400);
   const asked = String(b.action || 'test');
   const action = ['import', 'commit'].includes(asked) ? asked : 'test';
-  if (action === 'commit' && !adminReady()) return json({ ok: false, error: 'The database is not configured on the server.' }, 503);
+  const archived = action === 'commit' ? await snapshotGet('livetv') : null;
+  if (action === 'commit' && !archived && !adminReady()) return json({ ok: false, error: 'Configure Firebase Admin or deploy a Live TV archive first.' }, 503);
 
   try {
     if (action === 'test') {
@@ -75,11 +78,14 @@ export async function POST(req) {
     // ---------------------------------------------------------------------
     if (action === 'commit') {
       const mode = b.mode === 'replace' ? 'replace' : 'merge';
+      if (!archived) await ensureNoPendingCapture('livetv');
       const r = await xtreamImport(b, importOpts(b));
       if (!r.ok) return json({ ok: false, error: r.error, partial: r.partial, errors: r.errors }, 502);
       if (!r.channels.length) return json({ ok: false, error: 'That selection has no channels on the panel. Nothing was changed.' }, 422);
 
-      const { config, channels: current, legacy } = await readTvAll(adminDb());
+      const { config, channels: current, legacy } = archived
+        ? { config: { ...cleanTv(archived.data), count: archived.data.channels.length }, channels: archived.data.channels, legacy: false }
+        : await readTvAll(adminDb());
       if (!legacy && Number(config?.count) > current.length) {
         return json({ ok: false, error: 'Existing channels could not all be read. Try again before importing.' }, 409);
       }
@@ -88,7 +94,9 @@ export async function POST(req) {
       if (list.length > MAX_CHANNELS) {
         return json({ ok: false, error: `That would take the shop to ${list.length.toLocaleString('en-PK')} channels. The limit is ${MAX_CHANNELS.toLocaleString('en-PK')}.` }, 400);
       }
-      const w = await writeTvAll(adminDb(), { ...(config || {}), channels: list });
+      const cfg = cleanTv({ ...(config || {}), channels: list });
+      const saved = archived ? await saveArchivedSetting('livetv', cfg) : null;
+      const w = archived ? { channels: cfg.channels, parts: 0 } : await writeTvAll(adminDb(), cfg);
       try { revalidateTag('livetv'); revalidatePath('/live'); } catch (_) { /* ignore */ }
       return json({
         ok: true,
@@ -100,9 +108,11 @@ export async function POST(req) {
         updated: Array.isArray(merged) ? 0 : merged.updated,
         total: w.channels.length,
         parts: w.parts,
+        source: archived ? 'archive' : 'firestore',
+        ...(saved ? { commit: saved.commit } : {}),
         partial: r.partial,
         errors: r.errors,
-        message: mode === 'replace'
+        message: archived ? `Committed ${w.channels.length.toLocaleString('en-PK')} channels to the public archive. /live will update after the deployment. Streams containing account credentials cannot be archived.` : mode === 'replace'
           ? `Replaced the list with ${w.channels.length.toLocaleString('en-PK')} channels from the panel, stored in ${w.parts} shard${w.parts === 1 ? '' : 's'}. /live updates within seconds.`
           : `Added ${(Array.isArray(merged) ? list.length : merged.added).toLocaleString('en-PK')} channel${(Array.isArray(merged) ? list.length : merged.added) === 1 ? '' : 's'} from the panel. The shop now holds ${w.channels.length.toLocaleString('en-PK')} channels in ${w.parts} shard${w.parts === 1 ? '' : 's'}. /live updates within seconds.`,
       });
@@ -131,8 +141,9 @@ export async function POST(req) {
       errors: r.errors,
     });
   } catch (e) {
-    // never echo the address+credentials back with an error
-    console.error('xtream import failed:', e.message);
+    // Panel URLs may contain a password; never put untrusted error text into logs or a response.
+    if (e.status) return json({ ok: false, error: e.message }, e.status);
+    console.error('xtream import failed (details redacted)');
     return json({ ok: false, error: 'Could not reach the panel. Check the server address, username and password, then try again.' }, 502);
   }
 }

@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { publicUrl, readLimited, safePublicFetch } from '@/lib/safeFetch';
+import { securityIp, logSecurityEvent } from '@/lib/securityControl';
+import { limitRequest } from '@/lib/requestRate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,67 +26,49 @@ export const maxDuration = 20;
 const MAX_BYTES = 8 * 1024 * 1024;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36';
 
-function privateHost(host) {
-  const h = String(host || '').toLowerCase();
-  if (!h) return true;
-  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.localhost')) return true;
-  if (/^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(h)) return true;
-  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
-  if (h === '::1' || h.startsWith('[')) return true;
-  return false;
-}
-
-function safeUrl(raw) {
-  let x;
-  try { x = new URL(String(raw || '').trim()); } catch { return null; }
-  if (x.protocol !== 'https:') return null;
-  if (privateHost(x.hostname)) return null;
-  // Optional allow-list (host or *.host).
-  const list = String(process.env.NEXT_IMAGE_PROXY_HOSTS || '')
-    .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-  if (list.length) {
-    const host = x.hostname.toLowerCase();
-    const ok = list.some((d) => (d.startsWith('*.') ? host.endsWith(d.slice(1)) : host === d || host.endsWith(`.${d}`)));
-    if (!ok) return null;
-  }
-  return x;
-}
+const allowedHosts = () => String(process.env.NEXT_IMAGE_PROXY_HOSTS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+const safeUrl = (raw) => {
+  try { return publicUrl(raw, { httpsOnly: true, hosts: allowedHosts().length ? allowedHosts() : null }); } catch { return null; }
+};
 
 const noCache = { 'Cache-Control': 'no-store' };
 
 export async function GET(req) {
   const target = safeUrl(req.nextUrl.searchParams.get('u'));
-  if (!target) return new NextResponse('bad image link', { status: 400, headers: noCache });
+  if (!target) {
+    await logSecurityEvent(req, 'image-relay-invalid', { reason: 'bad-target', severity: 'medium' });
+    return new NextResponse('bad image link', { status: 400, headers: noCache });
+  }
+  const rate = limitRequest('image-relay', securityIp(req.headers), 90);
+  if (!rate.allowed) {
+    await logSecurityEvent(req, 'rate-limit', { reason: 'image-relay', severity: 'high' });
+    return new NextResponse('Too many image requests', { status: 429, headers: { ...noCache, 'Retry-After': String(rate.retryAfter) } });
+  }
 
   let res;
   try {
-    res = await fetch(target.toString(), {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(10000),
+    ({ res } = await safePublicFetch(target.href, {
+      httpsOnly: true, hosts: allowedHosts().length ? allowedHosts() : null, timeout: 10000,
       headers: {
         'User-Agent': UA,
         Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-        // Many CDNs answer only when the Referer looks like their own site.
         Referer: `${target.origin}/`,
       },
-    });
-  } catch {
-    return new NextResponse('image host not reachable', { status: 504, headers: noCache });
+    }));
+  } catch (e) {
+    if (/private address|bad protocol|bad public URL|host not allowed/i.test(String(e.message || e))) {
+      await logSecurityEvent(req, 'image-relay-invalid', { reason: 'blocked-redirect', severity: 'high' });
+    }
+    return new NextResponse('image host not reachable or redirect blocked', { status: 502, headers: noCache });
   }
-
-  if (!res.ok) return new NextResponse(`image host said ${res.status}`, { status: 502, headers: noCache });
-  // A redirect could have landed on a private address: check the final URL too.
-  if (!safeUrl(res.url)) return new NextResponse('bad redirect', { status: 400, headers: noCache });
+  if (!res.ok) { try { await res.body?.cancel(); } catch { /* ignore */ } return new NextResponse(`image host said ${res.status}`, { status: 502, headers: noCache }); }
 
   const type = String(res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-  if (!type.startsWith('image/')) return new NextResponse('not an image', { status: 415, headers: noCache });
-  const len = Number(res.headers.get('content-length') || 0);
-  if (len > MAX_BYTES) return new NextResponse('image too large', { status: 413, headers: noCache });
-
+  if (!type.startsWith('image/')) { try { await res.body?.cancel(); } catch { /* ignore */ } return new NextResponse('not an image', { status: 415, headers: noCache }); }
   let buf;
-  try { buf = Buffer.from(await res.arrayBuffer()); } catch { return new NextResponse('image download failed', { status: 502, headers: noCache }); }
+  try { buf = await readLimited(res, MAX_BYTES); }
+  catch (e) { return new NextResponse(e.message === 'response too large' ? 'image too large' : 'image download failed', { status: e.message === 'response too large' ? 413 : 502, headers: noCache }); }
   if (!buf.length) return new NextResponse('empty image', { status: 502, headers: noCache });
-  if (buf.length > MAX_BYTES) return new NextResponse('image too large', { status: 413, headers: noCache });
 
   return new NextResponse(buf, {
     status: 200,

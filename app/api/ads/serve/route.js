@@ -25,10 +25,9 @@ export async function GET(req) {
   const key = sp.get('key') || '';
   const slot = String(sp.get('slot') || '').slice(0, 20);
   const count = Math.max(1, Math.min(12, Math.floor(Number(sp.get('count'))) || 1));
-  const origin = String(req.headers.get('origin') || '').replace(/\/$/, '');
-  const host = String(req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(',')[0].trim();
+  const origin = String(req.headers.get('origin') || (() => { try { return new URL(req.headers.get('referer')).origin; } catch { return ''; } })()).replace(/\/$/, '');
 
-  const r = await serveAds({ key, slot, count, selfOrigin: origin, selfHost: host });
+  const r = await serveAds({ key, slot, count, selfOrigin: origin });
   if (!r.ok) {
     const status = /key|auth|self/i.test(String(r.error || '')) ? 401 : 503;
     return NextResponse.json({ ok: false, error: r.error }, { status, headers: CORS });

@@ -8,6 +8,7 @@ import { revalidateSite } from '@/lib/admin-cache';
 import { cleanGroup } from '@/lib/dealGroups';
 import { DEALS_DEFAULT, DEALS_DOC, cleanDeals } from '@/lib/deals';
 import { absUrl } from '@/lib/config';
+import { snapshotCall } from '@/lib/adminSnapshotsClient';
 
 // Admin > Deals: settings of the one-link deals page (/deals). Which products are deals is automatic: every in-stock product whose
 // price is lower than its old price ("compare price"). To make a deal, set an old price on a product (Admin > Products), or ask the AI manager.
@@ -19,27 +20,38 @@ export default function AdminDeals() {
   const [pinned, setPinned] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [source, setSource] = useState('firestore');
   const [info, setInfo] = useState({}); // per group: the last preview / result text
   const [pick, setPick] = useState({ i: -1, q: '', items: [], busy: false, msg: '' }); // the product picker of one group
 
   useEffect(() => {
-    getDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id)).then((d) => {
-      const c = d.exists() ? cleanDeals({ ...DEALS_DEFAULT, ...d.data() }) : DEALS_DEFAULT;
-      setCfg(c); setPinned(c.pinned.join('\n'));
-    }).catch((e) => { setMsg(`Could not read: ${e.message}`); setCfg(DEALS_DEFAULT); });
+    let active = true;
+    (async () => {
+      try {
+        const snap = await snapshotCall('deals', 'read');
+        if (!active) return;
+        if (snap.source === 'pending') { setSource('pending'); setMsg('Archive commit pending deployment. Wait before editing the deals settings.'); setCfg(DEALS_DEFAULT); return; }
+        if (snap.source === 'archive') { const c = cleanDeals(snap.data); setSource('archive'); setCfg(c); setPinned(c.pinned.join('\n')); return; }
+        const d = await getDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id));
+        if (active) { const c = d.exists() ? cleanDeals({ ...DEALS_DEFAULT, ...d.data() }) : DEALS_DEFAULT; setCfg(c); setPinned(c.pinned.join('\n')); }
+      } catch (e) { if (active) { setMsg(`Could not read: ${e.message}`); setCfg(DEALS_DEFAULT); setSource('pending'); } }
+    })();
+    return () => { active = false; };
   }, []);
   if (!cfg) return <p className="p-6 text-dim">Loading...</p>;
   const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
   const link = absUrl('/deals');
 
   async function save() {
+    if (source === 'pending') { setMsg('Wait for the pending archive deploy, then reload before saving.'); return; }
     setBusy(true); setMsg('');
     try {
       const clean = cleanDeals({ ...cfg, pinned });
-      await setDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id), { ...clean, updatedAtMs: Date.now() });
+      if (source === 'archive') { await snapshotCall('deals', 'save', { data: clean }); setSource('pending'); }
+      else await setDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id), { ...clean, updatedAtMs: Date.now() });
       setCfg(clean); setPinned(clean.pinned.join('\n'));
       await revalidateSite(undefined, ['deals-config']);
-      setMsg('Saved. /deals is updated within a few seconds.');
+      setMsg(source === 'archive' ? 'Saved in GitHub. /deals updates after the next deployment; reload the admin editor then.' : 'Saved. /deals is updated within a few seconds.');
     } catch (e) { setMsg(`Could not save: ${e.message}`); }
     setBusy(false);
   }
@@ -59,6 +71,7 @@ export default function AdminDeals() {
   async function act(i, action) {
     const g = cleanGroup(cfg.groups[i]);
     if (!g) { setInfo((x) => ({ ...x, [i]: 'Give the group a name first.' })); return; }
+    if (source === 'pending') { setMsg('Wait for the pending archive deploy, then reload before applying a group.'); return; }
     if (action === 'apply' && !window.confirm(`Change the REAL prices of every matching live product to a deal (${g.price ? `Rs ${g.price}` : `${g.pct}% off`})? You can undo it.`)) return;
     setBusy(true); setInfo((x) => ({ ...x, [i]: 'Working...' }));
     try {
@@ -70,7 +83,7 @@ export default function AdminDeals() {
       else if (action === 'preview') text = `${j.count} product(s) would change (${j.liveCount} live, ${j.archiveCount} from the catalogue files${j.archiveTooMany ? `, ${j.archiveTooMany} more than one group can handle` : ''}${j.archiveOff ? '; catalogue files could not be read' : ''}).${(j.sample || []).map((x) => ` ${x.name}: Rs ${x.from} to Rs ${x.to}.`).join('')}${j.skippedCount ? ` ${j.skippedCount} would be skipped (${(j.skipped || []).slice(0, 2).join('; ')}).` : ''}`;
       else text = j.summary || 'Done.';
       setInfo((x) => ({ ...x, [i]: text }));
-      if (j.ok && action !== 'preview') { await setDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id), { ...cleanDeals({ ...cfg, pinned }), updatedAtMs: Date.now() }); await revalidateSite(undefined, ['deals-config']); }
+      if (j.ok && action !== 'preview') { const clean = cleanDeals({ ...cfg, pinned }); if (source === 'archive') { await snapshotCall('deals', 'save', { data: clean }); setSource('pending'); } else await setDoc(doc(dbClient(), DEALS_DOC.collection, DEALS_DOC.id), { ...clean, updatedAtMs: Date.now() }); await revalidateSite(undefined, ['deals-config']); }
     } catch (e) { setInfo((x) => ({ ...x, [i]: `Could not finish: ${e.message}` })); }
     setBusy(false);
   }
@@ -140,9 +153,9 @@ export default function AdminDeals() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" disabled={busy} onClick={() => act(i, 'preview')}>Preview</button>
-              <button type="button" className="btn-gold !px-3 !py-1.5 text-xs" disabled={busy} onClick={() => act(i, 'apply')}>Apply deal</button>
-              <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" disabled={busy} onClick={() => act(i, 'undo')}>Undo</button>
+              <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" disabled={busy || source === 'pending'} onClick={() => act(i, 'preview')}>Preview</button>
+              <button type="button" className="btn-gold !px-3 !py-1.5 text-xs" disabled={busy || source === 'pending'} onClick={() => act(i, 'apply')}>Apply deal</button>
+              <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" disabled={busy || source === 'pending'} onClick={() => act(i, 'undo')}>Undo</button>
               <button type="button" className="ml-auto text-red-600" aria-label="Remove group" onClick={() => setCfg((c) => ({ ...c, groups: c.groups.filter((_, n) => n !== i) }))}><Trash2 size={17} /></button>
             </div>
             {info[i] && <p role="status" className="rounded-lg bg-raised p-2 text-xs text-cream">{info[i]}</p>}
@@ -164,7 +177,7 @@ export default function AdminDeals() {
         <label className="block text-sm"><span className="label">Hot picks: product slugs shown first (one per line)</span>
           <textarea className="input" rows={4} value={pinned} onChange={(e) => setPinned(e.target.value)} placeholder="men-leather-wallet-black" /></label>
         <p className="text-xs text-dim">The countdown is only a banner: it does not change any price. A real, automatic price end is the "sale ends" option on the product.</p>
-        <button type="button" className="btn-gold" disabled={busy} onClick={save}>{busy ? 'Saving...' : 'Save'}</button>
+        <button type="button" className="btn-gold" disabled={busy || source === 'pending'} onClick={save}>{busy ? 'Saving...' : 'Save'}</button>
       </section>
     </div>
   );

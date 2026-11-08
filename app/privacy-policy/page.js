@@ -15,6 +15,8 @@ export default function Privacy() {
         <p>Your cart and your last delivery details are saved in your browser on your own phone so that re-ordering is quick. You can clear them by clearing your browser data.</p>
         <h2>Advertising and analytics</h2>
         <p>We use the Meta Pixel and Meta Conversions API to measure our ads on Facebook and Instagram. They receive information about the pages you view and your orders (such as the order value and a hashed form of your contact details).</p>
+        <h2>Security and visitor traffic</h2>
+        <p>We measure visits using limited technical data such as pages viewed, approximate location, browser information and a masked IP address. If a request looks like an attack or you are blocked for abuse, we keep the full IP address, time, requested route (without query or form data) and a short browser description in a private security log visible to the site owner. Security logs are deleted after about 30 days; temporary IP blocks expire after 1 to 30 days. We do not publish security records in the public product archive.</p>
         <h2>Who sees your data</h2>
         <p>Your order is stored in Google Firebase. We share your name, phone number and address with the courier company that delivers your parcel. We do not sell your data.</p>
         <h2>Movies, series &amp; the player</h2>

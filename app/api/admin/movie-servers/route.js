@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { verifyAdmin } from '@/lib/adminAuth';
-import { adminDb, adminReady } from '@/lib/firebase-admin';
+import { adminReady } from '@/lib/firebase-admin';
+import { snapshotGet } from '@/lib/snapshot';
 import {
   MAX_MOVIE_SERVERS,
   MOVIE_SERVERS_DEFAULT,
@@ -44,7 +45,8 @@ export async function POST(req) {
 
   const action = String(body.action || 'load');
 
-  if (!adminReady()) {
+  const archiveMode = Boolean(await snapshotGet('movie-servers'));
+  if (!adminReady() && !archiveMode) {
     if (action === 'load') {
       return json({ ok: true, cfg: MOVIE_SERVERS_DEFAULT, dbReady: false, stats: describeServers([]) });
     }
@@ -59,7 +61,8 @@ export async function POST(req) {
       return json({
         ok: true,
         cfg,
-        dbReady: true,
+        dbReady: adminReady() || archiveMode,
+        source: archiveMode ? 'archive' : 'firestore',
         max: MAX_MOVIE_SERVERS,
         stats: describeServers(cfg.servers),
         preview: cfg.servers.map((s) => ({ id: s.id, url: buildServerUrl(s.template, { imdbId: 'tt22084616', title: 'Sample Title', year: 2026, type: 'movie', season: 1, episode: 1 }) })),
@@ -120,14 +123,15 @@ export async function POST(req) {
         return json({ ok: false, error: `Maximum ${MAX_MOVIE_SERVERS} play servers allowed.` }, 400);
       }
       const saved = await saveMovieServers(next);
-      if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
+      if (!saved.ok) return json({ ok: false, error: saved.error }, saved.status || 500);
       refresh();
       return json({
         ok: true,
         cfg: saved.cfg,
+        source: saved.source,
         stats: describeServers(saved.cfg.servers),
         message:
-          action === 'add'
+          saved.source === 'archive' ? 'Repo mein commit ho gaya. Play servers nai deployment ke baad nazar aayenge (abhi nahi).' : action === 'add'
             ? `Server add ho gaya: ${saved.cfg.servers[saved.cfg.servers.length - 1]?.name || ''}. Ab har movie page par nazar aayega.`
             : action === 'update'
               ? 'Server update ho gaya.'
@@ -185,7 +189,7 @@ export async function POST(req) {
         return json({ ok: false, error: errors.length ? errors.slice(0, 4).join(' · ') : 'Koi valid link nahi mila.' }, 400);
       }
       const saved = await saveMovieServers({ ...cfg, servers: [...cfg.servers, ...added] });
-      if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
+      if (!saved.ok) return json({ ok: false, error: saved.error }, saved.status || 500);
       refresh();
       return json({
         ok: true,
@@ -203,9 +207,9 @@ export async function POST(req) {
       const servers = cfg.servers.filter((s) => s.id !== id);
       if (servers.length === cfg.servers.length) return json({ ok: false, error: 'That server no longer exists.' }, 404);
       const saved = await saveMovieServers({ ...cfg, servers });
-      if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
+      if (!saved.ok) return json({ ok: false, error: saved.error }, saved.status || 500);
       refresh();
-      return json({ ok: true, cfg: saved.cfg, stats: describeServers(saved.cfg.servers), message: 'Server delete ho gaya.' });
+      return json({ ok: true, cfg: saved.cfg, source: saved.source, stats: describeServers(saved.cfg.servers), message: 'Server delete ho gaya.' });
     }
 
     if (action === 'toggle') {
@@ -214,9 +218,9 @@ export async function POST(req) {
       if (at < 0) return json({ ok: false, error: 'That server no longer exists.' }, 404);
       const servers = cfg.servers.map((s, i) => (i === at ? { ...s, enabled: s.enabled === false } : s));
       const saved = await saveMovieServers({ ...cfg, servers });
-      if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
+      if (!saved.ok) return json({ ok: false, error: saved.error }, saved.status || 500);
       refresh();
-      return json({ ok: true, cfg: saved.cfg, stats: describeServers(saved.cfg.servers) });
+      return json({ ok: true, cfg: saved.cfg, source: saved.source, stats: describeServers(saved.cfg.servers) });
     }
 
     if (action === 'move') {
@@ -232,9 +236,9 @@ export async function POST(req) {
       }
       const servers = list.map((s, i) => ({ ...s, priority: i + 1 }));
       const saved = await saveMovieServers({ ...cfg, servers });
-      if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
+      if (!saved.ok) return json({ ok: false, error: saved.error }, saved.status || 500);
       refresh();
-      return json({ ok: true, cfg: saved.cfg, stats: describeServers(saved.cfg.servers) });
+      return json({ ok: true, cfg: saved.cfg, source: saved.source, stats: describeServers(saved.cfg.servers) });
     }
 
     if (action === 'duplicate') {
@@ -244,14 +248,14 @@ export async function POST(req) {
       if (cfg.servers.length >= MAX_MOVIE_SERVERS) return json({ ok: false, error: `Maximum ${MAX_MOVIE_SERVERS} servers.` }, 400);
       const copy = cleanServer({ ...src, id: `${src.id}-copy`, name: `${src.name} copy`.slice(0, 40), priority: cfg.servers.length + 1 }, cfg.servers.length);
       const saved = await saveMovieServers({ ...cfg, servers: [...cfg.servers, copy] });
-      if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
+      if (!saved.ok) return json({ ok: false, error: saved.error }, saved.status || 500);
       refresh();
-      return json({ ok: true, cfg: saved.cfg, stats: describeServers(saved.cfg.servers), message: 'Server ki copy bana di.' });
+      return json({ ok: true, cfg: saved.cfg, source: saved.source, stats: describeServers(saved.cfg.servers), message: 'Server ki copy bana di.' });
     }
 
     if (action === 'reset') {
       const saved = await saveMovieServers({ ...MOVIE_SERVERS_DEFAULT });
-      if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
+      if (!saved.ok) return json({ ok: false, error: saved.error }, saved.status || 500);
       refresh();
       return json({ ok: true, cfg: saved.cfg, stats: describeServers([]), message: 'Poori list reset ho gayi.' });
     }
@@ -259,6 +263,6 @@ export async function POST(req) {
     return json({ ok: false, error: 'Unknown action.' }, 400);
   } catch (e) {
     console.error('admin movie-servers route failed:', e.message);
-    return json({ ok: false, error: 'Could not reach Firestore. Try again.' }, 500);
+    return json({ ok: false, error: e.status ? e.message : 'Could not save play servers. Try again.' }, e.status || 500);
   }
 }
