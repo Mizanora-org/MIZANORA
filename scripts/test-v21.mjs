@@ -24,7 +24,14 @@ t('blocked storage: toggle still works', w.toggleWish('m3') === true && w.getWis
 
 // ---- AdSense
 const layout = read('app/layout.js');
-t('AdSense script is in the layout head', layout.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4008582341764263') && layout.includes('crossOrigin="anonymous"'));
+// v60: the AdSense tag moved out of <head> into components/AdSense.js, which adds it as soon as the
+// page is usable (first tap/scroll, idle after load, or 4 s). Same script, same client id — it just
+// no longer competes with the first paint. The intent of this check is unchanged: AdSense must be
+// wired to our account, from our own code.
+const adsense = read('components/AdSense.js');
+t('AdSense script is wired to our account', adsense.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${CLIENT}')
+  && adsense.includes("ca-pub-4008582341764263") && adsense.includes("s.crossOrigin = 'anonymous'"));
+t('AdSense is mounted from the layout', layout.includes('<AdSense />'));
 t('AdSense account meta is present', layout.includes('google-adsense-account'));
 t('ads.txt is correct', read('public/ads.txt').trim() === 'google.com, pub-4008582341764263, DIRECT, f08c47fec0942fa0');
 

@@ -6,6 +6,7 @@ import { absUrl } from '@/lib/config';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import NewsDesk from '@/components/NewsDesk';
+import ProductAds from '@/components/ProductAds';
 
 // v37: the news desk. World news, science and technology - written for Pakistani readers,
 // with the date on everything and the sources named where a number is quoted.
@@ -66,6 +67,9 @@ export default function NewsPage() {
           mainEntity: { '@type': 'ItemList', numberOfItems: news.length, itemListElement: news.slice(0, 40).map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: absUrl(`/blog/${p.slug}`), name: p.title })) },
         },
       ]} />
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="news" />
     </>
   );
 }

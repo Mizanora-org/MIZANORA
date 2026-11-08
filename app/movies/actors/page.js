@@ -46,7 +46,10 @@ export default async function ActorsDirectoryPage({ searchParams }) {
 
   const { actors, movies } = await getMoviesHub();
   // v51: fill missing portraits from the official IMDb suggestion endpoint (cached 12h).
-  const filtered = await enrichActorsWithPhotos(searchActors(q, actors, { region, limit: 200 }), 12);
+  // v60: 48 profile cards (each with a photo, bio, awards and credits) instead of 200 at once.
+  // The page was 861 KB of HTML for a grid a phone can only show 4 of at a time; the deep cast
+  // directory below still lists 10,000+ people with paging, so nothing became unreachable.
+  const filtered = await enrichActorsWithPhotos(searchActors(q, actors, { region, limit: 48 }), 12);
   // v57 — the snapshot cast directory: 10,000+ real people with three or more titles, straight from
   // IMDb's cast lists. The curated profiles above stay first; this is the deep directory below them.
   const PER_PAGE = 60;

@@ -2,6 +2,7 @@ import { FAQ } from '@/lib/faq';
 import { pageMeta, faqJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
+import ProductAds from '@/components/ProductAds';
 
 export const metadata = pageMeta({
   title: 'FAQ: Ordering, Delivery and Payment',
@@ -22,6 +23,9 @@ export default function FaqPage() {
         ))}
       </div>
       <JsonLd data={[faqJsonLd(FAQ), breadcrumbJsonLd([['/', 'Home'], ['/faq', 'FAQ']])]} />
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="faq" />
     </>
   );
 }

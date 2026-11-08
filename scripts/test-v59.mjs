@@ -207,7 +207,8 @@ ok('songs: playable in site search, listed in the sitemaps');
 
 // ------------------------------------------------------------ 7. release hygiene
 const pkg = JSON.parse(read('package.json'));
-check(String(pkg.version).startsWith('59.'), `package.json should be 59.x, got ${pkg.version}`);
+// v60: releases move on, so this asks that we are AT LEAST on 59 - not frozen there for ever.
+check(Number(String(pkg.version).split('.')[0]) >= 59, `package.json should be 59.x or newer, got ${pkg.version}`);
 check(read('UPGRADE-v59.md').includes('59'), 'UPGRADE-v59.md documents the release');
 check(String(pkg.scripts.test).includes('test-v59.mjs'), 'npm test runs this suite');
 check(existsSync(join(root, 'lib/releaseDates.js')), 'lib/releaseDates.js is part of the repo');
