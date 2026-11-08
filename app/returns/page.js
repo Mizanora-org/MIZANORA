@@ -1,6 +1,7 @@
 import { waLink } from '@/lib/config';
 import { pageMeta } from '@/lib/seo';
 import { PageHead, Prose } from '@/components/Prose';
+import ProductAds from '@/components/ProductAds';
 
 export const metadata = pageMeta({ title: 'Returns and exchanges', description: 'How Mizanora handles size problems, damaged items and other order issues.', path: '/returns' });
 
@@ -15,6 +16,9 @@ export default function Returns() {
         <h2>Before you order</h2>
         <p>Most problems come from the wrong size. If you are unsure, send us your foot length and we will help you choose.</p>
       </Prose>
+
+      {/* v60: shop products under this page (the shop's own catalogue ads) */}
+      <ProductAds seed="returns" />
     </>
   );
 }
