@@ -4,7 +4,6 @@ import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead, Prose } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import { CREDIT, FOUNDER } from '@/lib/team';
-import ProductAds from '@/components/ProductAds';
 
 export const metadata = pageMeta({
   title: 'About Mizanora, a Halal-Minded Pakistani Store',
@@ -35,9 +34,6 @@ export default function About() {
         <p>See all our <Link href="/connect">official accounts</Link>, or go to the <Link href="/contact">contact page</Link>.</p>
       </Prose>
       <JsonLd data={breadcrumbJsonLd([['/', 'Home'], ['/about', 'About']])} />
-
-      {/* v60: shop products under this page (the shop's own catalogue ads) */}
-      <ProductAds seed="about" />
     </>
   );
 }

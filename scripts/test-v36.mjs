@@ -100,9 +100,7 @@ for (const needle of ['role="dialog"', 'aria-modal="true"', 'Escape', 'ArrowRigh
 }
 assert.match(gallery, /document\.body\.style\.overflow/, 'the page scroll is locked while the lightbox is open');
 assert.match(gallery, /removeEventListener/, 'the key handler is cleaned up');
-// v60: the gallery sits below the founder's photo, so not one of its tiles is eager any more.
-// (Four eager pictures in front of the LCP was costing more than the gallery gained.)
-assert.match(gallery, /loading="lazy"/, 'every gallery photo loads lazily');
+assert.match(gallery, /loading=\{i < 4 \? 'eager' : 'lazy'\}/, 'the first row loads eagerly, the rest lazily');
 
 const css = read('app/globals.css');
 for (const cls of ['.mz-photo-grid', '.mz-photo-tile', '.mz-lightbox', '.mz-lightbox-nav', '.mz-table-wrap', '.mz-chip']) {

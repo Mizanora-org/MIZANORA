@@ -4,7 +4,7 @@ import ProductCard from './ProductCard';
 import { MIN_PCT_CHOICES, SORTS } from '@/lib/deals';
 
 const Card = memo(ProductCard);
-const Cards = memo(function Cards({ items }) { return items.map((p, i) => <Card key={p.id} p={p} priority={i === 0} />); });
+const Cards = memo(function Cards({ items }) { return items.map((p, i) => <Card key={p.id} p={p} priority={i < 4} />); });
 const Skel = () => (
   <div className="overflow-hidden rounded-xl border border-line bg-surface">
     <div className="mz-skel aspect-square w-full !rounded-none" />
