@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Check, Heart, Play, Plus, Share2 } from 'lucide-react';
 import CardMedia from './CardMedia';
 import { firstVideo } from '@/lib/media';
 import { formatPKR, discountPct } from '@/lib/format';
@@ -16,10 +17,10 @@ export default function ProductCard({ p, priority = false }) {
       <div className="relative flex-1">
         <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5">
           <button type="button" data-act="wish" data-id={p.id} data-name={p.name} data-price={p.price} aria-label="Save to wishlist" className="mz-iconbtn mz-heart h-8 w-8">
-            <span className="ic ic-heart" aria-hidden="true" />
+            <Heart size={17} />
           </button>
           <button type="button" data-act="share" data-slug={p.slug} data-name={p.name} aria-label={`Share ${p.name}`} className="mz-iconbtn h-8 w-8">
-            <span className="ic ic-share ic-idle" aria-hidden="true" /><span className="ic ic-check ic-done text-gold" aria-hidden="true" />
+            <Share2 size={16} className="ic-idle" /><Check size={16} className="ic-done text-gold" />
           </button>
         </div>
         <Link href={`/product/${p.slug}`} prefetch={false} data-pf="1" className="block">
@@ -29,7 +30,7 @@ export default function ProductCard({ p, priority = false }) {
             ) : (
               <div className="grid h-full place-items-center font-display text-3xl text-bronze">M</div>
             )}
-            {video && img && <span className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[0.65rem] font-bold text-white" aria-label="Has video"><span className="ic ic-play ic-sm" aria-hidden="true" /> Video</span>}
+            {video && img && <span className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[0.65rem] font-bold text-white" aria-label="Has video"><Play size={10} fill="currentColor" /> Video</span>}
             {!p.inStock && <span className="absolute bottom-2 left-2 rounded-md bg-cream/80 px-2 py-0.5 text-xs font-bold text-white">Sold out</span>}
             {off > 0 && <span data-pb="1" className="absolute left-2 top-2 rounded-md bg-gradient-to-r from-red-600 to-[#E0342B] px-2 py-0.5 text-xs font-extrabold text-white shadow-[0_2px_8px_-2px_rgba(220,38,38,.8)]">-{off}%</span>}
           </div>
@@ -51,8 +52,8 @@ export default function ProductCard({ p, priority = false }) {
         ) : (
           <button type="button" data-act="add" data-id={p.id} data-slug={p.slug} data-name={p.name} data-price={p.price} data-img={img}
             className="mz-add flex w-full items-center justify-center gap-1.5 rounded-full bg-gold py-2 text-xs font-bold text-white active:bg-goldhi">
-            <span className="qa-idle inline-flex items-center gap-1.5"><span className="ic ic-plus ic-sm" aria-hidden="true" /> Add to cart</span>
-            <span className="qa-done items-center gap-1.5"><span className="ic ic-check ic-sm" aria-hidden="true" /> Added</span>
+            <span className="qa-idle inline-flex items-center gap-1.5"><Plus size={14} /> Add to cart</span>
+            <span className="qa-done items-center gap-1.5"><Check size={14} /> Added</span>
           </button>
         )}
       </div>

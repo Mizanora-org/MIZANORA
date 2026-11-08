@@ -8,7 +8,7 @@ export default function AnnouncementBar({ mode }) {
   const items = [...new Set([season && season.ticker, SITE.announcement, 'Flat Rs 250 delivery across Pakistan', 'New products added every week', 'Shop smart. Shop halal.', 'WhatsApp support when you need help'].filter(Boolean))];
   return (
     <div className="bg-[#073D28] text-xs font-semibold text-white sm:text-sm">
-      <Marquee seconds={45} label="Offers" loop>
+      <Marquee seconds={45} label="Offers">
         {items.map((t) => <span key={t} className="whitespace-nowrap px-8 py-1.5">{t}<span className="ml-8 text-saffron" aria-hidden="true">●</span></span>)}
       </Marquee>
     </div>

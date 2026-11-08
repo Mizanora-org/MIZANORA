@@ -68,7 +68,7 @@ export default function Header({ categories = [], music = null }) {
       {/* The dim layer behind the open menu. It lives OUTSIDE the header on purpose: the header uses
           backdrop-blur, and a blurred element becomes the containing block of its fixed children. */}
       {open && <div className="fixed inset-0 z-30 bg-black/35 md:hidden" onClick={() => setOpen(false)} aria-hidden="true" />}
-      <header className={`sticky top-0 z-[45] bg-gold text-white shadow-md transition-shadow ${scrolled ? 'shadow-[0_6px_24px_-8px_rgba(6,48,31,.6)]' : ''}`}>
+      <header className={`sticky top-0 z-[45] bg-gold/95 text-white shadow-md backdrop-blur-md transition-shadow ${scrolled ? 'shadow-[0_6px_24px_-8px_rgba(6,48,31,.6)]' : ''}`}>
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
         <button ref={toggle} className="rounded-full p-2 transition active:scale-90 md:hidden" aria-label="Menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {open ? <X size={24} /> : <Menu size={24} />}

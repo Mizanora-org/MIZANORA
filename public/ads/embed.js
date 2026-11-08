@@ -528,12 +528,7 @@
         // The server tells us the shop origin: every ad link must point THERE, even
         // if this script was inlined or proxied instead of loaded from the shop.
         if (j && j.base) SHOP = String(j.base).replace(/\/+$/, '');
-        if (!j || !j.ok || !j.ads || !j.ads.length) {
-          // v60: no ad for this slot -> take the reserved space back, so a page never shows an
-          // empty 90 px gap just because the shop has no ad running.
-          slot.style.minHeight = '0'; slot.style.margin = '0';
-          slot.dataset.mzaDone = ''; return;
-        }
+        if (!j || !j.ok || !j.ads || !j.ads.length) { slot.dataset.mzaDone = ''; return; }
         renderCreatives(slot, j.ads, j.rotateMs || cfg.rotate || 8000);
       })
       .catch(function (e) { warn('serve failed: ' + e.message); slot.dataset.mzaDone = ''; });
@@ -550,7 +545,6 @@
       while (slot.firstChild) slot.removeChild(slot.firstChild);
       var node = buildCreative(ads[index], slot.getAttribute('data-mz-ads'));
       if (!node) return;
-      slot.style.minHeight = ''; slot.style.margin = '';
       slot.__mzaCurrent = node;
       var badge = el('span', 'mza-badge', 'Ad');
       var close = el('button', 'mza-close', '\u00D7');

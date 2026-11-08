@@ -12,7 +12,6 @@ import { adminDb, adminReady } from '@/lib/firebase-admin';
 import { getGitHub } from '@/lib/githubLive';
 import GitHubLive from '@/components/GitHubLive';
 import { effectiveTier } from '@/lib/workers';
-import ProductAds from '@/components/ProductAds';
 
 export const revalidate = 300;
 
@@ -194,9 +193,6 @@ export default async function TeamPage() {
       </div>
 
       <JsonLd data={[breadcrumbJsonLd([['/', 'Home'], ['/team', 'Team']]), { ...orgJsonLd(), founder, employee: TEAM.map((t) => ({ '@type': 'OrganizationRole', roleName: t.role })) }]} />
-
-      {/* v60: shop products under this page (the shop's own catalogue ads) */}
-      <ProductAds seed="team" />
     </>
   );
 }
