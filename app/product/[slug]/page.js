@@ -6,7 +6,6 @@ import { getProduct, getProducts } from '@/lib/products';
 import { formatPKR, discountPct, slugify } from '@/lib/format';
 import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import Gallery from '@/components/Gallery';
-import AdsInject from '@/components/AdsInject';
 import ProductActions from '@/components/ProductActions';
 import PriceBlock from '@/components/PriceBlock';
 import ProductCard from '@/components/ProductCard';
@@ -173,8 +172,6 @@ export default async function ProductPage({ params }) {
             <div className="space-y-3 whitespace-pre-line leading-8 text-[#33423A]">{p.description}</div>
           </section>
         )}
-
-        <AdsInject slots={['auto']} />
 
         {related.length > 0 && (
           <section className="mt-12" aria-labelledby="rel">

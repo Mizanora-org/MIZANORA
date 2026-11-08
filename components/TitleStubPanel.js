@@ -96,7 +96,7 @@ export default function TitleStubPanel({ movie }) {
           <div className="no-sb -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-3 sm:gap-3.5 sm:overflow-visible sm:px-0 lg:grid-cols-6">
             {picks.map((m, i) => (
               <div key={m.imdbId || m.slug} className="w-[42vw] max-w-[185px] shrink-0 snap-start sm:w-auto sm:max-w-none">
-                <MoviePosterCard movie={m} priority={i === 0} />
+                <MoviePosterCard movie={m} priority={i < 2} />
               </div>
             ))}
           </div>

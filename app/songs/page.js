@@ -9,7 +9,6 @@ import ResumeListening from '@/components/ResumeListening';
 import { SONG_QUERIES, cdnProxy } from '@/lib/songs';
 import { getTrendingArtists, getTrendingSongs } from '@/lib/songsServer';
 import { ARTIST_PROFILES } from '@/lib/artistProfiles';
-import ProductAds from '@/components/ProductAds';
 
 export const revalidate = 1800;
 
@@ -142,9 +141,6 @@ export default async function SongsPage({ searchParams }) {
       <div className="pt-6 pb-24">
         <SongBrowser initialSongs={trending} topics={SONG_QUERIES} initialQuery={initialQuery} />
       </div>
-
-      {/* v60: shop products under this page (the shop's own catalogue ads) */}
-      <ProductAds seed="songs" />
     </>
   );
 }

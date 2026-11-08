@@ -5,7 +5,6 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import { HOLD_DAYS, MIN_PAYOUT, PRICE_BANDS, REF_DAYS, TIERS, TOP_BAND_PCT } from '@/lib/workers';
 import { formatPKR } from '@/lib/format';
-import ProductAds from '@/components/ProductAds';
 
 export const metadata = pageMeta({
   title: 'Mizanora Worker Program: Earn 10% to 20% Profit on Delivered Orders',
@@ -81,9 +80,6 @@ export default function WorkersPage() {
         <Link href="/worker" className="btn-gold">Apply now</Link>
       </div>
       <JsonLd data={[breadcrumbJsonLd([['/', 'Home'], ['/workers', 'Worker program']]), faqJsonLd(FAQ)]} />
-
-      {/* v60: shop products under this page (the shop's own catalogue ads) */}
-      <ProductAds seed="workers" />
     </>
   );
 }

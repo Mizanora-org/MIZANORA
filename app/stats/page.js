@@ -4,7 +4,6 @@ import { pageMeta, breadcrumbJsonLd } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import PublicStats from '@/components/PublicStats';
-import ProductAds from '@/components/ProductAds';
 
 // v37: a public window into how the shop is doing. Open numbers build more trust than a badge:
 // anyone can see how many people are here and which guides are read most.
@@ -69,9 +68,6 @@ export default function StatsPage() {
         </div>
       </div>
       <JsonLd data={breadcrumbJsonLd([['/', 'Home'], ['/stats', 'Stats']])} />
-
-      {/* v60: shop products under this page (the shop's own catalogue ads) */}
-      <ProductAds seed="stats" />
     </>
   );
 }

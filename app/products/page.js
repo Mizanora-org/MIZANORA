@@ -7,7 +7,6 @@ import { PageHead } from '@/components/Prose';
 import ProductGrid from '@/components/ProductGrid';
 import JsonLd from '@/components/JsonLd';
 import { toCard } from '@/lib/cardData';
-import AdsInject from '@/components/AdsInject';
 
 export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const metadata = pageMeta({
@@ -37,8 +36,6 @@ export default async function ProductsPage() {
       <PageHead title="Products" intro="Pay cash on delivery anywhere in Pakistan. Tap a product to see sizes and details." crumbs={[['/', 'Home'], [null, 'Products']]} />
       <div className="mx-auto max-w-7xl px-3 py-8 sm:px-4">
         <Suspense fallback={null}><ProductGrid products={cards} remote={remote} total={total} initialNext={next} chips={chips} /></Suspense>
-        {/* v60: the shop's own ad slot, right where a shopper finishes scanning the grid */}
-        <AdsInject slots={['auto']} />
       </div>
       <JsonLd data={[breadcrumbJsonLd(crumbs), list]} />
     </>
