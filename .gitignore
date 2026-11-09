@@ -15,3 +15,5 @@ coverage-ids.csv
 VERCEL-CONFIG-BACKUP*.md
 .env.config-backup*
 config-backup/
+.env.vercel-backup
+.env.vercel-backup.*
