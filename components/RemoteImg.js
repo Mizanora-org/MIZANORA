@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { proxyImage } from '@/lib/imgFallback';
+import { markBrokenHost, proxyImage, shouldRelay } from '@/lib/imgFallback';
 
 // ONE REMOTE PHOTO, THREE CHANCES (v32):
 //   1. Next's image (or the plain original when the optimizer is off),
@@ -10,13 +10,15 @@ import { proxyImage } from '@/lib/imgFallback';
 // and only then it disappears (or calls onDead) instead of showing a broken icon.
 // Use it anywhere a product/photo link must never leave an empty frame.
 export default function RemoteImg({ src, alt = '', className = '', fill = false, sizes, priority = false, width, height, onDead, ...rest }) {
-  const [step, setStep] = useState(0);
-  useEffect(() => { setStep(0); }, [src]);
+  // v60: a known-bad host starts at step 2 (the relay) - see lib/imgFallback.js.
+  const start = () => (shouldRelay(src) ? 2 : 0);
+  const [step, setStep] = useState(start);
+  useEffect(() => { setStep(shouldRelay(src) ? 2 : 0); }, [src]);
   useEffect(() => { if (step >= 3 && typeof onDead === 'function') onDead(); }, [step, onDead]);
 
   if (!src || step >= 3) return null;
 
-  const fail = () => setStep((s) => s + 1);
+  const fail = () => { if (step < 2) markBrokenHost(src); setStep((s) => s + 1); };
 
   if (step === 0) {
     const common = { src, alt, referrerPolicy: 'no-referrer', priority, sizes, onError: fail, ...rest };

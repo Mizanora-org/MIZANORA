@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { proxyImage } from '@/lib/imgFallback';
+import { markBrokenHost, proxyImage, shouldRelay } from '@/lib/imgFallback';
 
 // Mizanora v56 — a person's photo that always shows *something*.
 //
@@ -19,8 +19,9 @@ export default function AvatarImg({
   initials = '',
   alt,
 }) {
-  const [step, setStep] = useState(0); // 0 original · 1 relay · 2 monogram
-  useEffect(() => { setStep(0); }, [src]);
+  // v60: a host that already failed (or a declared bad host) starts at the relay - see lib/imgFallback.js.
+  const [step, setStep] = useState(() => (shouldRelay(src) ? 1 : 0)); // 0 original · 1 relay · 2 monogram
+  useEffect(() => { setStep(shouldRelay(src) ? 1 : 0); }, [src]);
 
   const label = (initials || name || '')
     .split(/\s+/)
@@ -51,7 +52,7 @@ export default function AvatarImg({
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
-      onError={() => setStep((s) => s + 1)}
+      onError={() => { if (step === 0) markBrokenHost(src); setStep((s) => s + 1); }}
     />
   );
 }

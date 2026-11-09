@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Play } from 'lucide-react';
 import { parseVideo } from '@/lib/video';
-import { proxyImage } from '@/lib/imgFallback';
+import { markBrokenHost, proxyImage, shouldRelay } from '@/lib/imgFallback';
 
 // THE CARD PICTURE, WITH FOUR STEPS (so a card is never an empty grey box):
 //   1. the product photo (optimised by Next);
@@ -15,12 +15,14 @@ import { proxyImage } from '@/lib/imgFallback';
 //      branded play cover for Facebook / Instagram / TikTok / YouTube embeds);
 //   3. only if there is no photo AND no video, the card removes itself with CSS ([data-card][data-dead]).
 export default function CardMedia({ img, alt, priority = false, sizes, video = '' }) {
-  const first = img ? 'img' : video ? 'video' : 'dead';
+  // v60: a host that already failed in this session (or one you declared in
+  // NEXT_PUBLIC_IMAGE_RELAY_HOSTS) skips the doomed direct attempt and goes straight to the relay.
+  const first = img ? (shouldRelay(img) ? 'proxy' : 'img') : video ? 'video' : 'dead';
   const [state, setState] = useState(first); // 'img' | 'raw' | 'proxy' | 'video' | 'dead'
   const v = parseVideo(video) || null;
 
   // A recycled card (list refresh, "load more", filter) must not keep the state of the previous product.
-  useEffect(() => { setState(img ? 'img' : video ? 'video' : 'dead'); }, [img, video]);
+  useEffect(() => { setState(img ? (shouldRelay(img) ? 'proxy' : 'img') : video ? 'video' : 'dead'); }, [img, video]);
 
   if (state === 'dead' || (!img && !video)) {
     return <div data-die="1" className="h-full w-full bg-raised" aria-hidden="true" />;
@@ -47,7 +49,7 @@ export default function CardMedia({ img, alt, priority = false, sizes, video = '
 
   if (state === 'raw' || state === 'proxy') {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={state === 'proxy' ? proxyImage(img) : img} alt={alt} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" onError={() => setState(state === 'raw' ? 'proxy' : video ? 'video' : 'dead')} />;
+    return <img src={state === 'proxy' ? proxyImage(img) : img} alt={alt} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" onError={() => { if (state === 'raw') markBrokenHost(img); setState(state === 'raw' ? 'proxy' : video ? 'video' : 'dead'); }} />;
   }
 
   return (
