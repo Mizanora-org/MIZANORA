@@ -10,3 +10,8 @@ out/
 
 # v56 coverage export (regenerate with: npm run coverage)
 coverage-ids.csv
+
+# v60: private config backups (secrets) - NEVER commit these
+VERCEL-CONFIG-BACKUP*.md
+.env.config-backup*
+config-backup/
