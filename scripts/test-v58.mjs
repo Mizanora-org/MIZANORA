@@ -76,8 +76,12 @@ const shaped = Songs.cleanSong({
 });
 check(shaped.stream.includes('320.mp3'), 'the best quality wins when the mirror uses {quality,url}');
 check(shaped.audioSources.length >= 2, 'every quality becomes a proxied source');
-check(shaped.audioSources.every((u) => u.startsWith('/api/songs/cdn?url=')), 'audio sources are same-origin');
-check(shaped.imageSrc.startsWith('/api/songs/cdn?url='), 'artwork is same-origin too');
+// v60 supersedes the "everything through us" rule here: every proxied byte is Vercel origin
+// transfer, and the Hobby allowance is what got the shop paused on 2026-11-08. The CDN now plays
+// first and the same file stays behind our proxy as the fallback, so nothing is lost.
+check(shaped.audioSources[0].startsWith('https://'), 'the CDN file plays directly first (0 bytes through us)');
+check(shaped.audioSources.some((u) => u.startsWith('/api/songs/cdn?url=')), 'the same file stays behind the CDN proxy as the fallback');
+check(shaped.imageSrc.startsWith('https://') && shaped.imageProxy.startsWith('/api/songs/cdn?url='), 'artwork loads direct, with the proxy as the onError fallback');
 
 const legacy = Songs.cleanSong({
   id: 'songB2',
@@ -86,7 +90,7 @@ const legacy = Songs.cleanSong({
   image: 'https://c.saavncdn.com/y/art.jpg',
 });
 check(legacy.stream.includes('320.mp3'), 'the older {quality,link} shape still plays');
-check(legacy.imageSrc.startsWith('/api/songs/cdn?url='), 'a plain image string is proxied');
+check(legacy.imageSrc.startsWith('https://') && legacy.imageProxy.startsWith('/api/songs/cdn?url='), 'a plain image string loads direct, with the proxy kept');
 check(Songs.cleanSong({ id: 'songC3', name: 'Preview', more_info: { vlink: 'https://aac.saavncdn.com/z/preview.mp3' } }).stream.includes('preview.mp3'), 'the 30s preview is the last resort');
 
 const provider = read('components/MusicProvider.js');

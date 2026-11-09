@@ -11,7 +11,7 @@ import {
   latencyLabel, menuLevels, normaliseLevels, qualityLevel, resLabel, sleepClock, sortChannels, streamOrigin,
   subLabel, tvClock, tvStatusLabel, typedChannel,
 } from '@/lib/liveTvUi';
-import { TV_THEMES, channelGroups, channelSlugs, channelSources, channelTarget, pickAd, relayHref, stepIndex, tvTheme } from '@/lib/liveTv';
+import { RELAY_BUDGET, TV_THEMES, channelGroups, channelSlugs, channelSources, channelTarget, pickAd, relayHref, stepIndex, tvTheme, tvRelayAllowed } from '@/lib/liveTv';
 import {
   AUTO_AUDIO_ORDER, ENGINE_LABEL, engineCanSwitch, engineChainLabel, engineLadder,
   levelText, modeIndex, normLang, preferredAudioIndex, trackSignature,
@@ -232,6 +232,8 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const driftFix = useRef(0);
   const audioManual = useRef(false);
   const audiosRef = useRef([]);
+  // v60: how many times this tab has given up on a direct stream (relay budget, see lib/liveTv.js).
+  const unlikelyDirectRef = useRef(0);
 
   const cur = chans[idx] || null;
   const curSlug = slugs[idx] || '';
@@ -241,7 +243,12 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
   const sources = useMemo(() => channelSources(cur), [cur]);
   const sourceUrl = sources[sourceIndex] || sources[0] || '';
   const base = useMemo(() => channelTarget(sourceUrl), [sourceUrl]);
-  const viaRelay = relayIndex === idx || Boolean(relayReady && sourceUrl && relayHosts.has(hostOf(sourceUrl)));
+  // v60: direct playback first. The relay is used only for an http stream (which the browser cannot
+  // play on our https page), a channel the admin marked `proxy`, or a host this tab already learned
+  // it cannot play — and never for more than RELAY_BUDGET forced attempts, so a broken channel cannot
+  // burn the Hobby plan's origin-transfer allowance (see lib/liveTv.js).
+  const relayWanted = relayIndex === idx || Boolean(relayReady && sourceUrl && relayHosts.has(hostOf(sourceUrl)));
+  const viaRelay = tvRelayAllowed() && relayWanted && unlikelyDirectRef.current < RELAY_BUDGET;
   const target = useMemo(() => {
     if (!base || !sourceUrl) return null;
     if (base.kind !== 'youtube' && (base.proxy || viaRelay)) return { ...base, src: relayHref(sourceUrl), relayed: true };
@@ -831,6 +838,7 @@ export default function LiveTvPlayer({ cfg, ads, initialSlug = '' }) {
       if (fallbackStarted) return true; // another error arrived before React switched the target
       fallbackStarted = true;
       rememberRelay(sourceUrl);
+      unlikelyDirectRef.current += 1; // v60: a dead host must not spend the whole relay budget
       setEngineStep(0); // the relay is a fresh start: try the whole ladder again
       setRelayIndex(idx);
       setStatus('loading');

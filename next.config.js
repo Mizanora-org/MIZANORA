@@ -11,7 +11,18 @@ const nextConfig = {
   experimental: { optimizePackageImports: ['lucide-react'] },
   // The product archive (data/catalog/*.json) is read from disk by the server, so it must travel with the serverless functions.
   // v36: the photo manifest must travel with the serverless functions too (it is read from disk).
-  outputFileTracingIncludes: { '/**': ['./data/catalog/**/*', './data/snap/**/*', './data/*.json', './data/*.txt'] },
+  // v60: SCOPED ON PURPOSE. `'/**'` copied the whole 33 MB data folder into EVERY function, so each
+  // cold start and each deploy shipped the archive and the IMDb seed to functions that never read
+  // them. Only the routes that really touch those files get them now.
+  outputFileTracingIncludes: {
+    '/api/archive/{:path*}': ['./data/catalog/**/*'],
+    '/api/admin/{:path*}': ['./data/catalog/**/*', './data/snap/**/*'],
+    '/api/products/{:path*}': ['./data/catalog/**/*'],
+    '/category/{:slug*}': ['./data/catalog/**/*'],
+    '/product/{:slug*}': ['./data/catalog/**/*'],
+    '/sitemaps/{:path*}': ['./data/catalog/**/*', './data/snap/**/*', './data/*.json', './data/*.txt'],
+    '/api/{:path*}': ['./data/snap/**/*', './data/*.json'],
+  },
   images: {
     // v21: photos load straight from their own host by default. The Vercel optimizer has a monthly limit on source images; when it is
     // used up, or a host refuses it, EVERY photo broke. Set NEXT_IMAGE_OPTIMIZE=1 in Vercel to use the optimizer again.
@@ -44,6 +55,17 @@ const nextConfig = {
   },
   async headers() {
     return [
+      // v60: THE VERCEL CDN MUST ANSWER, NOT THE FUNCTION.
+      // Every response that comes out of a Function (or out of middleware) is billed as
+      // "Fast Origin Transfer". Relayed/streamed media had no edge caching at all, so every view
+      // was a fresh origin response - that is what crossed the Hobby fair-use limit on 2026-11-08
+      // and paused the shop. These headers let the edge keep the answers, so the same picture or
+      // the same stream piece is transferred ONCE for everyone instead of once per visitor.
+      { source: '/api/img', headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, s-maxage=31536000, stale-while-revalidate=604800' }] },
+      { source: '/api/poster/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=604800' }] },
+      { source: '/api/songs/cdn', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, s-maxage=31536000, immutable' }] },
+      // Live TV pieces are signed, immutable addresses: one download serves every viewer.
+      { source: '/api/tv/p', headers: [{ key: 'Cache-Control', value: 'public, max-age=600, s-maxage=3600' }] },
       { source: '/sw.js', headers: [
         { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
         { key: 'Service-Worker-Allowed', value: '/' },

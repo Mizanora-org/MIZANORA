@@ -1,15 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { proxyImage } from '@/lib/imgFallback';
+import { markBrokenHost, proxyImage, shouldRelay } from '@/lib/imgFallback';
 
 // The photo of a product card. If the image cannot load in THIS visitor's browser, the whole card is marked dead and
 // removed with CSS (see [data-card][data-dead] in globals.css) - a product with a broken photo never shows on the shop.
 // No empty grey box, no "unavailable" card: the grid simply reflows.
 // v32: before giving up, the photo is retried through the shop's own image relay (/api/img).
 export default function CardPhoto({ src, alt, priority = false, sizes }) {
-  const [step, setStep] = useState(0); // 0 = Next optimizer, 1 = browser direct, 2 = shop relay
-  useEffect(() => { setStep(0); }, [src]);
+  // v60: a photo from a host that already failed (or a declared bad host) starts at the relay,
+  // so the visitor does not pay for a request that is going to fail anyway.
+  const [step, setStep] = useState(() => (shouldRelay(src) ? 2 : 0)); // 0 = Next optimizer, 1 = browser direct, 2 = shop relay
+  useEffect(() => { setStep(shouldRelay(src) ? 2 : 0); }, [src]);
 
   const dead = (e) => {
     try {
@@ -19,7 +21,7 @@ export default function CardPhoto({ src, alt, priority = false, sizes }) {
   };
   if (step > 0) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={step === 1 ? src : proxyImage(src)} alt={alt} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" onError={(e) => (step === 1 ? setStep(2) : dead(e))} />;
+    return <img src={step === 1 ? src : proxyImage(src)} alt={alt} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" onError={(e) => (step === 1 ? (markBrokenHost(src), setStep(2)) : dead(e))} />;
   }
   return (
     <Image referrerPolicy="no-referrer"

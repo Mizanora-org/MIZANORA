@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { publicUrl, readLimited, safePublicFetch } from '@/lib/safeFetch';
+import { publicUrl, safePublicFetch } from '@/lib/safeFetch';
 import { securityIp, logSecurityEvent } from '@/lib/securityControl';
 import { limitRequest } from '@/lib/requestRate';
 
@@ -65,18 +65,21 @@ export async function GET(req) {
 
   const type = String(res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   if (!type.startsWith('image/')) { try { await res.body?.cancel(); } catch { /* ignore */ } return new NextResponse('not an image', { status: 415, headers: noCache }); }
-  let buf;
-  try { buf = await readLimited(res, MAX_BYTES); }
-  catch (e) { return new NextResponse(e.message === 'response too large' ? 'image too large' : 'image download failed', { status: e.message === 'response too large' ? 413 : 502, headers: noCache }); }
-  if (!buf.length) return new NextResponse('empty image', { status: 502, headers: noCache });
+  // v60: cap on the UPSTREAM HEADER, so an oversized file is refused before a single byte is pulled.
+  const length = Number(res.headers.get('content-length')) || 0;
+  if (length > MAX_BYTES) { try { await res.body?.cancel(); } catch { /* ignore */ } return new NextResponse('image too large', { status: 413, headers: noCache }); }
 
-  return new NextResponse(buf, {
+  return new NextResponse(res.body, {
     status: 200,
     headers: {
       'Content-Type': type,
-      'Content-Length': String(buf.length),
-      // The relayed picture rarely changes: browsers and the CDN keep it a month.
-      'Cache-Control': 'public, max-age=2592000, stale-while-revalidate=604800',
+      ...(length ? { 'Content-Length': String(length) } : {}),
+      // v60: THE EDGE MUST KEEP THIS.
+      // `s-maxage` is what makes Vercel's CDN cache a Function response. Without it every
+      // repeat view of a relayed photo is a fresh Function run + a fresh origin transfer -
+      // that is exactly how the Hobby Fast Origin Transfer limit was crossed on 2026-11-08.
+      // With it, one relayed picture costs one transfer, not thousands.
+      'Cache-Control': 'public, max-age=2592000, s-maxage=31536000, stale-while-revalidate=604800',
       'X-Content-Type-Options': 'nosniff',
       'Content-Disposition': 'inline',
       'Access-Control-Allow-Origin': '*',

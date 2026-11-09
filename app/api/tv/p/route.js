@@ -1,6 +1,7 @@
 import { getTvConfig } from '@/lib/liveTvServer';
 import { isChannelSourceAllowed } from '@/lib/liveTv';
 import { checkSig, fetchPublic, looksLikePlaylist, mediaTypeOk, rewriteM3U } from '@/lib/tvProxy';
+import { tvRelayAllowed } from '@/lib/liveTv';
 import { readLimited } from '@/lib/safeFetch';
 import { securityIp, logSecurityEvent } from '@/lib/securityControl';
 import { limitRequest } from '@/lib/requestRate';
@@ -15,6 +16,9 @@ export const maxDuration = 30;
 const bad = (m, s = 400) => new Response(m, { status: s, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' } });
 
 export async function GET(req) {
+  // v60: the owner can switch the relay off entirely while the plan's origin-transfer allowance is
+  // capped (NEXT_PUBLIC_TV_RELAY=off). Direct https streams keep working; only relay-only links stop.
+  if (!tvRelayAllowed()) return bad('The stream relay is switched off on this shop.', 503);
   const q = new URL(req.url).searchParams;
   const target = String(q.get('u') || '').trim();
   if (!/^https?:\/\/[^\s<>"']{4,2000}$/i.test(target)) {
@@ -42,9 +46,18 @@ export async function GET(req) {
     if (looksLikePlaylist(finalUrl, type)) {
       const text = (await readLimited(res, 1_500_000)).toString('utf8');
       if (!/^#EXTM3U/.test(text.trimStart())) return bad('Not a playlist', 415);
-      return new Response(rewriteM3U(text, finalUrl), { status: 200, headers: { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'public, max-age=1, s-maxage=1' } });
+      // A live playlist changes every few seconds: cache it ONLY in the browser for a moment, never at
+      // the edge (a stale playlist makes the player stall, and an edge copy would be re-fetched anyway).
+      return new Response(rewriteM3U(text, finalUrl), { status: 200, headers: { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'private, max-age=2' } });
     }
-    const h = { 'Content-Type': type || 'application/octet-stream', 'Cache-Control': 'public, max-age=60, s-maxage=60', 'Accept-Ranges': 'bytes' };
+    // v60: keep relayed media at the edge. Segments are fetched through addresses we signed ourselves
+    // and each one is immutable, so one download serves every visitor instead of one per viewer —
+    // that is the difference between a 10 GB allowance and a 10 GB-per-viewer one.
+    //   vod (mp4/audio, no segment signature): 1 day at the edge
+    //   live segments (.ts/.m4s, signed): 1 hour
+    const immutable = /^(video\/mp4|audio\/)/i.test(type) || /\.(mp4|m4a|mp3|aac|webm)(?:[?#]|$)/i.test(finalUrl);
+    const cache = immutable ? 'public, max-age=86400, s-maxage=86400' : 'public, max-age=600, s-maxage=3600';
+    const h = { 'Content-Type': type || 'application/octet-stream', 'Cache-Control': cache, 'Accept-Ranges': 'bytes' };
     for (const k of ['content-length', 'content-range']) { const v = res.headers.get(k); if (v) h[k] = v; }
     return new Response(res.body, { status: res.status, headers: h });
   } catch (e) {
