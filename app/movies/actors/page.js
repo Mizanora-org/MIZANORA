@@ -17,8 +17,9 @@ import {
   searchActors,
   titleInitials,
 } from '@/lib/movies';
+// v61: the actors directory lists the profiles — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800;
 
 export const metadata = {
   ...pageMeta({

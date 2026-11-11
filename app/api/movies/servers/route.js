@@ -3,7 +3,10 @@ import { denyIf } from '@/lib/siteGate';
 import { getServersForTitle } from '@/lib/movieServersServer';
 
 export const runtime = 'nodejs';
-export const revalidate = 120;
+// v61: NO ISR here — the query string is a per-title lookup.
+// ISR writes are capped at 200K/30 days on Hobby (620K is what paused the site); the `s-maxage`
+// header on the response already caches it at the edge for free.
+export const dynamic = 'force-dynamic';
 
 // Public: "which play servers can show this title?"
 // The templates are public too (they are visible in the browser anyway), so the player can rebuild a

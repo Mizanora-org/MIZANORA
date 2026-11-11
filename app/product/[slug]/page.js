@@ -20,15 +20,19 @@ import Stars from '@/components/Stars';
 import ReviewForm from '@/components/ReviewForm';
 import RecentlyViewed from '@/components/RecentlyViewed';
 import JsonLd from '@/components/JsonLd';
+// v61: products change when the admin edits them (on-demand refresh also runs) — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const dynamicParams = true; // new products work immediately, without a redeploy
 
-// Only the newest 60 products are built ahead of time. Every other product page is built the first time someone opens it
-// and is then kept (dynamicParams) - so a catalogue with thousands of products still builds fast and never runs out of memory.
+// v61: only the 12 newest products are prerendered. Every other product page is made the first time
+// someone (or Google) opens it and is then kept (dynamicParams). WHY: each prerendered page is one ISR
+// write at build time AND another every time it expires — 60 pages looked harmless but they were part
+// of the 620K ISR writes (Hobby limit 200K) that paused the project on 2026-11-09.
+// The full catalogue is still on the site: it is in /sitemap.xml and the archive.
 export async function generateStaticParams() {
   const all = await getProducts();
-  return all.slice(0, 60).map((p) => ({ slug: p.slug }));
+  return all.slice(0, 12).map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }) {

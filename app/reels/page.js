@@ -5,8 +5,9 @@ import { PageHead } from '@/components/Prose';
 import ReelsRail from '@/components/ReelsRail';
 import LiveBadge from '@/components/LiveBadge';
 import Link from 'next/link';
+// v61: reels come from the settings snapshot — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const metadata = pageMeta({ title: 'Reels: Watch and Shop', description: 'Watch short videos of Mizanora products and shop them with one tap. Cash on delivery across Pakistan.', path: '/reels' });
 
 export default async function ReelsPage() {

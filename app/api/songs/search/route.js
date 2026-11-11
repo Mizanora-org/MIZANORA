@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { searchSongs, getTrendingSongs } from '@/lib/songsServer';
 
 export const runtime = 'nodejs';
-export const revalidate = 300;
+// v61: NO ISR here — the query string makes every search a new cache entry.
+// ISR writes are capped at 200K/30 days on Hobby (620K is what paused the site); the `s-maxage`
+// header on the response already caches it at the edge for free.
+export const dynamic = 'force-dynamic';
 
 // Public song search. The browser never talks to the music mirrors directly (they send no CORS
 // headers) — it calls this route, which races the mirrors server-side.

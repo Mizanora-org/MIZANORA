@@ -3,7 +3,8 @@ import { allCards } from '@/lib/catalogQuery';
 import { SITE, absUrl } from '@/lib/config';
 import { feedPage, feedHeaders, feedNote } from '@/lib/feedSplit';
 
-export const revalidate = 600;
+// v61: the product feed — a day is plenty and keeps ISR writes tiny (see lib/cachePolicy.js).
+export const revalidate = 86400;
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

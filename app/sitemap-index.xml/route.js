@@ -19,7 +19,7 @@ import { getSitemapIds } from '@/lib/moviesWorld';
 // The old movies-N / series-N chunk files still answer for anyone holding a cached index, but they
 // are deliberately NOT listed here: submitting the same URL in two sitemaps is noise, and a dated
 // year file is easier for Google to trust than a 20,000-row block.
-export const revalidate = 21600;
+// v61: STATIC — derived from the repo, so it changes with a deploy and never costs an ISR write.
 export const dynamic = 'force-dynamic';
 
 const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

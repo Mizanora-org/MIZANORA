@@ -11,8 +11,10 @@ import GitHubLive from '@/components/GitHubLive';
 import FounderPhoto from '@/components/FounderPhoto';
 import PhotoGallery from '@/components/PhotoGallery';
 
+// v61: STATIC page (founder profile is editorial). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 // v33: half an hour, so the live GitHub numbers on this page are never a day old.
-export const revalidate = 1800;
 export const metadata = pageMeta({
   title: 'Muaaz Iqbal: developer and founder of Mizanora (Kasur, Pakistan)',
   description: 'Muaaz Iqbal from Kasur, Punjab, Pakistan: AI-native full-stack developer, founder of Mizanora online marketplace and the HijriAnchor calendar app. His projects, skills, links and story.',
@@ -50,7 +52,8 @@ const FAQ = [
 export default async function MuaazPage() {
   const [remote, gh] = await Promise.all([
     getMuaazImages().catch(() => []),
-    // v33: the real GitHub account (cached 30 min, with a code fallback - never an empty box).
+    // v33: the real GitHub account (cached, with a code fallback - never an empty box).
+    // v61: the cache window is 24h now; a shorter inner TTL floors this page's ISR and burns writes.
     getGitHub().catch(() => null),
   ]);
   // v36: the shop's OWN pictures first (self-hosted = always alive, no hotlink blocking, and Google

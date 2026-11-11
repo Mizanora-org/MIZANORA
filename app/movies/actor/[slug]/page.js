@@ -17,12 +17,15 @@ import {
   posterHue,
   titleInitials,
 } from '@/lib/movies';
+// v61: actor profiles are edited in the admin panel — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 3600;
 
+// v61: prerender the first 200 actor profiles only (ISR write budget). The rest are built on first
+// request and then kept, which is what already happens for every newly added movie.
 export function generateStaticParams() {
   const { actors } = mergeMoviesCatalog();
-  return actors.map((a) => ({ slug: a.slug }));
+  return actors.slice(0, 200).map((a) => ({ slug: a.slug }));
 }
 
 export async function generateMetadata({ params }) {

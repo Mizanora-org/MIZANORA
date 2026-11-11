@@ -8,8 +8,9 @@ import SongBrowser from '@/components/SongBrowser';
 import { artistNameFromSlug, artistSlug, cdnProxy, clockTime } from '@/lib/songs';
 import { getArtistSongs, getTrendingArtists } from '@/lib/songsServer';
 import { artistProfile } from '@/lib/artistProfiles';
+// v61: artist pages read the music mirrors — 1 day (ISR write budget, see lib/cachePolicy.js).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 3600;
 
 const titleCase = (slug) => artistNameFromSlug(slug);
 

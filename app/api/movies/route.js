@@ -4,7 +4,8 @@ import { getMoviesHub, resolveMovieOrSeries } from '@/lib/moviesServer';
 import { buildReleaseCalendar, searchActors, searchMovies } from '@/lib/movies';
 
 export const runtime = 'nodejs';
-export const revalidate = 600;
+// v61: the movies index — a day is plenty and keeps ISR writes tiny (see lib/cachePolicy.js).
+export const revalidate = 86400;
 
 export async function GET(req) {
   const blocked = await denyIf();

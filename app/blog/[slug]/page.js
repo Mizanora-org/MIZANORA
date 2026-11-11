@@ -10,6 +10,9 @@ import AdsInject from '@/components/AdsInject';
 import ProductAds from '@/components/ProductAds';
 import MoviesStrip from '@/components/MoviesStrip';
 
+// v61: STATIC page (blog posts live in content/, they change with a deploy). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 export const dynamicParams = false;
 export const generateStaticParams = () => getPosts().map((p) => ({ slug: p.slug }));
 

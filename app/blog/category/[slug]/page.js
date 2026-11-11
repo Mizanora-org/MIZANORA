@@ -7,6 +7,9 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import BlogBrowser from '@/components/BlogBrowser';
 
+// v61: STATIC page (blog categories are derived from content/). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 // v36: one hub page per topic. Google can now crawl /blog/category/islamic and find every
 // Islamic guide from one address - before, the only way in was the single /blog list.
 export const dynamicParams = false;

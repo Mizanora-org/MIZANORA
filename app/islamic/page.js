@@ -5,7 +5,9 @@ import { ISLAMIC_ITEMS, KIND_COLOR, KIND_LABEL } from '@/lib/islamic';
 import { REMINDERS } from '@/lib/reminders';
 import { getFeedPosts } from '@/lib/feedPosts';
 
-export const revalidate = 3600;
+// v61: STATIC page (islamic section is editorial). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 export const metadata = pageMeta({ title: 'Islamic reminders: ayat, hadees and duas', description: 'A collection of short ayat of the Quran, ahadees, duas and aqwal with Urdu meaning and exact references, from the Mizanora Islami Feed.', path: '/islamic' });
 
 export default async function IslamicPage() {

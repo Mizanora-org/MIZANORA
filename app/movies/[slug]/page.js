@@ -38,9 +38,13 @@ import {
   youtubeEmbedUrl,
   youtubeThumbUrl,
 } from '@/lib/movies';
+// v61: movie pages are edited in the admin panel — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 3600;
 
+// v61: only the built-in starter titles are prerendered. The movies the admin adds are served on first
+// request (dynamicParams) — prerendering the whole catalogue was part of the ISR-write overage that
+// paused the project (Hobby: 200K writes / 30 days).
 export function generateStaticParams() {
   return STARTER_MOVIES.map((m) => ({ slug: m.slug }));
 }

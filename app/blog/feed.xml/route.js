@@ -1,7 +1,7 @@
 import { getPosts } from '@/lib/blog';
 import { SITE, absUrl } from '@/lib/config';
 
-export const revalidate = 3600;
+// v61: STATIC — blog posts live in the repo, so it changes with a deploy and never costs an ISR write.
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // RSS feed of the shopping blog: lets Google, Bing and feed readers discover every new guide quickly.

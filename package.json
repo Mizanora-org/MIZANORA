@@ -1,6 +1,6 @@
 {
   "name": "mizanora-store",
-  "version": "60.0.0",
+  "version": "61.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,7 @@
     "start": "next start",
     "cast:live": "node scripts/live-cast.mjs",
     "check": "node scripts/check.js && node scripts/typecheck.js",
-    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs && node scripts/test-v20.mjs && node scripts/test-v21.mjs && node scripts/test-v23.mjs && node scripts/test-v24.mjs && node scripts/test-v25.mjs && node scripts/test-v26.mjs && node scripts/test-v27.mjs && node scripts/test-v28.mjs && node scripts/test-v29.mjs && node scripts/test-v30.mjs && node scripts/test-ads.mjs && node scripts/test-v31.mjs && node scripts/test-v32.mjs && node scripts/test-v33.mjs && node scripts/test-v34.mjs && node scripts/test-v35.mjs && node scripts/test-v36.mjs && node scripts/test-v37.mjs && node scripts/test-v38.mjs && node scripts/test-v48.mjs && node scripts/test-admin-tv.mjs && node scripts/test-v49.mjs && node scripts/test-v50.mjs && node scripts/test-v51.mjs && node scripts/test-v52.mjs && node scripts/test-v53.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v54.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v55.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v56.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v57.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v58.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v59.mjs && node scripts/test-v60.mjs && node scripts/test-v32-player.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v30-api.mjs && npm run test:snapshots && npm run test:security && npm run test:security-integration && npm run test:deal-security && npm run test:home-performance",
+    "test": "node scripts/test-import.mjs && node scripts/test-voice.mjs && node scripts/test-music.mjs && node scripts/test-app-music.mjs && node scripts/test-search.mjs && node scripts/test-worker-prices.mjs && node scripts/test-v20.mjs && node scripts/test-v21.mjs && node scripts/test-v23.mjs && node scripts/test-v24.mjs && node scripts/test-v25.mjs && node scripts/test-v26.mjs && node scripts/test-v27.mjs && node scripts/test-v28.mjs && node scripts/test-v29.mjs && node scripts/test-v30.mjs && node scripts/test-ads.mjs && node scripts/test-v31.mjs && node scripts/test-v32.mjs && node scripts/test-v33.mjs && node scripts/test-v34.mjs && node scripts/test-v35.mjs && node scripts/test-v36.mjs && node scripts/test-v37.mjs && node scripts/test-v38.mjs && node scripts/test-v48.mjs && node scripts/test-admin-tv.mjs && node scripts/test-v49.mjs && node scripts/test-v50.mjs && node scripts/test-v51.mjs && node scripts/test-v52.mjs && node scripts/test-v53.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v54.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v55.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v56.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v57.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v58.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v59.mjs && node scripts/test-v60.mjs && node scripts/test-v61.mjs && node scripts/test-v32-player.mjs && node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v30-api.mjs && npm run test:snapshots && npm run test:security && npm run test:security-integration && npm run test:deal-security && npm run test:home-performance",
     "imdb:ids": "node scripts/build-imdb-ids.mjs",
     "test:v54": "node scripts/test-v54.mjs",
     "imdb:seed": "node scripts/build-imdb-seed.mjs",
@@ -19,6 +19,7 @@
     "test:v57": "node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v57.mjs",
     "test:v58": "node --experimental-loader ./scripts/test-v30-loader.mjs ./scripts/test-v58.mjs",
     "test:v60": "node scripts/test-v60.mjs",
+    "test:v61": "node scripts/test-v61.mjs",
     "test:snapshots": "node --experimental-loader ./scripts/test-snapshot-loader.mjs ./scripts/test-snapshots.mjs",
     "test:security": "node scripts/test-safe-fetch.mjs",
     "test:security-integration": "node --experimental-loader ./scripts/test-security-loader.mjs ./scripts/test-security.mjs",

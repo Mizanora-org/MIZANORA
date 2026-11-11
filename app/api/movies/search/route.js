@@ -7,7 +7,10 @@ import { cinemetaSearch } from '@/lib/cinemeta';
 import { searchSeed } from '@/lib/imdbSeed';
 
 export const runtime = 'nodejs';
-export const revalidate = 300;
+// v61: NO ISR here — the query string makes every search a new cache entry.
+// ISR writes are capped at 200K/30 days on Hobby (620K is what paused the site); the `s-maxage`
+// header on the response already caches it at the edge for free.
+export const dynamic = 'force-dynamic';
 
 // Public: live search across Mizanora's own hub AND the world catalogues (TMDB / IMDb / TVmaze).
 // This is what makes "har tarah ki movie" findable: if a visitor can name it, IMDb can return its

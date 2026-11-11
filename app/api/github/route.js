@@ -3,7 +3,8 @@ import { getGitHub } from '@/lib/githubLive';
 import { GH_USER, GH_URL } from '@/lib/githubRepos';
 
 export const runtime = 'nodejs';
-export const revalidate = 1800;
+// v61: no ISR — live GitHub data, already cached in memory (lib/githubLive.js) and the response
+// carries `s-maxage`, so the edge caches it for free (ISR writes are a 200K/30-day Hobby limit).
 
 // PUBLIC, cacheable: the owner's GitHub profile, repositories, stars and languages.
 //   GET /api/github                 -> everything (profile, featured, summary, repos)

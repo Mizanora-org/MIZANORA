@@ -12,7 +12,8 @@ import { getMuaazImages } from '@/lib/imagesServer';
 import { FOUNDER } from '@/lib/team';
 import { founderPhotoUrls } from '@/lib/founderPhotos';
 
-export const revalidate = 3600;
+// v61: the sitemap is derived from the repo (and the weekly imdb id file): a day is plenty.
+export const revalidate = 86400;
 
 export default async function sitemap() {
   const products = (await getProducts()).filter((p) => (p.images || [])[0]); // pages without a photo are not advertised

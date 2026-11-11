@@ -303,13 +303,13 @@ const manyMovies = Array.from({ length: 420 }, (_, i) => ({
   type: i % 3 === 0 ? 'series' : 'movie',
   region: i % 2 === 0 ? 'Pakistan' : 'International',
 }));
-const writeRes = await Store.writeMoviesAll(mockDb, { ...M.MOVIES_DEFAULT, customMovies: manyMovies });
+const writeRes = await Store.writeMoviesAll(mockDb, { ...M.MOVIES_DEFAULT, customMovies: manyMovies }, { ignoreArchive: true });
 assert.ok(writeRes.parts >= 3, `420 movies split across ${writeRes.parts} shards`);
-const readBack = await Store.readMoviesAll(mockDb);
+const readBack = await Store.readMoviesAll(mockDb, { ignoreSnapshot: true });
 assert.equal(readBack.customMovies.length, 420, 'all 420 sharded movies read back intact');
 
 // Shrinking list deletes stale shards
-const shrinkRes = await Store.writeMoviesAll(mockDb, { ...M.MOVIES_DEFAULT, customMovies: manyMovies.slice(0, 10) });
+const shrinkRes = await Store.writeMoviesAll(mockDb, { ...M.MOVIES_DEFAULT, customMovies: manyMovies.slice(0, 10) }, { ignoreArchive: true });
 assert.equal(shrinkRes.parts, 1);
 assert.ok(shrinkRes.removed >= 2, 'stale shards removed when list shrinks');
 

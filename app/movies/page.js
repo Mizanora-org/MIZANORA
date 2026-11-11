@@ -28,8 +28,9 @@ import { getMovieServers } from '@/lib/movieServersServer';
 import { getWorldRows } from '@/lib/moviesWorld';
 import { seedRows, seedSize } from '@/lib/imdbSeed';
 import { posterHue, searchMovies, titleInitials } from '@/lib/movies';
+// v61: movie rows can be edited in the admin panel — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800;
 
 export const metadata = {
   ...pageMeta({

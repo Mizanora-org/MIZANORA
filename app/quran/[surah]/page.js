@@ -7,8 +7,10 @@ import QuranReader from '@/components/QuranReader';
 import { getQuranConfig, getSurah } from '@/lib/quranServer';
 import { RECITERS, TRANSLATIONS, slugOfSurah, surahInfo, SURAHS } from '@/lib/quran';
 
+// v61: STATIC page (the Quran text never changes (a week-old page is identical)). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 // /quran/36-ya-sin : one page per surah with the full text (Arabic + translation), a player and the recitation.
-export const revalidate = 604800; // a week: the text never changes
 export const dynamicParams = true;
 export function generateStaticParams() { return []; } // pages are made the first time somebody (or Google) opens them, then kept
 

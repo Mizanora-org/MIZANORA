@@ -3,7 +3,10 @@ import { getProducts } from '@/lib/products';
 import { archiveCards } from '@/lib/archive';
 
 export const runtime = 'nodejs';
-export const revalidate = 300;
+// v61: NO ISR here — the ?ids= list makes every visitor a new cache entry.
+// ISR writes are capped at 200K/30 days on Hobby (620K is what paused the site); the `s-maxage`
+// header on the response already caches it at the edge for free.
+export const dynamic = 'force-dynamic';
 
 // The cards of the products in a shopper's wishlist. Looks in the live products AND in the catalogue files (the old wishlist page
 // only looked at Firebase products, so a saved catalogue product never appeared). Public data only: what a product card shows.

@@ -11,8 +11,9 @@ import CountUp from '@/components/CountUp';
 import AdsInject from '@/components/AdsInject';
 import { dealsRemote } from '@/lib/catalogQuery';
 import { getDealsConfig } from '@/lib/dealsServer';
+// v61: deals are edited in the admin panel — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 600;
 export const metadata = pageMeta({
   title: 'Deals: biggest discounts in Pakistan, cash on delivery',
   description: 'All Mizanora deals in one link: real discounts on fashion, footwear, gadgets, home items and more. Old price crossed out, pay cash on delivery anywhere in Pakistan.',

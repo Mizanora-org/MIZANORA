@@ -3,7 +3,8 @@ import { allCards } from '@/lib/catalogQuery';
 import { SITE, absUrl, shippingFor } from '@/lib/config';
 import { feedPage, feedHeaders, feedNote } from '@/lib/feedSplit';
 
-export const revalidate = 600;
+// v61: the Google Merchant feed — a day is plenty and keeps ISR writes tiny (see lib/cachePolicy.js).
+export const revalidate = 86400;
 
 // Needs: a photo and a price (Google rejects products without them). Sold-out products stay in the feed as out_of_stock.
 // ?skipped=1 lists the products that were left out and why, so nothing disappears silently.
