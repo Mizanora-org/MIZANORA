@@ -5,12 +5,15 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import PublicStats from '@/components/PublicStats';
 
+// v61: STATIC page (the counters that matter are loaded client-side from /api/stats). No `revalidate` on purpose: every regeneration is an ISR write
+// (Hobby: 200K / 30 days) AND a full origin transfer. It is rebuilt on deploy; live data lives on
+// the dynamic pages and in the APIs.
+
 // v37: a public window into how the shop is doing. Open numbers build more trust than a badge:
 // anyone can see how many people are here and which guides are read most.
 //
 // Privacy is the whole design: /api/stats returns TOTALS only. No visitor ids, no presence
 // records, no order data, no search words - the admin dashboard keeps those behind a sign-in.
-export const revalidate = 60;
 
 export const metadata = pageMeta({
   title: 'Mizanora live stats: visitors, traffic and most-read guides',

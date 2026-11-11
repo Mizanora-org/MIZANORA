@@ -1,7 +1,7 @@
 import { getPosts, NEWS_CATEGORIES, CATEGORY_LABELS } from '@/lib/blog';
 import { SITE, absUrl } from '@/lib/config';
 
-export const revalidate = 1800;
+// v61: STATIC — news lives in the repo, so it changes with a deploy and never costs an ISR write.
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // v37: an RSS feed for the news desk only, so /news can be followed on its own (the main

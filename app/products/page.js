@@ -7,8 +7,9 @@ import { PageHead } from '@/components/Prose';
 import ProductGrid from '@/components/ProductGrid';
 import JsonLd from '@/components/JsonLd';
 import { toCard } from '@/lib/cardData';
+// v61: the catalogue listing mirrors the products — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const metadata = pageMeta({
   title: 'Products, Cash on Delivery in Pakistan',
   description: 'Browse all Mizanora products. Order online in Pakistan with cash on delivery. WhatsApp support available.',

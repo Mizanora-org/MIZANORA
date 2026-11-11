@@ -61,5 +61,10 @@ jobs:
             exit 0
           fi
           git add data/imdb-ids.txt
-          git commit -m "chore(imdb): refresh the sitemap id list ($(date -u +%Y-%m-%d))"
+          git commit -m "chore(imdb): refresh the sitemap id list ($(date -u +%Y-%m-%d)) [skip vercel]"
+          # v61: [skip vercel] — a weekly data-only change must NOT trigger a deployment.
+          # A push rebuilds all prerendered pages, i.e. one ISR write per page at build time plus the
+          # origin transfer of every page; that was part of the 620K ISR writes / 23.9 GB origin
+          # transfer that paused the project (2026-11-09). The sitemaps read this file at request time,
+          # so the fresh list is live without a rebuild.
           git push

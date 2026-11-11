@@ -2,7 +2,7 @@ import { getCategories } from '@/lib/products';
 import { SITE, absUrl } from '@/lib/config';
 import { PAY_METHODS, PREPAID_PERCENT } from '@/lib/payments';
 
-export const revalidate = 3600;
+// v61: STATIC — built from the repo, so it changes with a deploy and never costs an ISR write.
 
 // llms.txt: a plain-text guide that tells AI assistants what this store sells and where the clean data is.
 export async function GET() {

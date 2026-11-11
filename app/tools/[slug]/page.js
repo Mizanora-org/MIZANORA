@@ -9,7 +9,9 @@ import ToolRunner from '@/components/tools/ToolRunner';
 import { GROUP_BLOG, TOOLS, TOOL_GROUPS, getTool, relatedTools } from '@/lib/tools';
 import { getPost } from '@/lib/blog';
 
-export const revalidate = 3600;
+// v61: STATIC page (tools are built from lib/tools.js, they change with a deploy). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 export const dynamicParams = false;
 export const generateStaticParams = () => TOOLS.map((t) => ({ slug: t.slug }));
 

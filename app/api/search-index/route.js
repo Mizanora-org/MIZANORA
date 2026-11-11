@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { denyIf } from '@/lib/siteGate';
 import { getProducts } from '@/lib/products';
 
-export const revalidate = 3600; // the admin panel clears it instantly after every save
+// v61: the site search index — a day is plenty and keeps ISR writes tiny (see lib/cachePolicy.js).
+export const revalidate = 86400;
 
 // Small public product list used by the search suggestions and "recently viewed" (no secrets, same data as the shop pages).
 export async function GET() {

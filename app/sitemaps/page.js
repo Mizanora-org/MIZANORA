@@ -11,10 +11,12 @@ import { getSongsForSitemap } from '@/lib/songsServer';
 import { coverage, coverageVerdict } from '@/lib/coverage';
 import { seedActorLetters, seedCastSize } from '@/lib/imdbSeed';
 
+// v61: STATIC page (the sitemap directory is derived from the repo). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 // v55 — a human-readable map of every sitemap MIZANORA publishes.
 // Google needs the XML; shop owners, developers and "why is my page not indexed?" questions need
 // this page: what each file contains, how many URLs it holds, and exactly what to submit.
-export const revalidate = 21600;
 
 export const metadata = {
   ...pageMeta({

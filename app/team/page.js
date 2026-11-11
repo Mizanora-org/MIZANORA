@@ -13,7 +13,10 @@ import { getGitHub } from '@/lib/githubLive';
 import GitHubLive from '@/components/GitHubLive';
 import { effectiveTier } from '@/lib/workers';
 
-export const revalidate = 300;
+// v61: STATIC page (team page, changes only with a deploy). No `revalidate` on purpose: every regeneration is an ISR write
+// (Hobby: 200K / 30 days) AND a full origin transfer. It is rebuilt on deploy; live data lives on
+// the dynamic pages and in the APIs.
+
 
 const ICONS = { MessageCircle, Package, Megaphone, ShieldCheck, Code2, Heart };
 

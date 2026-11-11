@@ -10,17 +10,21 @@ import LiveTvPlayer from '@/components/LiveTvPlayer';
 import LiveBadge from '@/components/LiveBadge';
 import { getTvAds, getTvConfig } from '@/lib/liveTvServer';
 import { channelSlugs } from '@/lib/liveTv';
+// v61: channel pages are strong SEO landings and must not go stale for long — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
 // One address per channel (/live/<channel-name>): it opens the Live TV player on that channel and gives Google a page to find.
 // Saved channels are prerendered at build time; a channel added later is generated on first request and then cached.
-export const revalidate = 600;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
   const cfg = await getTvConfig().catch(() => null);
   if (!cfg || !cfg.enabled) return [];
   const slugs = channelSlugs(cfg.channels);
-  return cfg.channels.map((c, i) => (c.off ? null : { slug: slugs[i] })).filter(Boolean).slice(0, 200);
+  // v61: at most 24 channel pages are prerendered (they are also the busiest ones). The rest are made
+  // on first request. 200 prerendered pages = 200 ISR writes per cycle for pages Google rarely opens
+  // (ISR write budget, see lib/cachePolicy.js).
+  return cfg.channels.map((c, i) => (c.off ? null : { slug: slugs[i] })).filter(Boolean).slice(0, 24);
 }
 
 async function find(slug) {

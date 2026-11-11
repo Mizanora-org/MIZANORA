@@ -1,9 +1,11 @@
 import { pageMeta } from '@/lib/seo';
 import LiveChannel from '@/components/LiveChannel';
 
+// v61: STATIC page (the live channel page is a player shell; data comes from the APIs). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 // v28: the page is a static shell; LiveChannel owns its own clock and polls the API in the browser.
 // Rendering this on every request only added server latency without making the broadcast fresher.
-export const revalidate = 3600;
 
 export const metadata = pageMeta({
   title: { absolute: 'Quran & Hadith Live — Mizanora Live Channel' },

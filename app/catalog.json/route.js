@@ -4,7 +4,8 @@ import { SITE, absUrl } from '@/lib/config';
 import { PAY_METHODS, PREPAID_PERCENT } from '@/lib/payments';
 import { feedPage, feedHeaders } from '@/lib/feedSplit';
 
-export const revalidate = 900;
+// v61: the machine-readable catalogue — a day is plenty and keeps ISR writes tiny (see lib/cachePolicy.js).
+export const revalidate = 86400;
 
 // Clean, machine-readable catalog for AI shopping assistants and agents (ChatGPT, Gemini, Perplexity, Rufus-style bots, price comparers).
 // Same public data as the shop pages. No secrets. Linked from /llms.txt.

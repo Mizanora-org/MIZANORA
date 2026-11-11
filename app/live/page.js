@@ -13,8 +13,9 @@ import { getTvAds, getTvConfig } from '@/lib/liveTvServer';
 import { getChannelConfig } from '@/lib/liveChannelServer';
 import { channelGroups, channelSlugs } from '@/lib/liveTv';
 import { channelHue, channelInitials } from '@/lib/liveTvUi';
+// v61: the Live TV directory changes when the admin edits channels — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 600;
 export const metadata = {
   ...pageMeta({ title: 'Live TV: Watch Channels Online Free', description: 'Mizanora Live TV: watch live channels online on a fast custom player. Beautiful channel grid, search, favourites, exact video quality (1080p/720p), audio tracks, captions, photo capture, Next / Previous / Random. News, Islamic, Pakistan and more.', path: '/live' }),
   keywords: ['live tv', 'live tv pakistan', 'watch live tv online', 'pakistani live tv channels', 'islamic live tv', 'live news channels', 'mizanora live tv'],

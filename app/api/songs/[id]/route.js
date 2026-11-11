@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getSongById } from '@/lib/songsServer';
 
 export const runtime = 'nodejs';
-export const revalidate = 3600;
+// v61: one song's metadata — a day is plenty and keeps ISR writes tiny (see lib/cachePolicy.js).
+export const revalidate = 86400;
 
 // One song's details + its best audio link, for the client player.
 export async function GET(req, context) {

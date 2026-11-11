@@ -85,7 +85,9 @@ assert.ok(/dynamicParams = true/.test(channelPage) && /generateStaticParams/.tes
 const livePage = read('app/live/page.js');
 assert.ok(/<Suspense fallback={null}><ProductAds/.test(livePage) && /list\.slice\(0, 120\)/.test(livePage));
 const liveChannelPage = read('app/live-channel/page.js');
-assert.ok(!/<main/.test(liveChannelPage) && /export const revalidate = 3600/.test(liveChannelPage));
+// v61: this is a player shell built from the repo, so it carries NO `revalidate` at all (every
+// regeneration is an ISR write; the 200K/30-day limit is what paused the project on 2026-11-09).
+assert.ok(!/<main/.test(liveChannelPage) && !/export const revalidate/.test(liveChannelPage));
 const liveChannel = read('components/LiveChannel.js');
 assert.ok(!/<main className="mzc-stage"/.test(liveChannel) && /<section className="mzc-stage"/.test(liveChannel));
 ok('live tv: parallel ad fetch, static channel pages, static Islamic channel shell, no nested main');

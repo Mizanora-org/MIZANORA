@@ -6,7 +6,9 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import { SURAHS, slugOfSurah } from '@/lib/quran';
 
-export const revalidate = 86400;
+// v61: STATIC page (the Quran index is bundled). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 export const metadata = pageMeta({
   title: 'Quran: read and listen, all 114 surahs with Urdu translation',
   description: 'Read and listen to the Holy Quran on Mizanora: all 114 surahs, Arabic text, Urdu translation and verse by verse recitation. The ayah on the screen follows the voice.',

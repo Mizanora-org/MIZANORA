@@ -7,9 +7,11 @@ import { PageHead } from '@/components/Prose';
 import JsonLd from '@/components/JsonLd';
 import NewsDesk from '@/components/NewsDesk';
 
+// v61: STATIC page (news items are editorial and change with a deploy). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 // v37: the news desk. World news, science and technology - written for Pakistani readers,
 // with the date on everything and the sources named where a number is quoted.
-export const revalidate = 1800;
 
 export const metadata = pageMeta({
   title: 'Mizanora News Desk: World, Science and Technology (Pakistan)',

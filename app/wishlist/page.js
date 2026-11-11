@@ -1,8 +1,9 @@
 import { pageMeta } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import WishlistClient from '@/components/WishlistClient';
+// v61: wishlist cards come from the catalogue — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const metadata = pageMeta({ title: 'My wishlist', description: 'Products you saved on Mizanora.', path: '/wishlist', noindex: true });
 
 export default async function WishlistPage() {

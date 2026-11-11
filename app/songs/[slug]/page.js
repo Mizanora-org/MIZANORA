@@ -8,8 +8,9 @@ import SongDetailPlayer from '@/components/SongDetailPlayer';
 import SongDirectLoader from '@/components/SongDirectLoader';
 import { songIdFromSlug, clockTime, artistSlug, cdnProxy, SONG_QUERIES } from '@/lib/songs';
 import { getSongById, searchSongs, getTrendingSongs } from '@/lib/songsServer';
+// v61: song pages read the music mirrors — 1 day (ISR write budget, see lib/cachePolicy.js).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 3600;
 
 async function load(slug) {
   const id = songIdFromSlug(slug);

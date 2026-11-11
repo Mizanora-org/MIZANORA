@@ -7,7 +7,10 @@ import MoviePosterCard from '@/components/MoviePosterCard';
 import { cinemetaCatalog } from '@/lib/cinemeta';
 import { WORLD_GENRES } from '@/lib/moviesWorld';
 
-export const revalidate = 3600;
+// v61: STATIC page (editorial page, changes only with a deploy). No `revalidate` on purpose: every regeneration is an ISR write
+// (Hobby: 200K / 30 days) AND a full origin transfer. It is rebuilt on deploy; live data lives on
+// the dynamic pages and in the APIs.
+
 
 const PER_PAGE = 48;
 

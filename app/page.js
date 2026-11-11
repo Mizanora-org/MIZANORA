@@ -43,8 +43,9 @@ import { getTvConfig } from '@/lib/liveTvServer';
 import { getMuaazImages } from '@/lib/imagesServer';
 import { getChannelConfig } from '@/lib/liveChannelServer';
 import { SOCIAL_ICONS } from '@/components/Icons';
+// v61: the home page shows live products — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 
 export const metadata = pageMeta({
   title: { absolute: 'Mizanora | Online Market in Pakistan: Shop Fashion, Footwear, Gadgets & More, Cash on Delivery' },

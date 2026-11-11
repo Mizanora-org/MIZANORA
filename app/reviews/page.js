@@ -4,7 +4,9 @@ import Stars from '@/components/Stars';
 import { getRecentReviews } from '@/lib/reviews';
 import { summarize } from '@/lib/reviewStats';
 
-export const revalidate = 3600;
+// v61: STATIC page (review stats come from the API on the client). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 export const metadata = pageMeta({ title: 'Customer reviews of Mizanora', description: 'Real reviews written by Mizanora customers, checked by us before they are shown. How we keep reviews honest and how to spot fake ones.', path: '/reviews' });
 
 export default async function ReviewsPage() {

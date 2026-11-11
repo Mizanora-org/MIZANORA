@@ -11,12 +11,14 @@ import { PageHead } from '@/components/Prose';
 import ProductGrid from '@/components/ProductGrid';
 import JsonLd from '@/components/JsonLd';
 import { toCard } from '@/lib/cardData';
+// v61: category pages mirror the catalogue — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800; // data comes from the shared cache; the admin panel refreshes pages instantly
 export const dynamicParams = true;
 
+// v61: only the first 12 categories are prerendered (ISR write budget, see lib/cachePolicy.js).
 export async function generateStaticParams() {
-  return (await getCategories()).slice(0, 60).map((c) => ({ slug: c.slug }));
+  return (await getCategories()).slice(0, 12).map((c) => ({ slug: c.slug }));
 }
 
 async function load(params) {

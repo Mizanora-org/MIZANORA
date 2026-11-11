@@ -3,7 +3,9 @@ import ProductAds from '@/components/ProductAds';
 import { PageHead } from '@/components/Prose';
 import HadithReader from '@/components/HadithReader';
 
-export const revalidate = 86400;
+// v61: STATIC page (hadith text is bundled, it never changes at runtime). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 export const metadata = pageMeta({
   title: 'Hadith: Sahih Bukhari, Muslim, Abu Dawud, Tirmidhi, Nasai, Ibn Majah',
   description: 'Read the major hadith books in Urdu, English and Arabic: Sahih al-Bukhari, Sahih Muslim, Abu Dawud, Tirmidhi, Nasai, Ibn Majah, Muwatta Malik, Forty Hadith. Search, listen and ask the assistant.',

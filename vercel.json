@@ -8,5 +8,8 @@
       "path": "/api/cron/security",
       "schedule": "0 2 * * *"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": true
+  }
 }

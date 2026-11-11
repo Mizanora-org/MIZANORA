@@ -5,7 +5,10 @@ import { pageMeta } from '@/lib/seo';
 import { PageHead } from '@/components/Prose';
 import ProductCard from '@/components/ProductCard';
 
-export const revalidate = 1800;
+// v61: STATIC page (seasonal campaign copy, changes only with a deploy). No `revalidate` on purpose: every regeneration is an ISR write
+// (Hobby: 200K / 30 days) AND a full origin transfer. It is rebuilt on deploy; live data lives on
+// the dynamic pages and in the APIs.
+
 export const metadata = pageMeta({ title: 'Winter collection: sardi ki shopping', description: 'Jackets, sweaters, shawls, boots and warm clothes for the Pakistani winter, with cash on delivery across Pakistan.', path: '/winter' });
 
 export default async function Winter() {

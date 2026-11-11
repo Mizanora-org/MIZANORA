@@ -9,8 +9,9 @@ import ResumeListening from '@/components/ResumeListening';
 import { SONG_QUERIES, cdnProxy } from '@/lib/songs';
 import { getTrendingArtists, getTrendingSongs } from '@/lib/songsServer';
 import { ARTIST_PROFILES } from '@/lib/artistProfiles';
+// v61: the songs home lists live mirror results — 1 day (ISR write budget, see lib/cachePolicy.js).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800;
 
 export const metadata = {
   ...pageMeta({

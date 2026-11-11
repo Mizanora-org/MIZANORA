@@ -10,12 +10,14 @@ import { authorSlug, postsByAuthor, CATEGORY_LABELS } from '@/lib/blog';
 import { FOUNDER_LINKS } from '@/lib/team';
 import { founderAvatarPhotos } from '@/lib/founderPhotos';
 
+// v61: STATIC page (blog authors are derived from content/). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 // Mizanora v56 — /blog/author/muaaz-iqbal
 //
 // A real author hub: every guide written by one person, in one place, with the Person schema that
 // Google uses for the "written by" line. Before this, 150+ posts carried `author: Muaaz Iqbal` in the
 // front matter and nothing linked that name to anything.
-export const revalidate = 3600;
 
 const NAME = 'Muaaz Iqbal';
 

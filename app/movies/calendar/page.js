@@ -11,8 +11,9 @@ import MoviesCalendarClient from '@/components/MoviesCalendarClient';
 import { getMoviesHub } from '@/lib/moviesServer';
 import { seedNewest, seedUpcoming } from '@/lib/imdbSeed';
 import { enrichReleaseDates, upcomingFromPool } from '@/lib/releaseDates';
+// v61: release dates change — value from lib/cachePolicy.js (ISR write budget; see the comment there).
+export const revalidate = 86400; // 1 day — ISR write budget, see lib/cachePolicy.js
 
-export const revalidate = 1800;
 // Cinemeta look-ups are budgeted (see enrichReleaseDates); 20s keeps a cold render inside the limit
 export const maxDuration = 20;
 

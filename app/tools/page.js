@@ -7,11 +7,13 @@ import ProductAds from '@/components/ProductAds';
 import ToolSearch from '@/components/ToolSearch';
 import { TOOLS, TOOL_GROUPS, toolsIn } from '@/lib/tools';
 
+// v61: STATIC page (the tools index is built from lib/tools.js). No `revalidate` on purpose: every regeneration is an ISR
+// write (Hobby: 200K / 30 days) plus a full origin transfer. Rebuilt on deploy.
+
 export const metadata = {
   ...pageMeta({ title: 'Free Online Tools: Zakat Calculator, Linux Commands, Marla Converter and more', description: `${TOOLS.length} free online tools in Urdu and English: zakat calculator, Hijri date converter, Qibla finder, tasbih, percentage, discount, EMI, marla and kanal converter, Linux commands cheat sheet, chmod, cron, JSON, Base64, keyword generator. No sign-up.`, path: '/tools' }),
   keywords: ['free online tools', 'zakat calculator pakistan', 'linux commands', 'marla to square feet', 'online calculator', 'hijri date converter', 'qibla direction', 'json formatter', 'keyword generator', 'mizanora tools'],
 };
-export const revalidate = 3600;
 
 export default function ToolsPage() {
   const ld = { '@context': 'https://schema.org', '@type': 'ItemList', name: 'Mizanora free online tools', itemListElement: TOOLS.map((t, i) => ({ '@type': 'ListItem', position: i + 1, url: absUrl(`/tools/${t.slug}`), name: t.title })) };
