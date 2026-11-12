@@ -99,6 +99,13 @@ header hi nahi tha.
 bhi code file badle → build; git na mile ya koi error → build; `[deploy]` commit message ya
 `VERCEL_FORCE_BUILD=1` se force kar sakte hain. `crons` sirf 1 (Hobby: 2/day) waisa hi.
 
+**Hotfix (same release, PR #44 pehli push ke baad):** ignoreCommand ka pehla draft commit *message*
+menga `[skip vercel]` marker bhi accept karta tha. Release commit khud us marker ka zikr karta tha —
+Vercel ne **code wala commit skip kar diya** ("Deployment was blocked"). Ab message kabhi trust nahi
+hota: sirf **changed files** decide karte hain, aur weekly IMDb workflow pehle se hi sirf data-only
+paths commit karta hai. `scripts/vercel-ignore.mjs` ne git-failure par bhi build ki guarantee rakhi
+haye.
+
 ### g) Jo **badla nahi** (jaan boojh kar)
 * `revalidate = 86400` live-data pages, static repo-only pages, prerender caps (12/12/24/200) —
   v61 ka ISR budget theek hai aur ye traffic ke sath nahi badhta. Badalne se admin ke on-demand
