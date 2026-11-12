@@ -6,6 +6,13 @@ import { pageKey } from '@/lib/track';
 import { limitRequest } from '@/lib/requestRate';
 import { readLimitedJson } from '@/lib/readLimitedJson';
 import { logSecurityEvent, securityIp } from '@/lib/securityControl';
+import { serverWeight } from '@/lib/beaconBudget';
+
+// v62: the browser only sends a beacon for a deterministic sample of visitors (see
+// lib/beaconBudget.js). NEVER trust a weight from the request body — the server derives it from the
+// same env var, so a hostile client cannot inflate the shop's counters. One sampled hit stands for
+// `weight` real hits; with NEXT_PUBLIC_TRACK_SAMPLE=1 the weight is 1 (exact, old behaviour).
+const weight = serverWeight();
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,28 +70,30 @@ export async function POST(req) {
     if (b.type === 'page') {
       const path = cleanPath(b.path);
       const entries = [
-        [`d/${day}/views`, 1], [`h/${hourKey(now)}/v`, 1],
-        [`hr/${day}/${hourKey(now).slice(11)}`, 1], [`pg/${day}/${pageKey(path)}`, 1],
+        [`d/${day}/views`, weight], [`h/${hourKey(now)}/v`, weight],
+        [`hr/${day}/${hourKey(now).slice(11)}`, weight], [`pg/${day}/${pageKey(path)}`, weight],
       ];
       // This cache caps daily "unique" and new/returning metrics per visitor and per worker.
       // It is approximate across serverless instances; a public analytics endpoint is NOT a
       // billing-grade unique-visitor counter. RTDB counters are private and rate-limited.
       if (b.newDay === true && !seen.has(visitor)) {
-        entries.push([`d/${day}/uv`, 1], [`dev/${day}/${device(b.device)}`, 1], [`src/${day}/${source(b.source)}`, 1], [`rt/${day}/${b.isNew === true ? 'new' : 'back'}`, 1]);
+        entries.push([`d/${day}/uv`, weight], [`dev/${day}/${device(b.device)}`, weight], [`src/${day}/${source(b.source)}`, weight], [`rt/${day}/${b.isNew === true ? 'new' : 'back'}`, weight]);
         seen.set(visitor, now);
         if (seen.size > 30000) seen.clear();
       }
       await bump(entries);
-      await adminRtdb().ref(`presence/${presenceId}`).set({ t: now, p: path, d: device(b.device).slice(0, 1) });
+      // `w` is stored with the presence row: the readers multiply "live users" by it. Without this
+      // the online count would show only the sampled 1% instead of the whole audience.
+      await adminRtdb().ref(`presence/${presenceId}`).set({ t: now, p: path, d: device(b.device).slice(0, 1), w: weight });
     } else if (b.type === 'heartbeat') {
-      await adminRtdb().ref(`presence/${presenceId}`).set({ t: now, p: cleanPath(b.path), d: device(b.device).slice(0, 1) });
+      await adminRtdb().ref(`presence/${presenceId}`).set({ t: now, p: cleanPath(b.path), d: device(b.device).slice(0, 1), w: weight });
     } else {
       if (!eventKinds.has(b.kind)) return json({ ok: false, error: 'Unknown event.' });
       const key = b.kind === 'ev' ? String(b.key || '').toLowerCase() : String(b.key || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff_-]/g, '_').slice(0, 60);
       if (!key || (b.kind === 'ev' && !eventActions.has(key))) return json({ ok: false, error: 'Invalid event key.' });
-      const entries = [[`${b.kind}/${day}/${key}`, 1]];
-      if (b.kind === 'pv') entries.push([`ev/${day}/view`, 1]);
-      if (b.kind === 'cart') entries.push([`ev/${day}/cart`, 1]);
+      const entries = [[`${b.kind}/${day}/${key}`, weight]];
+      if (b.kind === 'pv') entries.push([`ev/${day}/view`, weight]);
+      if (b.kind === 'cart') entries.push([`ev/${day}/cart`, weight]);
       await bump(entries);
     }
     return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });

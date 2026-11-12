@@ -64,7 +64,10 @@ ok('analytics: the new metrics are cleaned up like the old ones', (src('app/api/
 const statsApi = src('app/api/stats/route.js');
 ok('stats API: needs no sign-in (public)', !/isAdmin|requireAdmin/.test(statsApi));
 ok('stats API: counts who is on the site right now', /online/.test(statsApi) && /presence/.test(statsApi));
-ok('stats API: online means seen within the last few minutes', /90e3|120e3|90000|120000|90\s*\*\s*1000/.test(statsApi));
+// v62: the heartbeat moved from 60 s to 120 s (sampled visitors only), so the presence window is
+// 3 minutes instead of 90/120 s — still "the last few minutes", just long enough that live users
+// do not blink out between two beats. Same intent as the original v37 check.
+ok('stats API: online means seen within the last few minutes', /90e3|120e3|180e3|90000|120000|180000|90\s*\*\s*1000/.test(statsApi));
 ok('stats API: it leaks no visitor id', !/Object\.keys\(p\w*\)\.map|id:\s*/.test(statsApi));
 ok('stats API: it leaks no order or cart contents', !/ordersBackup|liveOrders/.test(statsApi));
 ok('stats API: it leaks no search words', !/['"]q0['"]|searchWords|rawQ/.test(statsApi));

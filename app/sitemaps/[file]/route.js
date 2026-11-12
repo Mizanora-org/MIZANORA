@@ -1,6 +1,7 @@
 import { absUrl } from '@/lib/config';
 import { SITEMAP_CHUNK, getSitemapIds } from '@/lib/moviesWorld';
 import { SURAHS, slugOfSurah } from '@/lib/quran';
+import { sitemapLastmod } from '@/lib/sitemapVersion';
 
 // Mizanora v54 — sitemap files.
 //
@@ -13,7 +14,10 @@ import { SURAHS, slugOfSurah } from '@/lib/quran';
 //
 // /sitemap-index.xml lists all of them; /sitemap.xml keeps the shop's core pages.
 // The movie chunks crawl the IMDb catalogue, so they must be produced at request time
-// (build machines are often offline). The CDN keeps each file for six hours.
+// (build machines are often offline). v62: the CDN keeps each file for a WEEK (was six hours),
+// which matches the weekly `imdb-ids` data refresh and cuts sitemap origin transfers ~28x.
+// `lastmod` is now a stable data date, not "today", so an unchanged file is byte-identical and
+// Google is not told to re-crawl 40,000 URLs four times a day for no reason.
 export const dynamic = 'force-dynamic';
 
 const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -29,7 +33,8 @@ ${entries.join('\n')}
 export async function GET(request, context) {
   const { file } = await context.params;
   const name = String(file || '').replace(/\.xml$/i, '');
-  const today = new Date().toISOString().slice(0, 10);
+  // v62: stable date of the underlying data. See lib/sitemapVersion.js.
+  const today = sitemapLastmod();
   let entries = [];
 
   const chunkMatch = name.match(/^(movies|series)-(\d+)$/);
@@ -162,7 +167,9 @@ export async function GET(request, context) {
   return new Response(xml(entries), {
     headers: {
       'content-type': 'application/xml; charset=utf-8',
-      'cache-control': 'public, max-age=0, s-maxage=21600, stale-while-revalidate=86400',
+      // v62: one generation per file per week instead of four per day. `max-age` also lets a
+      // browser keep its copy for a day (the old `max-age=0` revalidated on EVERY request).
+      'cache-control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000',
     },
   });
 }

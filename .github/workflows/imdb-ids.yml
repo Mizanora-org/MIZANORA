@@ -60,7 +60,11 @@ jobs:
             echo "No change — sitemap already current."
             exit 0
           fi
-          git add data/imdb-ids.txt
+          # v62: the sitemap `lastmod` is now a stable data date, not "today" on every regeneration.
+          # Bump it ONLY when the catalogue really changed, so unchanged sitemap files stay byte
+          # identical and the CDN can keep them for a week (see lib/sitemapVersion.js).
+          date -u +%F > data/sitemap-version.txt
+          git add data/imdb-ids.txt data/sitemap-version.txt
           git commit -m "chore(imdb): refresh the sitemap id list ($(date -u +%Y-%m-%d)) [skip vercel]"
           # v61: [skip vercel] — a weekly data-only change must NOT trigger a deployment.
           # A push rebuilds all prerendered pages, i.e. one ISR write per page at build time plus the

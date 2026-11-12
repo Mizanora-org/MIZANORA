@@ -3,6 +3,7 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
+  "ignoreCommand": "node scripts/vercel-ignore.mjs",
   "crons": [
     {
       "path": "/api/cron/security",

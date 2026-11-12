@@ -20,18 +20,21 @@ const daysBack = (n) => Array.from({ length: n }, (_, i) => dayKey(Date.now() - 
 async function live() {
   const now = Date.now();
   const p = (await val('presence')) || {};
-  const rows = Object.entries(p).map(([id, x]) => ({ id, t: Number(x.t) || 0, p: String(x.p || ''), d: x.d || '' }));
-  const online = rows.filter((r) => now - r.t < 90e3).sort((a, b) => b.t - a.t);
+  // v62: `w` is the analytics sample weight written by /api/telemetry. Old rows have no `w` and
+  // count as one visitor, so the dashboard stays correct for every release. The 3-minute window
+  // matches the new 2-minute heartbeat (90 s would make live users blink out between beats).
+  const rows = Object.entries(p).map(([id, x]) => ({ id, t: Number(x.t) || 0, p: String(x.p || ''), d: x.d || '', w: Number(x.w) > 0 ? Number(x.w) : 1 }));
+  const online = rows.filter((r) => now - r.t < 180e3).sort((a, b) => b.t - a.t);
   const stale = rows.filter((r) => now - r.t > 10 * 60e3).slice(0, 400);
   if (stale.length) { const u = {}; stale.forEach((r) => { u[r.id] = null; }); adminRtdb().ref('presence').update(u).catch(() => {}); }
   const pages = {};
-  online.forEach((r) => { pages[r.p] = (pages[r.p] || 0) + 1; });
+  online.forEach((r) => { pages[r.p] = (pages[r.p] || 0) + r.w; });
   const feedSnap = await adminRtdb().ref('liveOrders').orderByChild('t').limitToLast(12).get();
   const feed = [];
   feedSnap.forEach((c) => { feed.push({ id: c.key, ...c.val() }); });
   feed.sort((a, b) => b.t - a.t);
   const back = await val('ordersBackup');
-  return { now, online: online.length, devices: online.reduce((m, r) => { m[r.d || '?'] = (m[r.d || '?'] || 0) + 1; return m; }, {}), pages: top(pages, 8), visitors: online.slice(0, 25).map((r) => ({ p: r.p, ago: Math.round((now - r.t) / 1000), d: r.d })), feed, backupOrders: back ? Object.keys(back).length : 0 };
+  return { now, online: online.reduce((a, r) => a + r.w, 0), devices: online.reduce((m, r) => { m[r.d || '?'] = (m[r.d || '?'] || 0) + r.w; return m; }, {}), pages: top(pages, 8), visitors: online.slice(0, 25).map((r) => ({ p: r.p, ago: Math.round((now - r.t) / 1000), d: r.d })), feed, backupOrders: back ? Object.keys(back).length : 0 };
 }
 
 export async function POST(req) {
