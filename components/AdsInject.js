@@ -18,7 +18,12 @@ function loadScript() {
   const s = document.createElement('script');
   s.id = SCRIPT_ID;
   s.async = true;
-  s.src = '/api/ads/embed.js?key=self';
+  // v62: /ads/embed.js is the SAME script shipped as a plain static file in public/. Loading it
+  // through /api/ads/embed.js started a Vercel Function on EVERY page view that has an ad slot,
+  // even when shop ads were switched off. A static file is answered by the CDN: zero invocations,
+  // zero origin transfer. Third-party sites still use /api/ads/embed.js (that route remains, now
+  // with an `s-maxage` header).
+  s.src = '/ads/embed.js?key=self';
   s.onload = () => { try { window.MZADS_API && window.MZADS_API.refresh(); } catch { /* ignore */ } };
   (document.head || document.documentElement).appendChild(s);
 }

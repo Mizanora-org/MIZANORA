@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import { analyticsReady, recordHit } from '@/lib/analyticsServer';
+import { serverWeight } from '@/lib/beaconBudget';
+
+// v62: only a sampled fraction of visitors sends this beacon (lib/beaconBudget.js). The weight is
+// derived from the server's own env var, never from the request, and recordHit() scales every
+// counter so Admin > Traffic still shows full-scale estimates.
+const weight = serverWeight();
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,11 +35,13 @@ export async function POST(req) {
     if (!analyticsReady()) return new NextResponse(null, { status: 204 });
     let body = {};
     try { body = await req.json(); } catch { body = {}; }
-    await recordHit({ headers: req.headers, body });
+    await recordHit({ headers: req.headers, body, weight });
   } catch { /* never break the page */ }
-  return new NextResponse(null, { status: 204 });
+  return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 }
 
+// Old cached pages (and uptime probes) still GET this path. A cached 204 means even a stray GET is
+// answered by the CDN instead of starting a Function.
 export async function GET() {
-  return new NextResponse(null, { status: 204 });
+  return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=86400' } });
 }

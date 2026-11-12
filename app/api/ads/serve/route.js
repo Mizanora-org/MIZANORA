@@ -16,6 +16,17 @@ const CORS = {
   Vary: 'Origin',
 };
 
+// v62: the shop's OWN pages ask this endpoint once per ad slot on every page view. `no-store` meant
+// one Vercel Function invocation per slot per visitor — including the "ads are off" answer that
+// 99% of visits get. A short, public edge cache makes one answer serve everyone for five minutes.
+// `key=self` is same-origin only, so there is no wildcard CORS on this response, and `Vary: Origin`
+// keeps the self check honest. Third-party ad keys keep the old open-CORS behaviour unchanged.
+const SELF_CACHE = {
+  'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+  'Vary': 'Origin',
+  'X-Content-Type-Options': 'nosniff',
+};
+
 // GET /api/ads/serve?key=mza_xxx&slot=video&count=1
 // slot: '' | 'auto' | 'banner' | 'video' | 'animation' | 'product' | 'html'
 // Special key "self": the shop's own pages (accepted only from the shop's own
@@ -28,11 +39,15 @@ export async function GET(req) {
   const origin = String(req.headers.get('origin') || (() => { try { return new URL(req.headers.get('referer')).origin; } catch { return ''; } })()).replace(/\/$/, '');
 
   const r = await serveAds({ key, slot, count, selfOrigin: origin });
+  const self = key === 'self';
   if (!r.ok) {
     const status = /key|auth|self/i.test(String(r.error || '')) ? 401 : 503;
-    return NextResponse.json({ ok: false, error: r.error }, { status, headers: CORS });
+    // For the shop's own pages a cacheable 200 is important: CDNs do not normally keep error
+    // responses, so an "ads are off" 503 would still start a Function on every page view. The
+    // embed script only looks at `ok`, so returning 200 here changes nothing for the visitor.
+    return NextResponse.json({ ok: false, error: r.error }, { status: self ? 200 : status, headers: self ? SELF_CACHE : CORS });
   }
-  return NextResponse.json(r, { headers: CORS });
+  return NextResponse.json(r, { headers: self ? SELF_CACHE : CORS });
 }
 
 export async function OPTIONS() {

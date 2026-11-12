@@ -1,5 +1,6 @@
 import { absUrl } from '@/lib/config';
 import { getSitemapIds } from '@/lib/moviesWorld';
+import { sitemapLastmod } from '@/lib/sitemapVersion';
 
 // Mizanora v56 — the sitemap INDEX.
 //
@@ -19,7 +20,10 @@ import { getSitemapIds } from '@/lib/moviesWorld';
 // The old movies-N / series-N chunk files still answer for anyone holding a cached index, but they
 // are deliberately NOT listed here: submitting the same URL in two sitemaps is noise, and a dated
 // year file is easier for Google to trust than a 20,000-row block.
-// v61: STATIC — derived from the repo, so it changes with a deploy and never costs an ISR write.
+// v61 note said "STATIC" but this route is force-dynamic (it reads data/ at request time), so the
+// old comment was simply wrong — fixed in v62. It costs NO ISR write: the answer is a plain
+// force-dynamic response cached at the Vercel edge for a week, with a stable `lastmod` so the body
+// does not change on every regeneration.
 export const dynamic = 'force-dynamic';
 
 const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -54,7 +58,8 @@ export async function GET() {
     songLetters = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('').filter((l) => set.has(l));
   } catch { songLetters = []; }
 
-  const now = new Date().toISOString();
+  // v62: a stable data date instead of `new Date()` — see lib/sitemapVersion.js.
+  const lastmod = sitemapLastmod();
   const files = [
     '/sitemap.xml',
     ...years.map((y) => `/sitemaps/titles-${y}.xml`),
@@ -70,14 +75,14 @@ export async function GET() {
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${files.map((f) => `  <sitemap>\n    <loc>${esc(absUrl(f))}</loc>\n    <lastmod>${now}</lastmod>\n  </sitemap>`).join('\n')}
+${files.map((f) => `  <sitemap>\n    <loc>${esc(absUrl(f))}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </sitemap>`).join('\n')}
 </sitemapindex>
 `;
 
   return new Response(body, {
     headers: {
       'content-type': 'application/xml; charset=utf-8',
-      'cache-control': 'public, max-age=0, s-maxage=21600, stale-while-revalidate=86400',
+      'cache-control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000',
       'x-mizanora-sitemaps': String(files.length),
     },
   });

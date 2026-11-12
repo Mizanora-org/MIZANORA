@@ -12,7 +12,10 @@ export async function GET() {
   return new Response(code, {
     headers: {
       'Content-Type': 'text/javascript; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      // v62: `s-maxage` is what makes the Vercel EDGE keep a Function response. Without it every
+      // third-party site loading this embed (and every cached old Mizanora page) started a fresh
+      // Function. The shop's own pages now use the static /ads/embed.js copy instead.
+      'Cache-Control': 'public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400',
       'X-Content-Type-Options': 'nosniff',
     },
   });

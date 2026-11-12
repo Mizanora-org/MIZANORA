@@ -43,13 +43,17 @@ export async function GET() {
     dev.forEach((s) => addInto(devices, v(s)));
     src.forEach((s) => addInto(sources, v(s)));
 
-    // "on the site now" - count presence records touched in the last two minutes, never return them
+    // "on the site now" - count presence records touched recently, never return them.
+    // v62: heartbeats now arrive every 2 minutes from the sampled visitors only, so the window is
+    // 3 minutes, and each row carries a sample weight (old rows without one count as 1).
     let online = 0;
     try {
       const now = Date.now();
       const p = await ref('presence');
       const val = p.val() || {};
-      online = Object.values(val).filter((x) => x && now - (Number(x.t) || 0) < 120e3).length;
+      online = Object.values(val)
+        .filter((x) => x && now - (Number(x.t) || 0) < 180e3)
+        .reduce((a, x) => a + (Number(x.w) > 0 ? Number(x.w) : 1), 0);
     } catch { online = 0; }
 
     const today = series[series.length - 1] || { views: 0, uv: 0 };

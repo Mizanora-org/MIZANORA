@@ -21,6 +21,11 @@ const nextConfig = {
     '/category/{:slug*}': ['./data/catalog/**/*'],
     '/product/{:slug*}': ['./data/catalog/**/*'],
     '/sitemaps/{:path*}': ['./data/catalog/**/*', './data/snap/**/*', './data/*.json', './data/*.txt'],
+    // v62: the index and the core sitemap also read data/imdb-ids.txt + sitemap-version.txt from
+    // disk. They were missing from the tracing list, so on a Vercel Function those files could be
+    // absent and the index came back with an empty catalogue. Data-only files, only these routes.
+    '/sitemap-index.xml': ['./data/*.txt', './data/*.json'],
+    '/sitemap.xml': ['./data/*.txt', './data/*.json'],
     '/api/{:path*}': ['./data/snap/**/*', './data/*.json'],
   },
   images: {
@@ -54,6 +59,12 @@ const nextConfig = {
     ];
   },
   async headers() {
+    // v62: ONE YEAR AT THE EDGE, ONE HOUR IN THE BROWSER.
+    // A `s-maxage` header is the difference between "one origin transfer per file per deploy" and
+    // "one per visitor". Browser `max-age` stays short so a new deployment is never pinned by an
+    // immutable cache in a returning visitor's browser, while the CDN keeps the bytes for a year.
+    // Vercel purges the CDN automatically on deploy, so this is safe for files that ship with the app.
+    const EDGE_YEAR = [{ key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400' }];
     return [
       // v60: THE VERCEL CDN MUST ANSWER, NOT THE FUNCTION.
       // Every response that comes out of a Function (or out of middleware) is billed as
@@ -70,9 +81,19 @@ const nextConfig = {
         { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
         { key: 'Service-Worker-Allowed', value: '/' },
       ] },
-      { source: '/icons/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=86400' }] },
-      { source: '/img/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=86400' }] },
       { source: '/service-worker.js', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
+      // v62: self-hosted assets. Before this, /fonts/* and /brand/* had NO cache header at all and
+      // /icons/* + /img/* only had a browser cache (no `s-maxage`), so the CDN re-fetched them.
+      // At high traffic that is pure wasted origin transfer. /ads/embed.js is now loaded directly
+      // on every page with ad slots — it MUST be a cached static file, never a Function.
+      { source: '/icons/:path*', headers: EDGE_YEAR },
+      { source: '/img/:path*', headers: EDGE_YEAR },
+      { source: '/fonts/:path*', headers: EDGE_YEAR },
+      { source: '/brand/:path*', headers: EDGE_YEAR },
+      { source: '/ads/:path*', headers: EDGE_YEAR },
+      { source: '/favicon.ico', headers: EDGE_YEAR },
+      { source: '/icon.png', headers: EDGE_YEAR },
+      { source: '/apple-icon.png', headers: EDGE_YEAR },
       { source: '/(.*)', headers: [
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         ...(process.env.ALLOW_PREVIEW_IFRAME === '1' ? [] : [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }]),

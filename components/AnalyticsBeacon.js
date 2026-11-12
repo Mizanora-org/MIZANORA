@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { takeBeacon, visitorId, BEACON_WEIGHT } from '@/lib/beaconBudget';
 
 // Mizanora v56 — the server-side analytics beacon.
 //
@@ -9,11 +10,18 @@ import { usePathname } from 'next/navigation';
 // the request headers by /api/analytics/collect.
 //
 // Rules: no admin pages, no bots, no `mz_notrack` opt-out, nothing that can delay the page.
+//
+// v62 — ZERO ORIGIN FOR MOST VISITS. This used to POST on EVERY client-side route change (one
+// Function invocation per page view). Now takeBeacon('geo') permits exactly ONE request per tab per
+// session, and only for the deterministic ~1% sample (NEXT_PUBLIC_TRACK_SAMPLE). Country, city,
+// browser and referrer are session-level facts, so one well-placed request still gives Admin >
+// Traffic the complete picture; the server scales the sample back up by BEACON_WEIGHT. With
+// NEXT_PUBLIC_TRACK_SAMPLE=0 this component sends nothing at all.
 export default function AnalyticsBeacon({ off = false }) {
   const path = usePathname() || '/';
 
   useEffect(() => {
-    if (off) return;
+    if (off || BEACON_WEIGHT <= 0) return;
     if (path.startsWith('/admin')) return;
     try {
       if (localStorage.getItem('mz_notrack')) return;
@@ -23,8 +31,12 @@ export default function AnalyticsBeacon({ off = false }) {
     if (navigator.webdriver || /bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit/i.test(ua)) return;
 
     const send = () => {
+      // Claimed here, at send time, so a cancelled timer never spends the session's only slot.
+      const w = takeBeacon('geo');
+      if (!w) return;
       try {
         const body = JSON.stringify({
+          w, vid: visitorId(),
           path,
           referrer: document.referrer || '',
           title: String(document.title || '').slice(0, 120),
