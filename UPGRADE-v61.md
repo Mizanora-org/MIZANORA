@@ -1,5 +1,10 @@
 # Mizanora v61 — ISR writes: 620K / 200K se wapas limit ke andar
 
+> **Correction (13 Nov 2026):** Neeche diye gaye usage numbers purane estimates hain, guarantee nahi.
+> Shared layout ke caches repo-only pages ko bhi revalidate kar sakte hain; naye dynamic URLs bhi
+> writes/compute use karte hain. `[skip vercel]` wali IMDb file **agli deployment** se hi live hoti
+> hai. Current recovery steps aur fixes ke liye [VERCEL-RECOVERY.md](VERCEL-RECOVERY.md) dekhein.
+
 > **Kya hua:** 9 Nov 2026 ko naye Vercel account par deploy ke kuch hi ghanton me limit phir full ho gayi.
 > Is dafa sirf bandwidth nahi thi:
 >

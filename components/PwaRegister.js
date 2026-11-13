@@ -11,6 +11,9 @@ export default function PwaRegister() {
     if (!('serviceWorker' in navigator) || process.env.NODE_ENV !== 'production') return undefined;
     let cancelled = false;
     let reloaded = false;
+    // Claiming a page for the very first time is not an update. Reloading here used to
+    // download the whole page twice on every new installation (and could interrupt a form).
+    let hadController = Boolean(navigator.serviceWorker.controller);
     let idleId = null;
     let timeoutId = null;
     let updateTimer = null;
@@ -21,6 +24,17 @@ export default function PwaRegister() {
     const register = async () => {
       if (cancelled) return;
       try {
+        // Listen before register(): a fast first installation can claim the page before its
+        // registration promise resolves. That claim must not be mistaken for an update later.
+        hadController = Boolean(navigator.serviceWorker.controller);
+        onController = () => {
+          if (!navigator.serviceWorker.controller) { hadController = false; return; }
+          if (!hadController) { hadController = true; return; }
+          if (reloaded || cancelled) return;
+          reloaded = true;
+          if (document.visibilityState === 'visible') window.location.reload();
+        };
+        navigator.serviceWorker.addEventListener('controllerchange', onController);
         const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
         if (cancelled) return;
         registration = reg;
@@ -32,12 +46,6 @@ export default function PwaRegister() {
         if (reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage('SKIP_WAITING');
         onUpdate = () => activate(reg.installing);
         reg.addEventListener('updatefound', onUpdate);
-        onController = () => {
-          if (reloaded || cancelled) return;
-          reloaded = true;
-          if (document.visibilityState === 'visible') window.location.reload();
-        };
-        navigator.serviceWorker.addEventListener('controllerchange', onController);
         updateTimer = setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
       } catch { /* offline or blocked: the site still works */ }
     };

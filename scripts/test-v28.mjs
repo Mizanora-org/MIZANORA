@@ -106,7 +106,7 @@ ok('relay: aborts upstream with the viewer request; admin import deduplicates an
 // ---- app-wide cleanups --------------------------------------------------------------
 assert.ok(!/\/home\/claude\/\.npm-global/.test(read('scripts/check.js')) && !/\/home\/claude\/\.npm-global/.test(read('scripts/typecheck.js')));
 assert.ok(/requestIdleCallback/.test(read('components/PwaRegister.js')) && /cancelIdleCallback/.test(read('components/PwaRegister.js')));
-assert.ok(/const VERSION = 'mz-v5';/.test(read('public/sw.js')));
+assert.ok(/const VERSION = 'mz-v\d+';/.test(read('public/sw.js')), 'the service worker uses a versioned cache');
 const packageJson = JSON.parse(read('package.json'));
 // v36: this used to hard-code the three versions that existed when v28 shipped, so bumping the
 // package broke an unrelated test. The point of the check is "the package is wired up", so any

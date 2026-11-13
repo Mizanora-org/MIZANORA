@@ -70,6 +70,7 @@ const nextConfig = {
         { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
         { key: 'Service-Worker-Allowed', value: '/' },
       ] },
+      { source: '/offline.html', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
       { source: '/icons/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=86400' }] },
       { source: '/img/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=86400' }] },
       { source: '/service-worker.js', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },

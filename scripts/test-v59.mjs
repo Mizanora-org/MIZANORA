@@ -29,6 +29,11 @@ const Seed = await import(pathToFileURL(join(root, 'lib/imdbSeed.js')).href);
 const Songs = await import(pathToFileURL(join(root, 'lib/songs.js')).href);
 const M = await import(pathToFileURL(join(root, 'lib/movies.js')).href);
 const CM = await import(pathToFileURL(join(root, 'lib/cinemeta.js')).href);
+const currentYear = new Date().getFullYear();
+const nextYear = currentYear + 1;
+const futureDate = `${nextYear}-12-18`;
+const previousDate = `${currentYear - 1}-01-05`;
+const poolDate = `${nextYear}-05-01`;
 
 // ------------------------------------------------------------ 1. reading Cinemeta's meta payload
 eq(Dates.dateFromMeta({ released: '2026-12-18T00:00:00.000Z' }), '2026-12-18', 'ISO released is trimmed to YYYY-MM-DD');
@@ -38,8 +43,8 @@ eq(Dates.dateFromMeta({ releaseInfo: 'Coming soon' }), '', 'prose is NOT a date 
 eq(Dates.dateFromMeta({ released: '0000-00-00' }), '', 'zero dates are rejected');
 eq(Dates.dateFromMeta(null), '', 'a missing meta block yields no date');
 eq(await Dates.releaseDateFor('not-an-id'), '', 'a non-IMDb id never hits the network');
-const cinCard = CM.movieFromCinemeta({ id: 'tt1234567', name: 'Timestamp Film', type: 'movie', released: '2026-12-18T00:00:00.000Z', releaseInfo: '2026' }, 'movie');
-eq(cinCard && cinCard.releaseDate, '2026-12-18', 'a Cinemeta card keeps the release day from its full timestamp');
+const cinCard = CM.movieFromCinemeta({ id: 'tt1234567', name: 'Timestamp Film', type: 'movie', released: `${futureDate}T00:00:00.000Z`, releaseInfo: String(nextYear) }, 'movie');
+eq(cinCard && cinCard.releaseDate, futureDate, 'a Cinemeta card keeps the release day from its full timestamp');
 eq(cinCard && cinCard.status, 'upcoming', 'and is upcoming while the day is in the future');
 const oldCard = CM.movieFromCinemeta({ id: 'tt1234568', name: 'Old Film', type: 'movie', released: '1994-10-14T00:00:00.000Z', releaseInfo: '1994' }, 'movie');
 eq(oldCard && oldCard.releaseDate, '1994-10-14', 'past releases keep theirs too');
@@ -49,17 +54,17 @@ ok('dates: Cinemeta meta -> exact YYYY-MM-DD, nothing invented');
 // ------------------------------------------------------------ 2. enrichment (stubbed fetcher)
 const realFetch = globalThis.fetch;
 const asked = [];
-let futureId = ''; // an id from the committed pool that Cinemeta will report as a 2027 release
+let futureId = ''; // an id from the committed pool that the mock reports as a future release
 globalThis.fetch = async (url) => {
   asked.push(String(url));
   const id = String(url).split('/').pop().replace('.json', '');
   const meta = {
-    tt90000001: { released: '2027-02-12T00:00:00.000Z' },
-    tt90000002: { releaseInfo: '2026-01-05' },
+    tt90000001: { released: `${nextYear}-02-12T00:00:00.000Z` },
+    tt90000002: { releaseInfo: previousDate },
     tt90000003: {}, // Cinemeta has no date for this one
   }[id];
   if (id === futureId) {
-    return new Response(JSON.stringify({ meta: { id, imdb_id: id, name: 'Pool Upcoming', type: 'movie', releaseInfo: '2027', released: '2027-05-01T00:00:00.000Z', description: 'from the pool' } }), { status: 200 });
+    return new Response(JSON.stringify({ meta: { id, imdb_id: id, name: 'Pool Upcoming', type: 'movie', releaseInfo: String(nextYear), released: `${poolDate}T00:00:00.000Z`, description: 'from the pool' } }), { status: 200 });
   }
   if (!id.startsWith('tt9000000')) return new Response('{}', { status: 404 });
   return new Response(JSON.stringify({ meta }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -67,26 +72,26 @@ globalThis.fetch = async (url) => {
 
 try {
   const list = [
-    { imdbId: 'tt90000001', year: 2027, status: 'released', releaseDate: '' },
-    { imdbId: 'tt90000002', year: 2026, status: 'released', releaseDate: '' },
-    { imdbId: 'tt90000003', year: 2026, status: 'upcoming', releaseDate: '' },
+    { imdbId: 'tt90000001', year: nextYear, status: 'released', releaseDate: '' },
+    { imdbId: 'tt90000002', year: currentYear - 1, status: 'released', releaseDate: '' },
+    { imdbId: 'tt90000003', year: currentYear, status: 'upcoming', releaseDate: '' },
     { imdbId: 'tt90000004', year: 1994, status: 'released', releaseDate: '' }, // too old to ask about
-    { imdbId: 'tt90000005', year: 2026, status: 'released', releaseDate: '2026-03-01' }, // already dated
+    { imdbId: 'tt90000005', year: currentYear, status: 'released', releaseDate: '1994-03-01' }, // already dated
   ];
   await Dates.enrichReleaseDates(list, { limit: 50, budgetMs: 5000, concurrency: 3 });
-  eq(list[0].releaseDate, '2027-02-12', 'a future date is filled in');
+  eq(list[0].releaseDate, `${nextYear}-02-12`, 'a future date is filled in');
   eq(list[0].status, 'upcoming', 'and flips the status to upcoming');
-  eq(list[1].releaseDate, '2026-01-05', 'releaseInfo dates are used too');
+  eq(list[1].releaseDate, previousDate, 'releaseInfo dates are used too');
   eq(list[1].status, 'released', 'a past date stays released');
   eq(list[2].releaseDate, '', 'no answer -> still empty (honest TBA)');
   eq(list[3].releaseDate, '', 'old titles are not asked about');
-  eq(list[4].releaseDate, '2026-03-01', 'an existing exact date is left alone');
+  eq(list[4].releaseDate, '1994-03-01', 'an existing exact date is left alone');
   check(asked.length <= 10, `budget/limit respected (${asked.length} lookups)`);
   check(asked.some((u) => u.includes('/movie/tt90000001')), 'Cinemeta meta endpoint is what gets called');
 
   // limit is a hard cap
   asked.length = 0;
-  const many = Array.from({ length: 40 }, (_, i) => ({ imdbId: `tt900001${String(i).padStart(2, '0')}`, year: 2027, status: 'upcoming', releaseDate: '' }));
+  const many = Array.from({ length: 40 }, (_, i) => ({ imdbId: `tt900001${String(i).padStart(2, '0')}`, year: nextYear, status: 'upcoming', releaseDate: '' }));
   await Dates.enrichReleaseDates(many, { limit: 4, budgetMs: 3000, concurrency: 2 });
   check(asked.length <= 8, `limit=4 really caps lookups (${asked.length})`);
   ok('dates: enrichment fills, flips status, respects limit/budget and leaves TBA alone');
@@ -94,16 +99,18 @@ try {
   // pool-driven upcoming: ids from data/imdb-ids.txt whose year is in the future are turned into
   // real cards by asking Cinemeta (they carry no title of their own).
   const poolRows = read('data/imdb-ids.txt').trim().split('\n').map((line) => line.split('\t'));
-  const pool2026 = poolRows.filter((row) => Number(row[2]) === 2026).slice(0, 1);
-  if (pool2026.length) {
-    futureId = pool2026[0][0];
-    const fromPool = await Dates.upcomingFromPool({ fromYear: 2026, limit: 5, budgetMs: 3000, concurrency: 2 });
+  // Match upcomingFromPool's newest-year-first selection, rather than assuming a 2026 id
+  // remains in the first five when the weekly dataset contains newer years.
+  const candidates = poolRows.filter((row) => Number(row[2]) >= currentYear).sort((a, b) => Number(b[2]) - Number(a[2]));
+  if (candidates.length) {
+    futureId = candidates[0][0];
+    const fromPool = await Dates.upcomingFromPool({ fromYear: currentYear, limit: 5, budgetMs: 3000, concurrency: 2 });
     check(Array.isArray(fromPool), 'upcomingFromPool always returns an array');
     const card = fromPool.find((c) => c.slug === futureId);
     check(Boolean(card), 'a future pool id is turned into a calendar card');
     if (card) {
       eq(card.status, 'upcoming', 'and is marked upcoming');
-      eq(card.releaseDate, '2027-05-01', 'with the exact date Cinemeta reported');
+      eq(card.releaseDate, poolDate, 'with the exact date Cinemeta reported');
       check(Boolean(card.posterSrc || card.poster), 'and a poster for the card');
     }
   }
@@ -157,8 +164,11 @@ const yearOf = (row) => Number(row[2]);
 const usableIds = pool.filter((row) => yearOf(row) >= 1870 && yearOf(row) <= 2100);
 const unknownIds = pool.filter((row) => !(yearOf(row) >= 1870 && yearOf(row) <= 2100));
 eq(usableIds.length + unknownIds.length, pool.length, 'no id falls between the year files and titles-unknown');
-eq(unknownIds.length, 2, 'exactly two ids have no usable year');
-check(usableIds.some((row) => yearOf(row) < 1900), 'pre-1900 films (tt0000009, 1894) get a year file instead of being dumped in unknown');
+// The weekly IMDb export changes: newer datasets may contain no unknown or pre-1900 rows.
+// Exercise those boundaries with fixtures instead of pinning the current file's exact counts.
+const boundaryRows = [['tt0000009', 'movie', '1894'], ['tt0000008', 'movie', ''], ['tt0000007', 'movie', '2101']];
+check(boundaryRows.filter((row) => yearOf(row) >= 1870 && yearOf(row) <= 2100).some((row) => yearOf(row) === 1894), 'pre-1900 films get a year file');
+eq(boundaryRows.filter((row) => !(yearOf(row) >= 1870 && yearOf(row) <= 2100)).length, 2, 'missing and out-of-range years go to unknown');
 check(route.includes('1870'), 'the titles-YEAR route uses the same year floor as the index');
 check(index.includes('1870'), 'and so does the index');
 ok('sitemap: every committed id is published (year file or titles-unknown)');

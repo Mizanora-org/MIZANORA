@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en-PK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0b6b45">
+  <title>Connection unavailable | Mizanora</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; font-family: system-ui, sans-serif; background: #f2f4ef; color: #18372b; }
+    main { width: min(100%, 460px); padding: 32px; border: 1px solid #dbe7dd; border-radius: 24px; background: #fff; box-shadow: 0 12px 36px #163d2910; }
+    .mark { display: inline-grid; width: 44px; height: 44px; place-items: center; border-radius: 14px; background: #0b6b45; color: white; font-size: 22px; font-weight: 800; }
+    h1 { margin: 24px 0 10px; font-size: 1.55rem; line-height: 1.25; }
+    p { color: #526b5e; line-height: 1.6; }
+    button { margin-top: 12px; padding: 12px 20px; border: 0; border-radius: 999px; background: #0b6b45; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+    button:focus-visible { outline: 3px solid #e8ac2e; outline-offset: 3px; }
+    small { display: block; margin-top: 20px; color: #71867a; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="mark" aria-hidden="true">M</span>
+    <h1>Page abhi load nahi ho saka</h1>
+    <p>Internet slow ya disconnected ho sakta hai, ya website ka server filhal available nahi hai. Connection check karke dobara try karein.</p>
+    <button type="button" id="retry">Try again</button>
+    <small>Device par saved cart is message se delete nahi hota. Cached pages par prices ya stock purane ho sakte hain.</small>
+  </main>
+  <script>
+    document.getElementById('retry').addEventListener('click', function () { location.reload(); });
+    window.addEventListener('online', function () { location.reload(); }, { once: true });
+  </script>
+</body>
+</html>

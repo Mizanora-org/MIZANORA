@@ -21,7 +21,7 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,7 +61,7 @@ const mustBeStatic = [
 for (const f of mustBeStatic) {
   check(!/export const revalidate/.test(read(f)), `${f} is built from the repo and must not revalidate (ISR writes)`);
 }
-ok('repo-only pages are static (0 ISR writes after the build)');
+ok('repo-only pages have no page-level revalidate (the shared layout can still revalidate them)');
 
 // ---- 3. prerender caps ---------------------------------------------------
 check(/slice\(0, 12\)/.test(read('app/product/[slug]/page.js')), 'products: at most 12 prerendered');
@@ -109,8 +109,14 @@ ok('inner cache TTLs are a day or longer, and never read from an env var');
 
 // ---- 3c. the helpers that used to floor the whole site --------------------
 const prod = read('lib/products.js');
-check(/const CATALOG_TTL = Number\(process\.env\.CATALOG_CACHE_SECONDS\) \|\| 24 \* 60 \* 60;/.test(prod),
-  'CATALOG_TTL defaults to 24h (12h or less re-burns ISR writes)');
+check(/const CATALOG_TTL = catalogCacheSeconds\(process\.env\.CATALOG_CACHE_SECONDS\)/.test(prod),
+  'CATALOG_TTL must be clamped even when an old Vercel variable is set');
+const { catalogCacheSeconds } = await import(pathToFileURL(join(root, 'lib/cachePolicy.js')).href);
+for (const value of [undefined, '', '600', '43200', '-1', 'NaN', 'Infinity']) {
+  check(catalogCacheSeconds(value) === 86400, `unsafe catalogue TTL ${value} must become one day`);
+}
+check(catalogCacheSeconds('172800') === 172800, 'a longer TTL is allowed');
+check(catalogCacheSeconds('999999999999') === 365 * 86400, 'an excessively large TTL is capped');
 check(/revalidate: 24 \* 60 \* 60, tags: \['catalog'\]/.test(prod), 'the catalogue count is cached for 24h too');
 check(/const TTL = 86400;/.test(read('lib/githubLive.js')), 'the GitHub card TTL is a fixed day (no GITHUB_CACHE_SECONDS)');
 check(/revalidate: 86400, tags: \['reviews'\]/.test(read('lib/reviews.js')), 'the reviews list is a day, not 6h');

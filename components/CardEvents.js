@@ -5,6 +5,7 @@ import { useCartActions } from './CartProvider';
 import { addToCart, addToWishlist } from '@/lib/metaPixel';
 import { getWish, toggleWish } from '@/lib/wish';
 import { hideCard, reportBrokenImage } from '@/lib/imageReport';
+import { createPrefetchBudget } from '@/lib/prefetchBudget';
 
 // ONE listener for every product card on the page: heart, share, "Add to cart" and tap-to-prefetch.
 // Cards themselves are plain HTML, so even a page with 200 products stays light.
@@ -57,15 +58,12 @@ export default function CardEvents() {
       }
     };
 
-    // Start loading a product page the moment a finger / mouse touches its card (not for every card on the screen).
-    const seen = new Set();
+    // Keep a few intentional product prefetches fast, but cap speculative requests. Hovering
+    // across a catalogue should not generate dozens of pages the visitor never opens.
+    const prefetch = createPrefetchBudget((href) => router.prefetch(href), { connection: () => navigator.connection });
     const warm = (e) => {
       const a = e.target.closest && e.target.closest('a[data-pf]');
-      if (!a) return;
-      const href = a.getAttribute('href');
-      if (!href || seen.has(href)) return;
-      seen.add(href);
-      try { router.prefetch(href); } catch (_) { /* ignore */ }
+      if (a) prefetch(a.getAttribute('href'));
     };
 
     // A product photo that does not load: show the neat placeholder, tell the server (it checks the photo itself and, if it is really

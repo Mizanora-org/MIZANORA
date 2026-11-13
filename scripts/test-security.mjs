@@ -1,7 +1,8 @@
 // Run: node --experimental-loader ./scripts/test-security-loader.mjs scripts/test-security.mjs
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { POST } from '../app/api/admin/security/route.js';
-import { middleware } from '../middleware.js';
+import { middleware, config as middlewareConfig } from '../middleware.js';
 import { signToken, verifyToken } from '../lib/adsToken.js';
 import { POST as adImpression } from '../app/api/ads/impression/route.js';
 import { POST as adClick } from '../app/api/ads/click/route.js';
@@ -14,6 +15,15 @@ import { GET as retentionCron } from '../app/api/cron/security/route.js';
 import { verifyAdmin as realVerifyAdmin } from '../lib/adminAuth.js';
 import { logSecurityEvent, pruneSecurityEvents, securityIp, securityReport, ipKey, pkDay } from '../lib/securityControl.js';
 import { limitRequest } from '../lib/requestRate.js';
+
+// The standalone recovery shell and worker must not invoke middleware or depend on RTDB.
+const { unstable_doesMiddlewareMatch } = createRequire(import.meta.url)('next/experimental/testing/server');
+for (const url of ['/offline.html', '/sw.js', '/_next/static/example.js']) {
+  assert.equal(unstable_doesMiddlewareMatch({ config: middlewareConfig, url }), false, `${url} bypasses middleware`);
+}
+for (const url of ['/products', '/api/orders']) {
+  assert.equal(unstable_doesMiddlewareMatch({ config: middlewareConfig, url }), true, `${url} stays protected`);
+}
 
 const rows = new Map();
 let seq = 0;
@@ -175,4 +185,44 @@ assert.equal(click.status, 200);
 assert.equal('href' in (await click.json()), false, 'click response never echoes untrusted redirect');
 assert.equal(globalThis.__adsTest.clicks.length, 1);
 assert.equal((await postAd(adClick, { key: 'mza_valid', campaign: 'other', token: signToken(validKey, 'other') })).status, 401, 'key cannot credit forbidden campaign');
-console.log('Security integration: auth, private audit, blocks, retention, telemetry, quota-backed orders/tracking and ads token safety OK.');
+
+// A disconnected RTDB must not hang every page in middleware. Use a fresh module instance so the
+// first call represents a cold serverless worker, and leave its database promise unresolved.
+const slowSecurity = await import(new URL('../lib/securityControl.js?timeout-test', import.meta.url));
+const originalDb = globalThis.__securityTest.db;
+let reads = 0, detached = 0;
+const unresolved = [];
+const stalledDb = { ref(path) {
+  if (path !== 'security/blocked') return originalDb.ref(path);
+  return {
+    once() { reads += 1; return new Promise((resolve) => unresolved.push(resolve)); },
+    off() { detached += 1; },
+  };
+} };
+try {
+  globalThis.__securityTest.db = stalledDb;
+  const started = Date.now();
+  const cold = await Promise.all([slowSecurity.blockedIp(address), slowSecurity.blockedIp(address)]);
+  assert.deepEqual(cold, [null, null], 'a cold worker fails open when RTDB is unavailable');
+  assert.ok(Date.now() - started < 3000, 'blocklist read is bounded');
+  assert.equal(reads, 1, 'concurrent visitors share the same blocklist read');
+  assert.equal(detached, 1, 'timed-out listener is detached');
+  await slowSecurity.blockedIp(address);
+  assert.equal(reads, 1, 'failure backs off instead of retrying on every request');
+  await assert.rejects(slowSecurity.setBlockedIp('9.9.9.9'), /timed out/, 'admin block writes fail closed when the list cannot be verified');
+  assert.equal(rows.has(`security/blocked/${ipKey('9.9.9.9')}`), false);
+
+  // A refresh failure on a warm instance must continue enforcing the last successful blocklist.
+  globalThis.__securityTest.db = originalDb;
+  rows.set('security/blocked', { [ipKey(address)]: { ip: address, until: Date.now() + 60000 } });
+  await slowSecurity.blockedMap(true);
+  globalThis.__securityTest.db = stalledDb;
+  await assert.rejects(slowSecurity.blockedMap(true), /timed out/);
+  assert.equal((await slowSecurity.blockedIp(address)).ip, address, 'known blocks survive an outage');
+  unresolved.forEach((resolve) => resolve({ val: () => ({}) }));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((await slowSecurity.blockedIp(address)).ip, address, 'a late stale read cannot overwrite the retained list');
+} finally {
+  globalThis.__securityTest.db = originalDb;
+}
+console.log('Security integration: auth, private audit, bounded blocklist, retention, telemetry, quota-backed orders/tracking and ads token safety OK.');

@@ -51,6 +51,7 @@ import SiteFx from '@/components/SiteFx';
 import SiteInject from '@/components/SiteInject';
 import { getQuranConfig } from '@/lib/quranServer';
 import { getInject } from '@/lib/injectServer';
+import { loadLayoutData } from '@/lib/layoutData';
 
 const display = localFont({
   src: [
@@ -113,18 +114,12 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  const themeMode = await getThemeMode(); // the season look (admin can change it without a redeploy)
-  const status = await getSiteStatus();
+  const { themeMode, status, categories, music, quran, inject, assistant } = await loadLayoutData({
+    getThemeMode, getSiteStatus, getCategories, getAppMusic, getQuranConfig, getInject, getPublicAssistant,
+  });
   const down = status.mode === 'down';
-  const categories = await getCategories();
-  // The background music of the whole app (Admin > Music). Read from the shared cache, so it costs no extra reads.
-  const music = await getAppMusic();
-  // v23: Quran session setting and Studio (animations + snippets). Both come from the shared cache: no extra reads per visitor.
-  const [quran, inject] = await Promise.all([getQuranConfig(), getInject()]);
-  // v24: while the shop is shut down or outside its hours the Quran keeps playing (unless the admin turned that off in Admin > Quran).
+  // While the shop is shut down or outside its hours the Quran keeps playing (unless disabled in Admin > Quran).
   const closedQuran = { ...quran, mode: quran.closedPlay === false ? quran.mode : 'always', display: 'sheet', pages: 'all' };
-  // The assistant button disappears while the site is shut, on high alert, or when its switch is off in Admin > Control.
-  const assistant = down || status.mode === 'saver' || status.features.assistant === false ? { enabled: false, name: 'Noor', voiceMode: 'browser', greeting: '' } : await getPublicAssistant();
   return (
     <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${body.variable} ${arabic.variable}`}>
       <head>
