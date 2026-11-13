@@ -24,10 +24,8 @@ export const metadata = {
 const logoHttps = (u) => { const v = String(u || ''); return /^http:\/\//i.test(v) ? v.replace(/^http:/i, 'https:') : v; };
 
 export default async function LivePage() {
-  const cfg = await getTvConfig();
-  // v33: the Quran & Hadith channel bar - what MIZANORA itself is broadcasting right now
-  // (it runs even when Live TV has no channels, so this page is never "empty").
-  const chCfg = await getChannelConfig().catch(() => null);
+  // The two channel configs are independent; neither should wait for the other on a cold render.
+  const [cfg, chCfg] = await Promise.all([getTvConfig(), getChannelConfig().catch(() => null)]);
   const on = cfg.enabled && cfg.channels.some((c) => !c.off);
   const ads = on && cfg.ads.enabled ? await getTvAds(cfg.ads.slugs) : [];
   const slugs = channelSlugs(cfg.channels);
@@ -39,10 +37,11 @@ export default async function LivePage() {
       {ld && <JsonLd data={ld} />}
       <PageHead title={cfg.title} intro={on ? (cfg.note || 'Channel badalne ke liye Pichla / Agla dabayein, ya grid mein se chunein.') : 'Live TV abhi available nahi hai.'} crumbs={[['/', 'Home'], [null, 'Live TV']]} />
       <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-4">
+        {/* The banner needs only 14 previews; the player below still gets the full channel list. */}
         <LiveStrip
           channel={chCfg}
           initialAt={Date.now()}
-          tv={{ count: list.length, channels: list.map((x) => ({ name: x.c.name, slug: x.s, off: x.c.off, group: x.c.group })) }}
+          tv={{ count: list.length, channels: list.slice(0, 14).map((x) => ({ name: x.c.name, slug: x.s, group: x.c.group })) }}
           variant="page"
         />
       </div>

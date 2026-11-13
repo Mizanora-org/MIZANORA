@@ -19,9 +19,9 @@ import { blockedIp, logSecurityEvent, securityIp, securityReady } from './lib/se
 export const runtime = 'nodejs';
 export const config = {
   matcher: [
-    // Pages, APIs and anything without a file extension. _next, images, icons and known file
-    // types are excluded up front so the CDN keeps serving them without a Function in the path.
-    '/((?!_next/|icons/|img/|brand/|fonts/|_vercel/|favicon\\.ico|apple-icon\\.png|icon\\.png|sw\\.js|service-worker\\.js|manifest\\.webmanifest|robots\\.txt|ads\\.txt).*)',
+    // Pages, APIs and anything without a file extension. _next, images, icons and the offline
+    // shell are excluded up front so recovery does not depend on middleware or the blocklist.
+    '/((?!_next/|icons/|img/|brand/|fonts/|_vercel/|favicon\\.ico|apple-icon\\.png|icon\\.png|sw\\.js|service-worker\\.js|offline\\.html|manifest\\.webmanifest|robots\\.txt|ads\\.txt).*)',
   ],
 };
 

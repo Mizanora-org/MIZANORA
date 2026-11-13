@@ -27,6 +27,7 @@ import { getFeedPosts } from '@/lib/feedPosts';
 import { seasonFor, matchesSeason } from '@/lib/season';
 import { getThemeMode } from '@/lib/themeServer';
 import { inCategory } from '@/lib/cats';
+import { lowestPriced } from '@/lib/homeShelves';
 import { DEPARTMENTS } from '@/lib/departments';
 import JsonLd from '@/components/JsonLd';
 import ForYouShelf from '@/components/ForYouShelf';
@@ -83,11 +84,12 @@ export default async function Home() {
   // THE WHOLE CATALOGUE: live products + the archived products that live as JSON files in the repository.
   // A shop can keep EVERY product in those files (CSV import -> data/catalog) and still fill this home page,
   // with no Firestore writes and no Firestore reads for visitors.
-  const [all, banners, reels, categories, totalCount, reelMusic, feedPosts] = await Promise.all([getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount(), getReelMusic(), getFeedPosts()]);
-  const tv = await getTvConfig().catch(() => null);
-  // v33: the live bar on the home page - what Mizanora is broadcasting right now.
-  const chCfg = await getChannelConfig().catch(() => null);
-  const muaazImgs = await getMuaazImages().catch(() => []);
+  // These reads are independent. Starting them together avoids a chain of cold Firebase/cache waits.
+  const [all, banners, reels, categories, totalCount, reelMusic, feedPosts, tv, chCfg, muaazImgs, assistant, themeMode] = await Promise.all([
+    getShopAll(), getBanners(), getReels(), getCategories(), getTotalCount(), getReelMusic(), getFeedPosts(),
+    getTvConfig().catch(() => null), getChannelConfig().catch(() => null), getMuaazImages().catch(() => []),
+    getPublicAssistant(), getThemeMode(),
+  ]);
   const byPrice = (a, b) => a.price - b.price;
   const deals = all.filter((p) => discountPct(p.price, p.comparePrice) > 0)
     .sort((a, b) => discountPct(b.price, b.comparePrice) - discountPct(a.price, a.comparePrice)).slice(0, 6);
@@ -95,14 +97,13 @@ export default async function Home() {
   const fresh = all.slice(0, 8);
   // Keep the first paint small: category circles link to every category; six compact shelves
   // are enough for discovery without shipping ~2 MB of HTML to a phone.
-  const shelves = categories.slice(0, 6).map((c) => ({ c, items: all.filter((p) => inCategory(p, c.name)).sort(byPrice).slice(0, 4) }));
-  // CHEAPEST FIRST: every category shelf starts with its cheapest products, and one shelf shows the cheapest item of EVERY category.
+  const shelves = categories.slice(0, 6).map((c) => ({ c, items: lowestPriced(all, (p) => inCategory(p, c.name), 4) }));
+  // CHEAPEST FIRST: keep a bounded selection rather than sorting every category's entire catalogue.
   const inStockAll = all.filter((p) => p.inStock !== false && p.price > 0);
-  const budget = categories.map((c) => inStockAll.filter((p) => inCategory(p, c.name)).sort(byPrice)[0]).filter(Boolean)
+  const budget = categories.map((c) => lowestPriced(inStockAll, (p) => inCategory(p, c.name), 1)[0]).filter(Boolean)
     .filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i).sort(byPrice).slice(0, 8);
-  const cheapest = inStockAll.length ? Math.min(...inStockAll.map((p) => p.price)) : 0;
-  const assistant = await getPublicAssistant();
-  const themeMode = await getThemeMode();
+  // A spread of 100k+ prices can exceed JavaScript's argument limit and crash the home page.
+  const cheapest = inStockAll.length ? inStockAll.reduce((min, p) => Math.min(min, p.price), Infinity) : 0;
   const season = seasonFor(new Date(), themeMode);
   const seasonPicks = season ? all.filter((p) => matchesSeason(p, season)).slice(0, 6) : [];
   const posts = getPosts().slice(0, 4);
